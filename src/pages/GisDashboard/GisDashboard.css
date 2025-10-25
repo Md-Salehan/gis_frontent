@@ -1,0 +1,244 @@
+/* -------------------------- CSS (create GisLayerPage.css in same folder) -------------------------- */
+
+/*
+GisLayerPage.css
+-----------------
+Place this CSS content into src/pages/YourPage/GisLayerPage.css (or wherever you import above)
+*/
+
+/*
+.left-sider matches the left control panel's look: frosted, rounded card look, soft shadow.
+.right-content is the map container.
+*/
+
+/* Put this CSS in a file named GisLayerPage.css */
+
+/* Reset some layout */
+
+:root {
+  --bg: #f6fafb;
+  --card-bg: #ffffff;
+  --muted: #6b7280;
+  --accent: #0f172a;
+}
+
+.gis-layout {
+  height: 100vh;
+  background: linear-gradient(180deg, #f5fbfb 0%, #eef6f7 100%);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* sidebar ////////////////////////////////////////////////////////////////////////////////// */
+.left-sider {
+  padding: 32px 20px;
+  box-shadow: none;
+  border-right: none;
+  background: transparent;
+}
+
+.sider-inner {
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 14px;
+  padding: 18px;
+  height: calc(100vh - 64px);
+  overflow: auto;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+
+/* layer-panel /////////////////// */
+/* .layer-panel-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 18px;
+  color: var(--accent);
+} */
+
+/* .layer-panel-subtitle {
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: 24px;
+} */
+
+.layer-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eee;  
+  width: 100%;
+}
+
+
+
+
+
+
+
+
+
+
+
+.top-location-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(90deg, #0b2540, #112a4a);
+  color: white;
+  padding: 14px;
+  border-radius: 10px;
+  margin-bottom: 18px;
+}
+
+.top-location-card .loc-icon {
+  width: 36px;
+  height: 36px;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;        /* ensure image doesn't overflow */
+  display: flex;           /* center image */
+  align-items: center;
+  justify-content: center;
+}
+
+/* new: make image fill the icon box and keep correct aspect ratio */
+.top-location-card .loc-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;       /* crop/cover without distortion */
+  display: block;
+  border-radius: inherit;  /* match parent rounding */
+}
+/* ...existing code... */
+
+.top-location-card .loc-title {
+  font-weight: 600;
+}
+.top-location-card .loc-sub {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+
+
+
+
+
+/* COMMOM /////////////////////////////////////// */
+/* PLOLYGON-ICON//////////////////////*/
+.polygon-icon{
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  vertical-align: middle;
+  background-color: #3b82f6;
+  border: 1px solid #0b172c;
+  display: inline-block;
+  box-shadow: 3px 3px 3px rgba(43, 42, 42, 0.2);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+.panel-title {
+  font-size: 22px;
+  margin: 8px 0 18px 0;
+  color: var(--accent);
+}
+
+.controls-card {
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+.field {
+  margin-bottom: 18px;
+}
+.field label {
+  display: block;
+  color: var(--muted);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+.tag-row {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.small-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.info-dot {
+  background: #e6eefb;
+  border-radius: 50%;
+  padding: 6px 8px;
+  display: inline-block;
+}
+.controls-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.right-content {
+  position: relative;
+}
+.map-panel {
+  height: 100%;
+  width: 100%;
+  border-top-left-radius: 6px;
+  overflow: hidden;
+}
+.map-overlay-controls {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  display: flex;
+  gap: 8px;
+}
+
+/* ensure leaflet popups and tiles render above our left panel shadow */
+.leaflet-container {
+  z-index: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 980px) {
+  .left-sider {
+    width: 100%;
+    height: auto;
+  }
+}
+
+
+
+
+
+

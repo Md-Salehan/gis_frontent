@@ -1,0 +1,4 @@
+MINI MAP : 
+    leaflet-minimap2 isn’t published to npm (it’s available only via GitHub)
+    npm install https://github.com/Norkart/Leaflet-MiniMap.git
+    ChatGPT chat Link: https://chatgpt.com/c/68fb49b3-0e68-8324-adc5-b2ff946db6b0
