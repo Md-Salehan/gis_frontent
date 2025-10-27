@@ -18,6 +18,7 @@ import MiniMapControl from "../../../../components/common/MiniMapControl";
 import BaseMapSwitcher from "../../../../components/common/BaseMapSwitcher";
 import GeomanControl from "../../../../components/common/GeomanControl";
 import FitBounds from "../../../../components/common/FitBounds";
+import { GeoJsonLayerWrapper } from "../../../../components";
 // import MeasureControl from "../../../../components/common/MeasureControl";
 
 // Move utility function outside component
@@ -29,62 +30,6 @@ const getColorByValue = (v) => {
   return "#e6eefb";
 };
 
-// // FitBounds component (keeps as side-effect)
-// const FitBounds = memo(({ geoJsonLayers }) => {
-//   const map = useMap();
-
-//   React.useEffect(() => {
-//     if (!map || !geoJsonLayers) return;
-
-//     const timeoutId = setTimeout(() => {
-//       try {
-//         map.invalidateSize();
-
-//         const entries = Object.entries(geoJsonLayers || {}).filter(
-//           ([, data]) => !!data
-//         );
-//         if (entries.length === 0) return;
-
-//         let combinedBounds = null;
-//         for (const [, data] of entries) {
-//           try {
-//             const tmp = L.geoJSON(data);
-//             const b = tmp.getBounds();
-//             if (b && b.isValid && b.isValid()) {
-//               if (!combinedBounds) combinedBounds = b;
-//               else combinedBounds.extend(b);
-//             }
-//           } catch (err) {
-//             // ignore malformed layer
-//           }
-//         }
-
-//         if (
-//           combinedBounds &&
-//           combinedBounds.isValid &&
-//           combinedBounds.isValid()
-//         ) {
-//           try {
-//             map.flyToBounds(combinedBounds, {
-//               padding: [40, 40],
-//               maxZoom: 16,
-//               duration: 0.7,
-//             });
-//           } catch {
-//             map.fitBounds(combinedBounds, { padding: [40, 40], maxZoom: 16 });
-//           }
-//         }
-//       } catch (err) {
-//         // ignore
-//       }
-//     }, 100);
-
-//     return () => clearTimeout(timeoutId);
-//   }, [map, geoJsonLayers]);
-
-//   return null;
-// });
-// FitBounds.displayName = "FitBounds";
 
 const MapPanel = memo(() => {
   const dispatch = useDispatch();
@@ -92,70 +37,8 @@ const MapPanel = memo(() => {
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
   const viewport = useSelector((state) => state.map.viewport);
 
-  // Memoize style function
-  const style = useCallback(
-    (feature) => ({
-      fillColor: getColorByValue(feature?.properties?.value),
-      weight: 10,
-      opacity: 0.8,
-      color: "#1f2937",
-      fillOpacity: 0.6,
-    }),
-    []
-  );
 
-  // handle feature events
-  const onEachFeature = useCallback(
-    (feature, layer) => {
-      if (feature.properties && feature.properties.name) {
-        layer.bindTooltip(
-          `${feature.properties.name}: ${feature.properties.value}`,
-          {
-            sticky: true,
-          }
-        );
-      }
 
-      // highlight on mouseover
-      layer.on("mouseover", (e) => {
-        try {
-          e.target.setStyle({
-            weight: 2,
-            color: "#111827",
-            fillOpacity: 0.8,
-          });
-        } catch {}
-      });
-      layer.on("mouseout", (e) => {
-        try {
-          e.target.setStyle(style(feature));
-        } catch {}
-      });
-
-      // click -> save selected feature and center map viewport on it
-      layer.on("click", (e) => {
-        dispatch(setSelectedFeature(feature));
-        try {
-          const bounds = layer.getBounds ? layer.getBounds() : null;
-          if (bounds && bounds.isValid && bounds.isValid()) {
-            const center = bounds.getCenter();
-            dispatch(
-              updateViewport({
-                center: [center.lat, center.lng],
-                zoom: Math.min(16, viewport.zoom || 13),
-              })
-            );
-          } else if (feature.geometry?.coordinates) {
-            const [lng, lat] = feature.geometry.coordinates;
-            dispatch(updateViewport({ center: [lat, lng] }));
-          }
-        } catch (err) {
-          // ignore
-        }
-      });
-    },
-    [dispatch, style, viewport.zoom]
-  );
 
   // Memoize rendered GeoJSON layers
   const renderedLayers = useMemo(
@@ -163,14 +46,12 @@ const MapPanel = memo(() => {
       Object.entries(geoJsonLayers || {})
         .filter(([, geoJsonData]) => geoJsonData)
         .map(([layerId, geoJsonData]) => (
-          <GeoJSON
+          <GeoJsonLayerWrapper
             key={layerId}
-            data={geoJsonData}
-            style={style}
-            onEachFeature={onEachFeature}
+            geoJsonData={geoJsonData}
           />
         )),
-    [geoJsonLayers, style, onEachFeature]
+    [geoJsonLayers]
   );
 
   const mapSettings = useMemo(

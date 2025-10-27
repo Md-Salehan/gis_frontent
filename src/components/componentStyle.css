@@ -1,0 +1,4 @@
+/* GeoJsonLayerWrapper */
+.leaflet-interactive:focus {
+    outline: none !important;
+}
