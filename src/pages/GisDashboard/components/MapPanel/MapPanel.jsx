@@ -16,6 +16,8 @@ import {
 } from "../../../../store/slices/mapSlice";
 import MiniMapControl from "../../../../components/common/MiniMapControl";
 import BaseMapSwitcher from "../../../../components/common/BaseMapSwitcher";
+import GeomanControl from "../../../../components/common/GeomanControl";
+import FitBounds from "../../../../components/common/FitBounds";
 // import MeasureControl from "../../../../components/common/MeasureControl";
 
 // Move utility function outside component
@@ -27,63 +29,62 @@ const getColorByValue = (v) => {
   return "#e6eefb";
 };
 
-// FitBounds component (keeps as side-effect)
-const FitBounds = memo(({ geoJsonLayers }) => {
-  const map = useMap();
+// // FitBounds component (keeps as side-effect)
+// const FitBounds = memo(({ geoJsonLayers }) => {
+//   const map = useMap();
 
-  React.useEffect(() => {
-    if (!map || !geoJsonLayers) return;
+//   React.useEffect(() => {
+//     if (!map || !geoJsonLayers) return;
 
-    const timeoutId = setTimeout(() => {
-      try {
-        map.invalidateSize();
+//     const timeoutId = setTimeout(() => {
+//       try {
+//         map.invalidateSize();
 
-        const entries = Object.entries(geoJsonLayers || {}).filter(
-          ([, data]) => !!data
-        );
-        if (entries.length === 0) return;
+//         const entries = Object.entries(geoJsonLayers || {}).filter(
+//           ([, data]) => !!data
+//         );
+//         if (entries.length === 0) return;
 
-        let combinedBounds = null;
-        for (const [, data] of entries) {
-          try {
-            const tmp = L.geoJSON(data);
-            const b = tmp.getBounds();
-            if (b && b.isValid && b.isValid()) {
-              if (!combinedBounds) combinedBounds = b;
-              else combinedBounds.extend(b);
-            }
-          } catch (err) {
-            // ignore malformed layer
-          }
-        }
+//         let combinedBounds = null;
+//         for (const [, data] of entries) {
+//           try {
+//             const tmp = L.geoJSON(data);
+//             const b = tmp.getBounds();
+//             if (b && b.isValid && b.isValid()) {
+//               if (!combinedBounds) combinedBounds = b;
+//               else combinedBounds.extend(b);
+//             }
+//           } catch (err) {
+//             // ignore malformed layer
+//           }
+//         }
 
-        if (
-          combinedBounds &&
-          combinedBounds.isValid &&
-          combinedBounds.isValid()
-        ) {
-          try {
-            map.flyToBounds(combinedBounds, {
-              padding: [40, 40],
-              maxZoom: 16,
-              duration: 0.7,
-            });
-          } catch {
-            map.fitBounds(combinedBounds, { padding: [40, 40], maxZoom: 16 });
-          }
-        }
-      } catch (err) {
-        // ignore
-      }
-    }, 100);
+//         if (
+//           combinedBounds &&
+//           combinedBounds.isValid &&
+//           combinedBounds.isValid()
+//         ) {
+//           try {
+//             map.flyToBounds(combinedBounds, {
+//               padding: [40, 40],
+//               maxZoom: 16,
+//               duration: 0.7,
+//             });
+//           } catch {
+//             map.fitBounds(combinedBounds, { padding: [40, 40], maxZoom: 16 });
+//           }
+//         }
+//       } catch (err) {
+//         // ignore
+//       }
+//     }, 100);
 
-    return () => clearTimeout(timeoutId);
-  }, [map, geoJsonLayers]);
+//     return () => clearTimeout(timeoutId);
+//   }, [map, geoJsonLayers]);
 
-  return null;
-});
-
-FitBounds.displayName = "FitBounds";
+//   return null;
+// });
+// FitBounds.displayName = "FitBounds";
 
 const MapPanel = memo(() => {
   const dispatch = useDispatch();
@@ -95,7 +96,7 @@ const MapPanel = memo(() => {
   const style = useCallback(
     (feature) => ({
       fillColor: getColorByValue(feature?.properties?.value),
-      weight: 1,
+      weight: 10,
       opacity: 0.8,
       color: "#1f2937",
       fillOpacity: 0.6,
@@ -206,14 +207,15 @@ const MapPanel = memo(() => {
         {renderedLayers}
 
         {/* Custom overlay controls */}
-        <div className="leaflet-bottom leaflet-right">
+        {/* <div className="leaflet-bottom leaflet-right">
           <div className="leaflet-control leaflet-bar">
             <Button size="small">↺</Button>
             <Button size="small">⤢</Button>
             <Button size="small">☰</Button>
           </div>
-        </div>
+        </div> */}
         {/* <MeasureControl /> */}
+        <GeomanControl />
         <MiniMapControl />
       </MapContainer>
     </div>

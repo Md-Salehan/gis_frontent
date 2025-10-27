@@ -11,6 +11,9 @@ import "leaflet/dist/leaflet.css";
 // mini map CSS
 import "leaflet-minimap/dist/Control.MiniMap.min.css";
 import "leaflet-minimap";
+// Geoman Css
+import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
+
 
 
 import {
@@ -21,6 +24,8 @@ import {
   MenuUnfoldOutlined,
 } from "@ant-design/icons";
 import { Download, DraftingCompass, Eraser, Info, Printer, TableProperties } from "lucide-react";
+import { initGeoman } from "../../utils/map/geoman-setup";
+import FooterBar from "./components/FooterBar";
 
 const { Sider, Content, Header, Footer } = Layout;
 
@@ -80,6 +85,10 @@ const GisDashboard = memo(() => {
 
   useEffect(() => {
     document.title = "GIS Dashboard";
+  }, []);
+
+  useEffect(() => {
+    initGeoman();
   }, []);
 
   const handleSiderCollapse = (collapsed) => {
@@ -148,9 +157,7 @@ const GisDashboard = memo(() => {
           </div>
         </Content>
 
-        <Footer style={{ textAlign: "center" }}>
-          Ant Design ©{new Date().getFullYear()} Created by Ant UED
-        </Footer>
+        <FooterBar />
       </Layout>
     </Layout>
   );
