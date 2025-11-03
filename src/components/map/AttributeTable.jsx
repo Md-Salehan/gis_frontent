@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
-import { Table, Tabs, Drawer, theme } from 'antd';
+import { Table, Tabs } from 'antd';
 import { useSelector, useDispatch } from 'react-redux';
 import { toggleAttributeTable } from '../../store/slices/uiSlice';
+import CustomDrawer from '../common/CustomDrawer';
 
 function AttributeTable() {
   const [activeTab, setActiveTab] = useState(null);
   const dispatch = useDispatch();
-  const {
-    token: { colorPrimary, colorBorder, fontSizeLG },
-  } = theme.useToken();
+
 
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
   const isAttributeTableOpen = useSelector((state) => state.ui.isAttributeTableOpen);
@@ -56,24 +55,7 @@ function AttributeTable() {
       )
     }));
 
-  const drawerStyles = {
-    mask: {
-      backgroundColor: "transparent",
-      backdropFilter: "none",
-    },
-    content: {
-      // boxShadow: "-10px 0 10px #666",
-    },
-    header: {
-      borderBottom: `1px solid ${colorPrimary}`,
-    },
-    body: {
-      fontSize: fontSizeLG,
-    },
-    footer: {
-      borderTop: `1px solid ${colorBorder}`,
-    },
-  };
+
 
 
   const handleClose = () => {
@@ -81,13 +63,12 @@ function AttributeTable() {
   };
 
   return (
-    <Drawer
+    <CustomDrawer
       title="Attribute Table"
       placement="bottom"
       onClose={handleClose}
       open={isAttributeTableOpen}
       height="40vh"
-      styles={drawerStyles}
     >
       {tabs.length === 0 ? (
         <div>No active layers with attributes to display</div>
@@ -99,7 +80,7 @@ function AttributeTable() {
           defaultActiveKey={tabs[0]?.key}
         />
       )}
-    </Drawer>
+    </CustomDrawer>
   );
 }
 
