@@ -10,9 +10,7 @@ import {
   Row,
   Col,
   Tooltip,
-  Drawer,
 } from "antd";
-import { useTheme } from "antd-style";
 
 import { useDispatch, useSelector } from "react-redux";
 import { setGeoJsonLayer, toggleSidebar } from "../../store/slices/mapSlice";
@@ -29,9 +27,7 @@ import "leaflet-minimap";
 import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css";
 
 import {
-  UploadOutlined,
   UserOutlined,
-  VideoCameraOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
 } from "@ant-design/icons";
@@ -45,45 +41,18 @@ import {
 } from "lucide-react";
 import { initGeoman } from "../../utils/map/geoman-setup";
 import FooterBar from "./components/FooterBar";
-import { toggleLegend } from "../../store/slices/uiSlice";
-import { AttributeTable } from "../../components";
-// import { basicDrawerStyles } from "../../utils";
+import { toggleAttributeTable, toggleLegend } from "../../store/slices/uiSlice";
 
 const { Sider, Content, Header, Footer } = Layout;
 
-// const items = [DraftingCompass, VideoCameraOutlined, UploadOutlined, UserOutlined].map((icon, index) => ({
-//   key: String(index + 1),
-//   icon: React.createElement(icon),
-//   label: `nav ${index + 1}`,
-// }));
 
 const GisDashboard = memo(() => {
   const {
-    token: {
-      colorBgContainer,
-      borderRadiusLG,
-      colorPrimary,
-      colorBorder,
-      fontSizeLG,
-    },
+    token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
 
   const dispatch = useDispatch();
   const { geoJsonLayers, sidebarCollapsed } = useSelector((state) => state.map);
-  const [drawer, setDrawer] = useState({
-    open: false,
-    body: <h2>Drawer Content</h2>,
-    title: "",
-    footer: null,
-  });
-
-  // Stable callback for layer toggling
-  const handleLayerToggle = useCallback(
-    (layerId, geoJsonData, isActive) => {
-      dispatch(setGeoJsonLayer({ layerId, geoJsonData, isActive }));
-    },
-    [dispatch]
-  );
 
   useEffect(() => {
     document.title = "GIS Dashboard";
@@ -93,22 +62,12 @@ const GisDashboard = memo(() => {
     initGeoman();
   }, []);
 
-  const handleSiderCollapse = (collapsed) => {
-    dispatch(toggleSidebar());
-  };
-
   const items = [
     {
       key: "0",
       icon: React.createElement(TableProperties),
       label: "Attributes",
-      onClick: () =>
-        toggleDrawer(
-          true,
-          <AttributeTable />,
-          "Attribute Table",
-          null
-        ),
+      onClick: () => dispatch(toggleAttributeTable()),
     },
     {
       key: "1",
@@ -138,28 +97,17 @@ const GisDashboard = memo(() => {
     },
   ];
 
-  const toggleDrawer = (open, body = null, title = "", footer = "") => {
-    setDrawer({ open, body, title, footer });
+  const handleSiderCollapse = (collapsed) => {
+    dispatch(toggleSidebar());
   };
 
-  const basicDrawerStyles = {
-    mask: {
-      backgroundColor: "transparent",
-      backdropFilter: "none",
+  // Stable callback for layer toggling
+  const handleLayerToggle = useCallback(
+    (layerId, geoJsonData, isActive) => {
+      dispatch(setGeoJsonLayer({ layerId, geoJsonData, isActive }));
     },
-    content: {
-      // boxShadow: "-10px 0 10px #666",
-    },
-    header: {
-      borderBottom: `1px solid ${colorPrimary}`,
-    },
-    body: {
-      fontSize: fontSizeLG,
-    },
-    footer: {
-      borderTop: `1px solid ${colorBorder}`,
-    },
-  };
+    [dispatch]
+  );
 
   return (
     <Layout className="gis-layout" style={{ minHeight: "100vh" }}>
@@ -231,17 +179,6 @@ const GisDashboard = memo(() => {
             }}
           >
             <MapPanel geoJsonLayers={geoJsonLayers} />
-
-            <Drawer
-              title={drawer.title ?? "Drawer Title"}
-              placement="right"
-              footer={drawer.footer ?? ""}
-              onClose={() => toggleDrawer(false, null, "", "")}
-              open={drawer.open}
-              styles={basicDrawerStyles}
-            >
-              <div>{drawer.body}</div>
-            </Drawer>
           </div>
         </Content>
 

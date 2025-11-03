@@ -1,10 +1,17 @@
 import React, { useState } from 'react';
-import { Table, Tabs } from 'antd';
-import { useSelector } from 'react-redux';
+import { Table, Tabs, Drawer, theme } from 'antd';
+import { useSelector, useDispatch } from 'react-redux';
+import { toggleAttributeTable } from '../../store/slices/uiSlice';
 
 function AttributeTable() {
   const [activeTab, setActiveTab] = useState(null);
+  const dispatch = useDispatch();
+  const {
+    token: { colorPrimary, colorBorder, fontSizeLG },
+  } = theme.useToken();
+
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
+  const isAttributeTableOpen = useSelector((state) => state.ui.isAttributeTableOpen);
 
   // Generate table columns from properties
   const getColumns = (properties) => {
@@ -49,17 +56,50 @@ function AttributeTable() {
       )
     }));
 
-  if (tabs.length === 0) {
-    return <div>No active layers with attributes to display</div>;
-  }
+  const drawerStyles = {
+    mask: {
+      backgroundColor: "transparent",
+      backdropFilter: "none",
+    },
+    content: {
+      // boxShadow: "-10px 0 10px #666",
+    },
+    header: {
+      borderBottom: `1px solid ${colorPrimary}`,
+    },
+    body: {
+      fontSize: fontSizeLG,
+    },
+    footer: {
+      borderTop: `1px solid ${colorBorder}`,
+    },
+  };
+
+
+  const handleClose = () => {
+    dispatch(toggleAttributeTable());
+  };
 
   return (
-    <Tabs
-      type="card"
-      items={tabs}
-      onChange={setActiveTab}
-      defaultActiveKey={tabs[0]?.key}
-    />
+    <Drawer
+      title="Attribute Table"
+      placement="bottom"
+      onClose={handleClose}
+      open={isAttributeTableOpen}
+      height="40vh"
+      styles={drawerStyles}
+    >
+      {tabs.length === 0 ? (
+        <div>No active layers with attributes to display</div>
+      ) : (
+        <Tabs
+          type="card"
+          items={tabs}
+          onChange={setActiveTab}
+          defaultActiveKey={tabs[0]?.key}
+        />
+      )}
+    </Drawer>
   );
 }
 

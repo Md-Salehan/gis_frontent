@@ -7,6 +7,8 @@ const initialState = {
   loading: {},
 
   isLegendVisible: false,
+  isAttributeTableOpen: false,
+
 };
 
 export const uiSlice = createSlice({
@@ -33,10 +35,10 @@ export const uiSlice = createSlice({
       state.isLegendVisible = !state.isLegendVisible;
     },
     toggleAttributeTable: (state) => {
-      state.isOpen = !state.isOpen;
+      state.isAttributeTableOpen = !state.isAttributeTableOpen;
     },
   },
 });
 
-export const { toggleSidebar, setModal, setTheme, setLoading, toggleLegend } = uiSlice.actions;
+export const { toggleSidebar, setModal, setTheme, setLoading, toggleLegend, toggleAttributeTable } = uiSlice.actions;
 export default uiSlice.reducer;

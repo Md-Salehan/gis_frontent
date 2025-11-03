@@ -18,7 +18,7 @@ import MiniMapControl from "../../../../components/common/MiniMapControl";
 import BaseMapSwitcher from "../../../../components/common/BaseMapSwitcher";
 import GeomanControl from "../../../../components/common/GeomanControl";
 import FitBounds from "../../../../components/common/FitBounds";
-import { GeoJsonLayerWrapper, Legend } from "../../../../components";
+import { AttributeTable, GeoJsonLayerWrapper, Legend } from "../../../../components";
 // import MeasureControl from "../../../../components/common/MeasureControl";
 
 // Move utility function outside component
@@ -30,7 +30,6 @@ const getColorByValue = (v) => {
   return "#e6eefb";
 };
 
-
 const MapPanel = memo(() => {
   const dispatch = useDispatch();
   // read layers & viewport from redux
@@ -38,20 +37,13 @@ const MapPanel = memo(() => {
   const viewport = useSelector((state) => state.map.viewport);
   const isLegendVisible = useSelector((state) => state.ui.isLegendVisible);
 
-
-
-
-
   // Memoize rendered GeoJSON layers
   const renderedLayers = useMemo(
     () =>
       Object.entries(geoJsonLayers || {})
         .filter(([, geoJsonData]) => geoJsonData)
         .map(([layerId, geoJsonData]) => (
-          <GeoJsonLayerWrapper
-            key={layerId}
-            geoJsonData={geoJsonData}
-          />
+          <GeoJsonLayerWrapper key={layerId} geoJsonData={geoJsonData} />
         )),
     [geoJsonLayers]
   );
@@ -101,6 +93,7 @@ const MapPanel = memo(() => {
         <GeomanControl />
         <MiniMapControl />
         <Legend visible={isLegendVisible} />
+        <AttributeTable />
       </MapContainer>
     </div>
   );
