@@ -3,6 +3,7 @@ import { memo, useCallback } from "react";
 import { GeoJSON, CircleMarker } from "react-leaflet";
 import { useDispatch, useSelector } from "react-redux";
 import { setSelectedFeature, updateViewport } from "../../store/slices/mapSlice";
+import { circleMarker } from "leaflet";
 
 const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData }) => {
   const dispatch = useDispatch();
@@ -108,7 +109,7 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData }) => {
 
   // Point features need special handling
   const pointToLayer = useCallback((feature, latlng) => {
-    return new CircleMarker(latlng, style(feature));
+    return new circleMarker(latlng, style(feature));
   }, [style]);
 
   return (

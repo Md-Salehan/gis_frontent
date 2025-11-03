@@ -1,5 +1,19 @@
-import React, { memo, useCallback, useEffect } from "react";
-import { Layout, Menu, theme, Input, Button, Avatar, Space, Row, Col, Tooltip } from "antd";
+import React, { memo, useCallback, useEffect, useState } from "react";
+import {
+  Layout,
+  Menu,
+  theme,
+  Input,
+  Button,
+  Avatar,
+  Space,
+  Row,
+  Col,
+  Tooltip,
+  Drawer,
+} from "antd";
+import { useTheme } from "antd-style";
+
 import { useDispatch, useSelector } from "react-redux";
 import { setGeoJsonLayer, toggleSidebar } from "../../store/slices/mapSlice";
 import "./GisDashboard.css";
@@ -12,9 +26,7 @@ import "leaflet/dist/leaflet.css";
 import "leaflet-minimap/dist/Control.MiniMap.min.css";
 import "leaflet-minimap";
 // Geoman Css
-import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
-
-
+import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css";
 
 import {
   UploadOutlined,
@@ -23,44 +35,21 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
 } from "@ant-design/icons";
-import { Download, DraftingCompass, Eraser, Info, Printer, TableProperties } from "lucide-react";
+import {
+  Download,
+  DraftingCompass,
+  Eraser,
+  Info,
+  Printer,
+  TableProperties,
+} from "lucide-react";
 import { initGeoman } from "../../utils/map/geoman-setup";
 import FooterBar from "./components/FooterBar";
+import { toggleLegend } from "../../store/slices/uiSlice";
+import { AttributeTable } from "../../components";
+// import { basicDrawerStyles } from "../../utils";
 
 const { Sider, Content, Header, Footer } = Layout;
-
-const items = [
-  {
-    key: "0",
-    icon: React.createElement(TableProperties),
-    label: "Attributes",
-  },
-  {
-    key: "1",
-    icon: React.createElement(DraftingCompass),
-    label: "Measure",
-  },
-  {
-    key: "2",
-    icon: React.createElement(Info), 
-    label: "Legends",
-  },
-  {
-    key: "3", 
-    icon: React.createElement(Eraser),
-    label: "Clear",
-  },  
-  {
-    key: "4",
-    icon: React.createElement(Printer),
-    label: "Print",
-  },
-  {
-    key: "5",
-    icon: React.createElement(Download),
-    label: "Download",
-  }
-]
 
 // const items = [DraftingCompass, VideoCameraOutlined, UploadOutlined, UserOutlined].map((icon, index) => ({
 //   key: String(index + 1),
@@ -69,11 +58,24 @@ const items = [
 // }));
 
 const GisDashboard = memo(() => {
+  const {
+    token: {
+      colorBgContainer,
+      borderRadiusLG,
+      colorPrimary,
+      colorBorder,
+      fontSizeLG,
+    },
+  } = theme.useToken();
+
   const dispatch = useDispatch();
   const { geoJsonLayers, sidebarCollapsed } = useSelector((state) => state.map);
-  const {
-    token: { colorBgContainer, borderRadiusLG },
-  } = theme.useToken();
+  const [drawer, setDrawer] = useState({
+    open: false,
+    body: <h2>Drawer Content</h2>,
+    title: "",
+    footer: null,
+  });
 
   // Stable callback for layer toggling
   const handleLayerToggle = useCallback(
@@ -95,6 +97,70 @@ const GisDashboard = memo(() => {
     dispatch(toggleSidebar());
   };
 
+  const items = [
+    {
+      key: "0",
+      icon: React.createElement(TableProperties),
+      label: "Attributes",
+      onClick: () =>
+        toggleDrawer(
+          true,
+          <AttributeTable />,
+          "Attribute Table",
+          null
+        ),
+    },
+    {
+      key: "1",
+      icon: React.createElement(DraftingCompass),
+      label: "Measure",
+    },
+    {
+      key: "2",
+      icon: React.createElement(Info),
+      label: "Legends",
+      onClick: () => dispatch(toggleLegend()),
+    },
+    {
+      key: "3",
+      icon: React.createElement(Eraser),
+      label: "Clear",
+    },
+    {
+      key: "4",
+      icon: React.createElement(Printer),
+      label: "Print",
+    },
+    {
+      key: "5",
+      icon: React.createElement(Download),
+      label: "Download",
+    },
+  ];
+
+  const toggleDrawer = (open, body = null, title = "", footer = "") => {
+    setDrawer({ open, body, title, footer });
+  };
+
+  const basicDrawerStyles = {
+    mask: {
+      backgroundColor: "transparent",
+      backdropFilter: "none",
+    },
+    content: {
+      // boxShadow: "-10px 0 10px #666",
+    },
+    header: {
+      borderBottom: `1px solid ${colorPrimary}`,
+    },
+    body: {
+      fontSize: fontSizeLG,
+    },
+    footer: {
+      borderTop: `1px solid ${colorBorder}`,
+    },
+  };
+
   return (
     <Layout className="gis-layout" style={{ minHeight: "100vh" }}>
       <Sider
@@ -110,18 +176,31 @@ const GisDashboard = memo(() => {
 
       <Layout>
         <Header style={{ padding: "0 16px", background: colorBgContainer }}>
-          <Row align="middle" justify="space-between" wrap={false} style={{ width: "100%" }}>
+          <Row
+            align="middle"
+            justify="space-between"
+            wrap={false}
+            style={{ width: "100%" }}
+          >
             <Col>
               <Space align="center" size={12}>
-                <Tooltip title={sidebarCollapsed ? "Open sidebar" : "Collapse sidebar"}>
+                <Tooltip
+                  title={sidebarCollapsed ? "Open sidebar" : "Collapse sidebar"}
+                >
                   <Button
                     type="text"
                     onClick={() => dispatch(toggleSidebar())}
-                    icon={sidebarCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                    icon={
+                      sidebarCollapsed ? (
+                        <MenuUnfoldOutlined />
+                      ) : (
+                        <MenuFoldOutlined />
+                      )
+                    }
                   />
                 </Tooltip>
 
-                <div >
+                <div>
                   <Menu
                     mode="horizontal"
                     items={items}
@@ -129,13 +208,11 @@ const GisDashboard = memo(() => {
                     style={{ borderBottom: "none", background: "transparent" }}
                   />
                 </div>
-                
               </Space>
             </Col>
 
             <Col>
               <Space align="middle">
-                
                 <Avatar icon={<UserOutlined />} />
               </Space>
             </Col>
@@ -154,6 +231,17 @@ const GisDashboard = memo(() => {
             }}
           >
             <MapPanel geoJsonLayers={geoJsonLayers} />
+
+            <Drawer
+              title={drawer.title ?? "Drawer Title"}
+              placement="right"
+              footer={drawer.footer ?? ""}
+              onClose={() => toggleDrawer(false, null, "", "")}
+              open={drawer.open}
+              styles={basicDrawerStyles}
+            >
+              <div>{drawer.body}</div>
+            </Drawer>
           </div>
         </Content>
 

@@ -163,7 +163,7 @@ Place this CSS content into src/pages/YourPage/GisLayerPage.css (or wherever you
   display: inline-block;
   box-shadow: 3px 3px 3px rgba(43, 42, 42, 0.2);
 }
-
+/* 
 
 .line-icon{
   width: 4px;
@@ -193,7 +193,7 @@ clip-path: polygon(
     60% 80%, 40% 80%, 40% 100%, 20% 100%, 20% 80%, 0% 80%, 0% 60%, 20% 60%,
     20% 40%, 0% 40%, 0% 20%, 20% 20%
   );
-}
+} */
 
 
 

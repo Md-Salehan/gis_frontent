@@ -18,7 +18,7 @@ import MiniMapControl from "../../../../components/common/MiniMapControl";
 import BaseMapSwitcher from "../../../../components/common/BaseMapSwitcher";
 import GeomanControl from "../../../../components/common/GeomanControl";
 import FitBounds from "../../../../components/common/FitBounds";
-import { GeoJsonLayerWrapper } from "../../../../components";
+import { GeoJsonLayerWrapper, Legend } from "../../../../components";
 // import MeasureControl from "../../../../components/common/MeasureControl";
 
 // Move utility function outside component
@@ -36,6 +36,8 @@ const MapPanel = memo(() => {
   // read layers & viewport from redux
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
   const viewport = useSelector((state) => state.map.viewport);
+  const isLegendVisible = useSelector((state) => state.ui.isLegendVisible);
+
 
 
 
@@ -98,6 +100,7 @@ const MapPanel = memo(() => {
         {/* <MeasureControl /> */}
         <GeomanControl />
         <MiniMapControl />
+        <Legend visible={isLegendVisible} />
       </MapContainer>
     </div>
   );

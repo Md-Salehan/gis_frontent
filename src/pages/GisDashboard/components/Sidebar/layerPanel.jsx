@@ -9,28 +9,29 @@ import React, {
 import { Checkbox, Col, Row, Space, Spin } from "antd";
 import { useGetLayerObjectsMutation } from "../../../../store/api/layerApi";
 import { useSelector } from "react-redux";
+import { LeyerIcon } from "../../../../components";
 
-const renderLayerIcon = (iconInfo) => {
-  let geom_typ = iconInfo?.geom_typ;
-  let iconType = "unknown-layer-icon";
-  let style = {
-    backgroundColor: iconInfo?.fill_color || "transparent",
-    borderColor: iconInfo?.stroke_color || "black",
-  };
+// const renderLayerIcon = (iconInfo) => {
+//   let geom_typ = iconInfo?.geom_typ;
+//   let iconType = "unknown-layer-icon";
+//   let style = {
+//     backgroundColor: iconInfo?.fill_color || "transparent",
+//     borderColor: iconInfo?.stroke_color || "black",
+//   };
 
-  if (geom_typ === "G") {
-    iconType = "polygon-icon";
-  } else if (geom_typ === "P") iconType = "point-icon";
-  else if (geom_typ === "L") iconType = "line-icon";
+//   if (geom_typ === "G") {
+//     iconType = "polygon-icon";
+//   } else if (geom_typ === "P") iconType = "point-icon";
+//   else if (geom_typ === "L") iconType = "line-icon";
 
-  return <div className={iconType} style={style}></div>;
-};
+//   return <div className={iconType} style={style}></div>;
+// };
 
 const LayerCheckbox = memo(({ option, disabled }) => (
   <Col span={24}>
     <Checkbox value={option.value} disabled={disabled}>
       <Space>
-        {renderLayerIcon(option?.styleInfo)}
+        <LeyerIcon iconInfo={option?.styleInfo} />
         {option.label}
         {disabled && <Spin size="small" style={{ marginLeft: 8 }} />}
       </Space>
