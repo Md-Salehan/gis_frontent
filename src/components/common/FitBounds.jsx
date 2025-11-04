@@ -13,14 +13,14 @@ const FitBounds = memo(({ geoJsonLayers }) => {
         map.invalidateSize();
 
         const entries = Object.entries(geoJsonLayers || {}).filter(
-          ([, data]) => !!data
+          ([, data]) => !!data?.geoJsonData
         );
         if (entries.length === 0) return;
 
         let combinedBounds = null;
         for (const [, data] of entries) {
           try {
-            const tmp = L.geoJSON(data);
+            const tmp = L.geoJSON(data?.geoJsonData);
             const b = tmp.getBounds();
             if (b && b.isValid && b.isValid()) {
               if (!combinedBounds) combinedBounds = b;

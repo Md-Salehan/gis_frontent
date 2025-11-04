@@ -1,25 +1,25 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice } from "@reduxjs/toolkit";
 
 const initialState = {
   geoJsonLayers: {},
   selectedFeatures: [], // Add selected features state
   viewport: {
-    center: [35.6892, 51.3890],
-    zoom: 11
+    center: [35.6892, 51.389],
+    zoom: 11,
   },
-  activeBasemap: 'streets',
+  activeBasemap: "streets",
   sidebarCollapsed: false,
-  selectedFeature: null
+  selectedFeature: null,
 };
 
 const mapSlice = createSlice({
-  name: 'map',
+  name: "map",
   initialState,
   reducers: {
     setGeoJsonLayer: (state, action) => {
-      const { layerId, geoJsonData, isActive } = action.payload;
+      const { layerId, geoJsonData, metaData, isActive } = action.payload;
       if (isActive) {
-        state.geoJsonLayers[layerId] = geoJsonData;
+        state.geoJsonLayers[layerId] = { geoJsonData, metaData };
       } else {
         delete state.geoJsonLayers[layerId];
       }
@@ -41,8 +41,8 @@ const mapSlice = createSlice({
     },
     setSelectedFeature: (state, action) => {
       state.selectedFeature = action.payload;
-    }
-  }
+    },
+  },
 });
 
 export const {
@@ -52,7 +52,7 @@ export const {
   updateViewport,
   setActiveBasemap,
   toggleSidebar,
-  setSelectedFeature
+  setSelectedFeature,
 } = mapSlice.actions;
 
 export default mapSlice.reducer;

@@ -32,7 +32,6 @@ const getColorByValue = (v) => {
 };
 
 const MapPanel = memo(() => {
-  const dispatch = useDispatch();
   // read layers & viewport from redux
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
   const viewport = useSelector((state) => state.map.viewport);
@@ -42,9 +41,9 @@ const MapPanel = memo(() => {
   const renderedLayers = useMemo(
     () =>
       Object.entries(geoJsonLayers || {})
-        .filter(([, geoJsonData]) => geoJsonData)
-        .map(([layerId, geoJsonData]) => (
-          <GeoJsonLayerWrapper key={layerId} geoJsonData={geoJsonData} />
+        .filter(([, data]) => data?.geoJsonData)
+        .map(([layerId, data]) => (
+          <GeoJsonLayerWrapper key={layerId} geoJsonData={data?.geoJsonData} />
         )),
     [geoJsonLayers]
   );

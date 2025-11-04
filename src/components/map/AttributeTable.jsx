@@ -50,11 +50,12 @@ function AttributeTable() {
       ...prev,
       [layerId]: selectedKeys
     }));
+    
 
     // Create selected features layer data
     const selectedFeatures = selectedRows.map(row => {
-      const layerData = geoJsonLayers[row.layerId];
-      return layerData.features[row.featureIndex];
+      const data = geoJsonLayers[row.layerId];
+      return data?.geoJsonData.features[row.featureIndex];
     });
 
     dispatch(setSelectedFeatures(selectedFeatures));
@@ -62,7 +63,7 @@ function AttributeTable() {
 
   // Generate tabs from active layers
   const tabs = Object.entries(geoJsonLayers)
-    .filter(([_, layerData]) => layerData && layerData.features)
+    .filter(([_, layerData]) => layerData && layerData?.geoJsonData.features)
     .map(([layerId, layerData]) => {
       const rowSelection = {
         selectedRowKeys: selectedRowKeys[layerId] || [],
@@ -72,12 +73,12 @@ function AttributeTable() {
 
       return {
         key: layerId,
-        label: layerData.name || layerId,
+        label: layerData?.metaData?.layer?.layer_nm || layerId,
         children: (
           <Table 
             rowSelection={rowSelection}
-            columns={getColumns(layerData.features[0]?.properties, layerId)} 
-            dataSource={getTableData(layerData.features, layerId)}
+            columns={getColumns(layerData?.geoJsonData?.features[0]?.properties, layerId)} 
+            dataSource={getTableData(layerData?.geoJsonData?.features, layerId)}
             scroll={{ x: true, y: 600 }}
             size="small"
             pagination={{ pageSize: 10 }}

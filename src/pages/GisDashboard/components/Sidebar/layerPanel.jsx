@@ -8,8 +8,9 @@ import React, {
 } from "react";
 import { Checkbox, Col, Row, Space, Spin } from "antd";
 import { useGetLayerObjectsMutation } from "../../../../store/api/layerApi";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { LeyerIcon } from "../../../../components";
+import { setGeoJsonLayer } from "../../../../store/slices/mapSlice";
 
 // const renderLayerIcon = (iconInfo) => {
 //   let geom_typ = iconInfo?.geom_typ;
@@ -38,10 +39,11 @@ const LayerCheckbox = memo(({ option, disabled }) => (
     </Checkbox>
   </Col>
 ));
-
 LayerCheckbox.displayName = "LayerCheckbox";
 
-const LayerPanel = memo(({ layers = [], handleLayerToggle }) => {
+const LayerPanel = memo(({ layers = [] }) => {
+  const dispatch = useDispatch();
+
   // Single source of truth for checked state
   const [checkedState, setCheckedState] = useState({
     checkedLayers: [],
@@ -68,6 +70,13 @@ const LayerPanel = memo(({ layers = [], handleLayerToggle }) => {
     }));
   }, [layers, geoJsonLayers]);
 
+  const handleLayerToggle = useCallback(
+    (layerId, geoJsonData, metaData, isActive) => {
+      dispatch(setGeoJsonLayer({ layerId, geoJsonData, metaData, isActive }));
+    },
+    [dispatch]
+  );
+
   const fetchLayerData = useCallback(
     async (layerId) => {
       setCheckedState((prev) => ({
@@ -82,7 +91,9 @@ const LayerPanel = memo(({ layers = [], handleLayerToggle }) => {
         setCheckedState((prev) => {
           if (!prev.checkedLayers.includes(layerId)) return prev;
 
-          handleLayerToggle(layerId, response.geojson, true);
+        const layerMetaData = response?.metaData || {};
+
+          handleLayerToggle(layerId, response.geojson, layerMetaData,true);
           const newLoading = new Set(prev.loadingLayers);
           newLoading.delete(layerId);
 
@@ -133,7 +144,7 @@ const LayerPanel = memo(({ layers = [], handleLayerToggle }) => {
 
       // Remove unchecked layers
       toRemove.forEach((layerId) => {
-        handleLayerToggle(layerId, null, false);
+        handleLayerToggle(layerId, null, {}, false);
       });
     },
     [

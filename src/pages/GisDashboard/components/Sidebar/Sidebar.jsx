@@ -6,7 +6,7 @@ import LayerPanel from "./layerPanel";
 import { useParams } from "react-router-dom";
 import { useGetLayersMutation } from "../../../../store/api/layerApi";
 
-const Sidebar = memo(({ handleLayerToggle }) => {
+const Sidebar = memo(({  }) => {
   const { portal_id } = useParams();
   const [getLayers, { data: layerInfo, isLoading, error }] = useGetLayersMutation();
 
@@ -24,7 +24,6 @@ const Sidebar = memo(({ handleLayerToggle }) => {
       <TopLocationCard portalDetails={layerInfo?.portalDetails} />
       <LayerPanel 
         layers={layerInfo?.layers} 
-        handleLayerToggle={handleLayerToggle} 
       />
     </div>
   );

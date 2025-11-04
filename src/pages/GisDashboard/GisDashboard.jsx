@@ -52,7 +52,7 @@ const GisDashboard = memo(() => {
   } = theme.useToken();
 
   const dispatch = useDispatch();
-  const { geoJsonLayers, sidebarCollapsed } = useSelector((state) => state.map);
+  const { sidebarCollapsed } = useSelector((state) => state.map);
 
   useEffect(() => {
     document.title = "GIS Dashboard";
@@ -101,13 +101,6 @@ const GisDashboard = memo(() => {
     dispatch(toggleSidebar());
   };
 
-  // Stable callback for layer toggling
-  const handleLayerToggle = useCallback(
-    (layerId, geoJsonData, isActive) => {
-      dispatch(setGeoJsonLayer({ layerId, geoJsonData, isActive }));
-    },
-    [dispatch]
-  );
 
   return (
     <Layout className="gis-layout" style={{ minHeight: "100vh" }}>
@@ -119,7 +112,7 @@ const GisDashboard = memo(() => {
         collapsedWidth={0}
         onCollapse={handleSiderCollapse}
       >
-        <Sidebar handleLayerToggle={handleLayerToggle} />
+        <Sidebar />
       </Sider>
 
       <Layout>
@@ -178,7 +171,7 @@ const GisDashboard = memo(() => {
               borderRadius: borderRadiusLG,
             }}
           >
-            <MapPanel geoJsonLayers={geoJsonLayers} />
+            <MapPanel />
           </div>
         </Content>
 
