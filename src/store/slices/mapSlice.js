@@ -2,6 +2,7 @@ import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
   geoJsonLayers: {},
+  selectedFeatures: [], // Add selected features state
   viewport: {
     center: [35.6892, 51.3890],
     zoom: 11
@@ -23,6 +24,12 @@ const mapSlice = createSlice({
         delete state.geoJsonLayers[layerId];
       }
     },
+    setSelectedFeatures: (state, action) => {
+      state.selectedFeatures = action.payload;
+    },
+    clearSelectedFeatures: (state) => {
+      state.selectedFeatures = [];
+    },
     updateViewport: (state, action) => {
       state.viewport = { ...state.viewport, ...action.payload };
     },
@@ -40,6 +47,8 @@ const mapSlice = createSlice({
 
 export const {
   setGeoJsonLayer,
+  setSelectedFeatures,
+  clearSelectedFeatures,
   updateViewport,
   setActiveBasemap,
   toggleSidebar,

@@ -6,9 +6,10 @@ function CustomDrawer({
   placement,
   height,
   open,
-  handleClose,
+  onClose,
   styles = null,
   children,
+  mask = true,
 }) {
   const {
     token: { colorPrimary, colorBorder, fontSizeLG },
@@ -37,10 +38,11 @@ function CustomDrawer({
     <Drawer
       title={title}
       placement={placement}
-      onClose={handleClose}
+      onClose={onClose}
       open={open}
       height={height}
       styles={styles ?? drawerStyles}
+      mask={mask}
     >
       {children}
     </Drawer>

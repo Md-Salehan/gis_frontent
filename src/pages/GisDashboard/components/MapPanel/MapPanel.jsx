@@ -19,6 +19,7 @@ import BaseMapSwitcher from "../../../../components/common/BaseMapSwitcher";
 import GeomanControl from "../../../../components/common/GeomanControl";
 import FitBounds from "../../../../components/common/FitBounds";
 import { AttributeTable, GeoJsonLayerWrapper, Legend } from "../../../../components";
+import SelectedFeaturesLayer from "../../../../components/map/SelectedFeaturesLayer";
 // import MeasureControl from "../../../../components/common/MeasureControl";
 
 // Move utility function outside component
@@ -80,6 +81,8 @@ const MapPanel = memo(() => {
         <FitBounds geoJsonLayers={geoJsonLayers} />
 
         {renderedLayers}
+        <SelectedFeaturesLayer />
+
 
         {/* Custom overlay controls */}
         {/* <div className="leaflet-bottom leaflet-right">
