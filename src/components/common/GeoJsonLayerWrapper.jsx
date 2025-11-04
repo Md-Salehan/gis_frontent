@@ -2,7 +2,7 @@ import React from "react";
 import { memo, useCallback } from "react";
 import { GeoJSON, CircleMarker } from "react-leaflet";
 import { useDispatch, useSelector } from "react-redux";
-import { setSelectedFeature, updateViewport } from "../../store/slices/mapSlice";
+import { setSelectedFeature, updateViewport, setSelectedFeatures } from "../../store/slices/mapSlice";
 import { circleMarker } from "leaflet";
 
 const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData }) => {
@@ -84,7 +84,10 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData }) => {
 
       // click -> save selected feature and center map viewport on it
       layer.on("click", (e) => {
+        // Clear any previous table selections by setting only this feature
+        dispatch(setSelectedFeatures([feature]));
         dispatch(setSelectedFeature(feature));
+        
         try {
           const bounds = layer.getBounds?.();
           if (bounds?.isValid()) {

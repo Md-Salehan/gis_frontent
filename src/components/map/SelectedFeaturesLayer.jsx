@@ -29,7 +29,7 @@ const SelectedFeaturesLayer = memo(() => {
 
   return (
     <GeoJSON
-      key={`selected-features-${selectedFeatures.length}`}
+      key={`selected-features-${selectedFeatures.length}-${Date.now()}`} // Add timestamp to force re-render
       data={selectedFeaturesGeoJson}
       style={selectedStyle}
       interactive={false} // Make it non-interactive to avoid conflicts
