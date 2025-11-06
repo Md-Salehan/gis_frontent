@@ -1,18 +1,19 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice } from "@reduxjs/toolkit";
 
 const initialState = {
   sidebarOpen: true,
   activeModal: null,
-  theme: 'light',
+  theme: "light",
   loading: {},
 
   isLegendVisible: false,
   isAttributeTableOpen: false,
-
+  // measure panel visibility
+  isMeasureOpen: false,
 };
 
 export const uiSlice = createSlice({
-  name: 'ui',
+  name: "ui",
   initialState,
   reducers: {
     toggleSidebar: (state) => {
@@ -29,16 +30,26 @@ export const uiSlice = createSlice({
       state.loading[key] = value;
     },
 
-
-
     toggleLegend: (state) => {
       state.isLegendVisible = !state.isLegendVisible;
     },
     toggleAttributeTable: (state) => {
       state.isAttributeTableOpen = !state.isAttributeTableOpen;
     },
+    // toggle measure drawer/panel
+    toggleMeasure: (state) => {
+      state.isMeasureOpen = !state.isMeasureOpen;
+    },
   },
 });
 
-export const { toggleSidebar, setModal, setTheme, setLoading, toggleLegend, toggleAttributeTable } = uiSlice.actions;
+export const {
+  toggleSidebar,
+  setModal,
+  setTheme,
+  setLoading,
+  toggleLegend,
+  toggleAttributeTable,
+  toggleMeasure,
+} = uiSlice.actions;
 export default uiSlice.reducer;

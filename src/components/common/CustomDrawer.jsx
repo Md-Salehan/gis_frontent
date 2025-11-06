@@ -10,6 +10,8 @@ function CustomDrawer({
   styles = null,
   children,
   mask = true,
+  width = 400,
+  afterOpenChange,
 }) {
   const {
     token: { colorPrimary, colorBorder, fontSizeLG },
@@ -43,6 +45,8 @@ function CustomDrawer({
       height={height}
       styles={styles ?? drawerStyles}
       mask={mask}
+      width={width}
+      afterOpenChange={afterOpenChange}
     >
       {children}
     </Drawer>

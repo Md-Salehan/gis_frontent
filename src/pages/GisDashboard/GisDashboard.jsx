@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 import { initGeoman } from "../../utils/map/geoman-setup";
 import FooterBar from "./components/FooterBar";
-import { toggleAttributeTable, toggleLegend } from "../../store/slices/uiSlice";
+import { toggleAttributeTable, toggleLegend, toggleMeasure } from "../../store/slices/uiSlice";
 
 const { Sider, Content, Header, Footer } = Layout;
 
@@ -73,6 +73,7 @@ const GisDashboard = memo(() => {
       key: "1",
       icon: React.createElement(DraftingCompass),
       label: "Measure",
+      onClick: () => dispatch(toggleMeasure()),
     },
     {
       key: "2",

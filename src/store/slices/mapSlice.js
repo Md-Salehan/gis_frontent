@@ -2,7 +2,7 @@ import { createSlice } from "@reduxjs/toolkit";
 
 const initialState = {
   geoJsonLayers: {},
-  selectedFeatures: [], // Add selected features state
+  selectedFeatures: [], 
   viewport: {
     center: [35.6892, 51.389],
     zoom: 11,
@@ -10,6 +10,11 @@ const initialState = {
   activeBasemap: "streets",
   sidebarCollapsed: false,
   selectedFeature: null,
+
+  measure: {
+    type: "line", // "line" | "area"
+    unit: "km", // default unit
+  },
 };
 
 const mapSlice = createSlice({
@@ -42,6 +47,16 @@ const mapSlice = createSlice({
     setSelectedFeature: (state, action) => {
       state.selectedFeature = action.payload;
     },
+    // measurement reducers
+    setMeasureType: (state, action) => {
+      state.measure.type = action.payload;
+    },
+    setMeasureUnit: (state, action) => {
+      state.measure.unit = action.payload;
+    },
+    setMeasure: (state, action) => {
+      state.measure = { ...state.measure, ...action.payload };
+    },
   },
 });
 
@@ -53,6 +68,9 @@ export const {
   setActiveBasemap,
   toggleSidebar,
   setSelectedFeature,
+  setMeasureType,
+  setMeasureUnit,
+  setMeasure,
 } = mapSlice.actions;
 
 export default mapSlice.reducer;

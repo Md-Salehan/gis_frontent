@@ -18,9 +18,8 @@ import MiniMapControl from "../../../../components/common/MiniMapControl";
 import BaseMapSwitcher from "../../../../components/common/BaseMapSwitcher";
 import GeomanControl from "../../../../components/common/GeomanControl";
 import FitBounds from "../../../../components/common/FitBounds";
-import { AttributeTable, GeoJsonLayerWrapper, Legend } from "../../../../components";
+import { AttributeTable, GeoJsonLayerWrapper, Legend, MeasureControl } from "../../../../components";
 import SelectedFeaturesLayer from "../../../../components/map/SelectedFeaturesLayer";
-// import MeasureControl from "../../../../components/common/MeasureControl";
 
 // Move utility function outside component
 const getColorByValue = (v) => {
@@ -96,6 +95,7 @@ const MapPanel = memo(() => {
         <MiniMapControl />
         <Legend visible={isLegendVisible} />
         <AttributeTable />
+        <MeasureControl />
       </MapContainer>
     </div>
   );
