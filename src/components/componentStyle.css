@@ -80,3 +80,35 @@ clip-path: polygon(
     20% 40%, 0% 40%, 0% 20%, 20% 20%
   );
 }
+
+
+
+
+
+
+/* Add to componentStyle.css */
+
+/* Measurement Tooltip Styles */
+.measure-tooltip {
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px solid #3388ff;
+  border-radius: 4px;
+  font-weight: bold;
+  color: #3388ff;
+  padding: 4px 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  font-size: 12px;
+}
+
+.measure-tooltip::before {
+  border-top-color: #3388ff;
+}
+
+/* Measurement line styles */
+.measurement-line {
+  stroke-dasharray: 5, 10;
+}
+
+.measurement-line-permanent {
+  stroke-dasharray: none;
+}
