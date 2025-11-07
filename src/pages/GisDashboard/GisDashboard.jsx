@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 import { initGeoman } from "../../utils/map/geoman-setup";
 import FooterBar from "./components/FooterBar";
-import { toggleAttributeTable, toggleLegend, toggleMeasure } from "../../store/slices/uiSlice";
+import { toggleAttributeTable, toggleLegend, toggleMeasure, togglePrintModal } from "../../store/slices/uiSlice";
 
 const { Sider, Content, Header, Footer } = Layout;
 
@@ -90,6 +90,7 @@ const GisDashboard = memo(() => {
       key: "4",
       icon: React.createElement(Printer),
       label: "Print",
+      onClick: () => dispatch(togglePrintModal()),
     },
     {
       key: "5",

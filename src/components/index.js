@@ -6,3 +6,4 @@ export { default as Legend } from './common/Legend';
 export { default as LeyerIcon } from './common/LeyerIcon';
 export { default as AttributeTable } from './map/AttributeTable';
 export { default as MeasureControl } from './map/MeasureControl';
+export { default as PrintControl } from './map/PrintControl';

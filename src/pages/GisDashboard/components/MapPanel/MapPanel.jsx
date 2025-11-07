@@ -18,7 +18,7 @@ import MiniMapControl from "../../../../components/common/MiniMapControl";
 import BaseMapSwitcher from "../../../../components/common/BaseMapSwitcher";
 import GeomanControl from "../../../../components/common/GeomanControl";
 import FitBounds from "../../../../components/common/FitBounds";
-import { AttributeTable, GeoJsonLayerWrapper, Legend, MeasureControl } from "../../../../components";
+import { AttributeTable, GeoJsonLayerWrapper, Legend, MeasureControl, PrintControl } from "../../../../components";
 import SelectedFeaturesLayer from "../../../../components/map/SelectedFeaturesLayer";
 
 // Move utility function outside component
@@ -96,6 +96,7 @@ const MapPanel = memo(() => {
         <Legend visible={isLegendVisible} />
         <AttributeTable />
         <MeasureControl />
+        <PrintControl />
       </MapContainer>
     </div>
   );
