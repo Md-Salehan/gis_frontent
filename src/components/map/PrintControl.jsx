@@ -45,6 +45,13 @@ const PrintControl = () => {
     });
   };
 
+  const waitForVectorLayers = () => {
+    return new Promise((resolve) => {
+      // Wait for any vector layer animations or rendering
+      setTimeout(resolve, 500);
+    });
+  };
+
   const handlePrint = async (values) => {
     try {
       setLoading(true);
@@ -55,6 +62,9 @@ const PrintControl = () => {
 
       // Wait for tiles to load
       await waitForTilesLoading();
+
+      // Wait for vector layers to render
+      await waitForVectorLayers();
 
       // Additional delay to ensure complete rendering
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -83,23 +93,48 @@ const PrintControl = () => {
       // Ensure map container is fully visible
       mapElement.style.visibility = "visible";
       mapElement.style.display = "block";
+      mapElement.style.opacity = "1";
+      mapElement.style.background = "#ffffff";
 
       // Force tiles to be visible and loaded
       const tiles = mapElement.querySelectorAll(".leaflet-tile");
       tiles.forEach((tile) => {
         tile.style.visibility = "visible";
         tile.style.opacity = "1";
+        tile.style.display = "block";
       });
 
-      // Capture the map with improved settings
+      // Force vector layers (GeoJSON) to be visible
+      const vectorLayers = mapElement.querySelectorAll(".leaflet-interactive, .leaflet-layer, path");
+      vectorLayers.forEach((layer) => {
+        layer.style.visibility = "visible";
+        layer.style.opacity = "1";
+        layer.style.display = "block";
+        layer.style.fillOpacity = "1";
+        layer.style.strokeOpacity = "1";
+      });
+
+      // Force canvas layers to be visible
+      const canvasLayers = mapElement.querySelectorAll("canvas");
+      canvasLayers.forEach((canvas) => {
+        canvas.style.visibility = "visible";
+        canvas.style.opacity = "1";
+        canvas.style.display = "block";
+      });
+
+      // Capture the map with improved settings for vector layers
       const canvas = await html2canvas(mapElement, {
         useCORS: true,
         allowTaint: false,
         backgroundColor: "#ffffff",
         scale: 2,
         logging: false,
-        imageTimeout: 15000,
+        imageTimeout: 20000,
         removeContainer: true,
+        ignoreElements: (element) => {
+          // Don't ignore any elements - capture everything
+          return false;
+        },
         onclone: (clonedDoc, element) => {
           const clonedMap = clonedDoc.querySelector(".leaflet-container");
           if (clonedMap) {
@@ -121,6 +156,32 @@ const PrintControl = () => {
               tile.style.visibility = "visible";
               tile.style.opacity = "1";
               tile.style.display = "block";
+            });
+
+            // Ensure vector layers are visible in clone
+            const clonedVectorLayers = clonedMap.querySelectorAll(".leaflet-interactive, .leaflet-layer, path");
+            clonedVectorLayers.forEach((layer) => {
+              layer.style.visibility = "visible";
+              layer.style.opacity = "1";
+              layer.style.display = "block";
+              layer.style.fillOpacity = "1";
+              layer.style.strokeOpacity = "1";
+            });
+
+            // Ensure canvas layers are visible in clone
+            const clonedCanvasLayers = clonedMap.querySelectorAll("canvas");
+            clonedCanvasLayers.forEach((canvas) => {
+              canvas.style.visibility = "visible";
+              canvas.style.opacity = "1";
+              canvas.style.display = "block";
+            });
+
+            // Force a redraw of SVG elements
+            const svgElements = clonedMap.querySelectorAll("svg");
+            svgElements.forEach((svg) => {
+              const box = svg.getBBox();
+              // This forces SVG re-render
+              svg.style.transform = "translateZ(0)";
             });
           }
         },
