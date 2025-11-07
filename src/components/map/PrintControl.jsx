@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Modal, Form, Select, Button, Space, message } from 'antd';
+import { Modal, Form, Select, Button, Space, message, Input } from 'antd';
 import { useDispatch, useSelector } from 'react-redux';
 import { togglePrintModal } from '../../store/slices/uiSlice';
 import html2canvas from 'html2canvas';
@@ -16,43 +16,99 @@ const PrintControl = () => {
   const handlePrint = async (values) => {
     try {
       setLoading(true);
-      const mapElement = document.querySelector('.leaflet-container');
       
+      // Wait for tiles to load completely
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      const mapElement = document.querySelector('.leaflet-container');
       if (!mapElement) {
         throw new Error('Map element not found');
       }
 
-      // Capture the map
+      // Get map dimensions
+      const mapWidth = mapElement.offsetWidth;
+      const mapHeight = mapElement.offsetHeight;
+
+      // Configure html2canvas options
       const canvas = await html2canvas(mapElement, {
         useCORS: true,
         allowTaint: true,
         foreignObjectRendering: true,
+        scrollX: 0,
+        scrollY: 0,
+        width: mapWidth,
+        height: mapHeight,
+        scale: 2, // Increase quality
+        logging: false,
+        removeContainer: true,
+        imageTimeout: 15000,
+        onclone: (document) => {
+          // Fix tile loading issues
+          const clonedMap = document.querySelector('.leaflet-container');
+          if (clonedMap) {
+            clonedMap.style.width = `${mapWidth}px`;
+            clonedMap.style.height = `${mapHeight}px`;
+          }
+        }
       });
 
       // Create PDF with selected format
-      const { format, orientation } = values;
+      const { format, orientation, title } = values;
       const pdf = new jsPDF({
         orientation: orientation,
         unit: 'mm',
         format: format,
       });
 
+      // Add title if provided
+      if (title) {
+        pdf.setFontSize(16);
+        pdf.text(title, 14, 15);
+        pdf.setFontSize(12);
+      }
+
       // Calculate dimensions to fit the page while maintaining aspect ratio
-      const imgWidth = pdf.internal.pageSize.getWidth();
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      
+      // Leave margin for title and other elements
+      const marginTop = title ? 25 : 10;
+      const marginSides = 10;
+      
+      const availableWidth = pageWidth - (marginSides * 2);
+      const availableHeight = pageHeight - marginTop - marginSides;
+
+      // Calculate image dimensions maintaining aspect ratio
+      const imageAspectRatio = canvas.width / canvas.height;
+      let imgWidth = availableWidth;
+      let imgHeight = imgWidth / imageAspectRatio;
+
+      // If image height exceeds available height, scale down
+      if (imgHeight > availableHeight) {
+        imgHeight = availableHeight;
+        imgWidth = imgHeight * imageAspectRatio;
+      }
+
+      // Center the image horizontally
+      const xOffset = (pageWidth - imgWidth) / 2;
 
       // Add the map image
       pdf.addImage(
         canvas.toDataURL('image/jpeg', 1.0),
         'JPEG',
-        0,
-        0,
+        xOffset,
+        marginTop,
         imgWidth,
         imgHeight
       );
 
+      // Add timestamp
+      const timestamp = new Date().toLocaleString();
+      pdf.setFontSize(8);
+      pdf.text(`Generated: ${timestamp}`, marginSides, pageHeight - 5);
+
       // Save the PDF
-      pdf.save('map-export.pdf');
+      pdf.save(title ? `${title}.pdf` : 'map-export.pdf');
       
       message.success('Map exported successfully!');
       dispatch(togglePrintModal());
@@ -70,6 +126,7 @@ const PrintControl = () => {
       open={isOpen}
       onCancel={() => dispatch(togglePrintModal())}
       footer={null}
+      width={400}
     >
       <Form
         form={form}
@@ -78,8 +135,16 @@ const PrintControl = () => {
         initialValues={{
           format: 'a4',
           orientation: 'landscape',
+          title: '',
         }}
       >
+        <Form.Item
+          name="title"
+          label="Map Title"
+        >
+          <Input placeholder="Enter map title (optional)" />
+        </Form.Item>
+
         <Form.Item
           name="format"
           label="Paper Size"
