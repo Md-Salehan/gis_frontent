@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview --base=/gis/"
   },
   "dependencies": {
     "@ant-design/cssinjs": "^2.0.0-alpha.9",

@@ -9,7 +9,7 @@ import { store } from "./store/index.js";
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <Provider store={store}>
-      <BrowserRouter>
+      <BrowserRouter basename="/gis">
         <App />
       </BrowserRouter>
     </Provider>
