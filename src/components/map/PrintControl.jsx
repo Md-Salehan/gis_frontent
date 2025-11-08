@@ -72,12 +72,13 @@ const PrintControl = () => {
       const mapElement = document.querySelector(".leaflet-container");
       if (!mapElement) throw new Error("Map element not found");
 
-      // Store original styles
+      // Store original styles - ONLY store what we modify
       const originalStyles = {
         controls: [],
-        mapContainer: mapElement.style.cssText,
         mapVisibility: mapElement.style.visibility,
-        mapDisplay: mapElement.style.display
+        mapDisplay: mapElement.style.display,
+        mapOpacity: mapElement.style.opacity,
+        mapBackground: mapElement.style.background
       };
 
       // Hide controls temporarily
@@ -90,23 +91,19 @@ const PrintControl = () => {
         control.style.display = "none";
       });
 
-      // Ensure map container is fully visible
-      mapElement.style.visibility = "visible";
-      mapElement.style.display = "block";
-      mapElement.style.opacity = "1";
-      mapElement.style.background = "#ffffff";
-
-      // Force tiles to be visible and loaded
-      const tiles = mapElement.querySelectorAll(".leaflet-tile");
-      tiles.forEach((tile) => {
-        tile.style.visibility = "visible";
-        tile.style.opacity = "1";
-        tile.style.display = "block";
-      });
-
-      // Force vector layers (GeoJSON) to be visible
+      // Store and modify vector layer styles
       const vectorLayers = mapElement.querySelectorAll(".leaflet-interactive, .leaflet-layer, path");
+      const vectorLayerStyles = [];
       vectorLayers.forEach((layer) => {
+        vectorLayerStyles.push({
+          element: layer,
+          visibility: layer.style.visibility,
+          opacity: layer.style.opacity,
+          display: layer.style.display,
+          fillOpacity: layer.style.fillOpacity,
+          strokeOpacity: layer.style.strokeOpacity
+        });
+        
         layer.style.visibility = "visible";
         layer.style.opacity = "1";
         layer.style.display = "block";
@@ -114,13 +111,43 @@ const PrintControl = () => {
         layer.style.strokeOpacity = "1";
       });
 
-      // Force canvas layers to be visible
+      // Store and modify canvas layer styles
       const canvasLayers = mapElement.querySelectorAll("canvas");
+      const canvasLayerStyles = [];
       canvasLayers.forEach((canvas) => {
+        canvasLayerStyles.push({
+          element: canvas,
+          visibility: canvas.style.visibility,
+          opacity: canvas.style.opacity,
+          display: canvas.style.display
+        });
+        
         canvas.style.visibility = "visible";
         canvas.style.opacity = "1";
         canvas.style.display = "block";
       });
+
+      // Store and modify tile styles
+      const tiles = mapElement.querySelectorAll(".leaflet-tile");
+      const tileStyles = [];
+      tiles.forEach((tile) => {
+        tileStyles.push({
+          element: tile,
+          visibility: tile.style.visibility,
+          opacity: tile.style.opacity,
+          display: tile.style.display
+        });
+        
+        tile.style.visibility = "visible";
+        tile.style.opacity = "1";
+        tile.style.display = "block";
+      });
+
+      // Ensure map container is fully visible
+      mapElement.style.visibility = "visible";
+      mapElement.style.display = "block";
+      mapElement.style.opacity = "1";
+      mapElement.style.background = "#ffffff";
 
       // Capture the map with improved settings for vector layers
       const canvas = await html2canvas(mapElement, {
@@ -179,7 +206,6 @@ const PrintControl = () => {
             // Force a redraw of SVG elements
             const svgElements = clonedMap.querySelectorAll("svg");
             svgElements.forEach((svg) => {
-              const box = svg.getBBox();
               // This forces SVG re-render
               svg.style.transform = "translateZ(0)";
             });
@@ -187,13 +213,39 @@ const PrintControl = () => {
         },
       });
 
-      // Restore original styles
+      // Restore original styles PROPERLY
       controls.forEach((control, index) => {
         control.style.display = originalStyles.controls[index].display;
       });
-      mapElement.style.cssText = originalStyles.mapContainer;
+
+      // Restore vector layer styles
+      vectorLayerStyles.forEach((style) => {
+        style.element.style.visibility = style.visibility;
+        style.element.style.opacity = style.opacity;
+        style.element.style.display = style.display;
+        style.element.style.fillOpacity = style.fillOpacity;
+        style.element.style.strokeOpacity = style.strokeOpacity;
+      });
+
+      // Restore canvas layer styles
+      canvasLayerStyles.forEach((style) => {
+        style.element.style.visibility = style.visibility;
+        style.element.style.opacity = style.opacity;
+        style.element.style.display = style.display;
+      });
+
+      // Restore tile styles
+      tileStyles.forEach((style) => {
+        style.element.style.visibility = style.visibility;
+        style.element.style.opacity = style.opacity;
+        style.element.style.display = style.display;
+      });
+
+      // Restore map container styles
       mapElement.style.visibility = originalStyles.mapVisibility;
       mapElement.style.display = originalStyles.mapDisplay;
+      mapElement.style.opacity = originalStyles.mapOpacity;
+      mapElement.style.background = originalStyles.mapBackground;
 
       // Check if canvas has content
       if (canvas.width === 0 || canvas.height === 0) {
