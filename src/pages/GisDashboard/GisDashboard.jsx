@@ -11,7 +11,7 @@ import {
   Col,
   Tooltip,
 } from "antd";
-
+import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { setGeoJsonLayer, toggleSidebar } from "../../store/slices/mapSlice";
 import "./GisDashboard.css";
@@ -30,6 +30,7 @@ import {
   UserOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  LeftOutlined,
 } from "@ant-design/icons";
 import {
   Download,
@@ -41,16 +42,20 @@ import {
 } from "lucide-react";
 import { initGeoman } from "../../utils/map/geoman-setup";
 import FooterBar from "./components/FooterBar";
-import { toggleAttributeTable, toggleLegend, toggleMeasure, togglePrintModal } from "../../store/slices/uiSlice";
+import {
+  toggleAttributeTable,
+  toggleLegend,
+  toggleMeasure,
+  togglePrintModal,
+} from "../../store/slices/uiSlice";
 
 const { Sider, Content, Header, Footer } = Layout;
-
 
 const GisDashboard = memo(() => {
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
-
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const { sidebarCollapsed } = useSelector((state) => state.map);
 
@@ -95,14 +100,13 @@ const GisDashboard = memo(() => {
     {
       key: "5",
       icon: React.createElement(Download),
-      label: "Downlood",
+      label: "Download",
     },
   ];
 
   const handleSiderCollapse = (collapsed) => {
     dispatch(toggleSidebar());
   };
-
 
   return (
     <Layout className="gis-layout" style={{ minHeight: "100vh" }}>
@@ -127,6 +131,13 @@ const GisDashboard = memo(() => {
           >
             <Col>
               <Space align="center" size={12}>
+                <Tooltip title="Back">
+                  <Button
+                    type="text"
+                    onClick={() => navigate(-1)}
+                    icon={<LeftOutlined />}
+                  />
+                </Tooltip>
                 <Tooltip
                   title={sidebarCollapsed ? "Open sidebar" : "Collapse sidebar"}
                 >
