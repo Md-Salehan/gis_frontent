@@ -156,18 +156,23 @@ const LayerPanel = memo(({ layers = [] }) => {
       geoJsonLayers,
     ]
   );
+  console.log(layers, "xxx");
+  
 
   const layerOptions = useMemo(
     () =>
-      layers?.map((item) => ({
-        label: item.layer_mst.layer_nm,
-        value: item.layer_mst.layer_id,
-        styleInfo: {
-          geom_typ: item.geomStyle_mst.geom_typ,
-          fill_color: item.geomStyle_mst.fill_color,
-          stroke_color: item.geomStyle_mst.stroke_color,
-        },
-      })) || [],
+      layers
+        ?.map((item) => ({
+          label: item.layer_mst.layer_nm,
+          value: item.layer_mst.layer_id,
+          orderNo: parseInt(item.layer_order_no) || 0,
+          styleInfo: {
+            geom_typ: item.geomStyle_mst.geom_typ,
+            fill_color: item.geomStyle_mst.fill_color,
+            stroke_color: item.geomStyle_mst.stroke_color,
+          },
+        }))
+        .sort((a, b) => a.orderNo - b.orderNo) || [],
     [layers]
   );
 
@@ -237,6 +242,7 @@ const LayerPanel = memo(({ layers = [] }) => {
         value={checkedState.checkedLayers}
         style={{ width: "100%" }}
       >
+        {console.log(layerOptions, "layerOptions")}
         <Row gutter={[8, 8]}>
           {layerOptions.map((option) => (
             <LayerCheckbox
