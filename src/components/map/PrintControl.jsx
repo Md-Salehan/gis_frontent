@@ -18,6 +18,11 @@ const PrintControl = () => {
   const waitForTilesLoading = () => {
     return new Promise((resolve) => {
       const container = document.querySelector(".leaflet-container");
+      if (!container) {
+        resolve();
+        return;
+      }
+
       const tilesLoading = container.querySelectorAll(
         ".leaflet-tile-loading"
       ).length;
@@ -75,10 +80,10 @@ const PrintControl = () => {
       // Store original styles - ONLY store what we modify
       const originalStyles = {
         controls: [],
-        mapVisibility: mapElement.style.visibility,
-        mapDisplay: mapElement.style.display,
-        mapOpacity: mapElement.style.opacity,
-        mapBackground: mapElement.style.background
+        mapVisibility: mapElement.style.visibility || "",
+        mapDisplay: mapElement.style.display || "",
+        mapOpacity: mapElement.style.opacity || "",
+        mapBackground: mapElement.style.background || ""
       };
 
       // Hide controls temporarily
@@ -86,7 +91,7 @@ const PrintControl = () => {
       controls.forEach((control) => {
         originalStyles.controls.push({
           element: control,
-          display: control.style.display
+          display: control.style.display || ""
         });
         control.style.display = "none";
       });
@@ -97,18 +102,18 @@ const PrintControl = () => {
       vectorLayers.forEach((layer) => {
         vectorLayerStyles.push({
           element: layer,
-          visibility: layer.style.visibility,
-          opacity: layer.style.opacity,
-          display: layer.style.display,
-          fillOpacity: layer.style.fillOpacity,
-          strokeOpacity: layer.style.strokeOpacity
+          visibility: layer.style.visibility || "",
+          opacity: layer.style.opacity || "",
+          display: layer.style.display || "",
+          fillOpacity: layer.style.fillOpacity || "",
+          strokeOpacity: layer.style.strokeOpacity || ""
         });
         
         layer.style.visibility = "visible";
         layer.style.opacity = "1";
         layer.style.display = "block";
-        layer.style.fillOpacity = "1";
-        layer.style.strokeOpacity = "1";
+        if (layer.style.fillOpacity !== undefined) layer.style.fillOpacity = "1";
+        if (layer.style.strokeOpacity !== undefined) layer.style.strokeOpacity = "1";
       });
 
       // Store and modify canvas layer styles
@@ -117,9 +122,9 @@ const PrintControl = () => {
       canvasLayers.forEach((canvas) => {
         canvasLayerStyles.push({
           element: canvas,
-          visibility: canvas.style.visibility,
-          opacity: canvas.style.opacity,
-          display: canvas.style.display
+          visibility: canvas.style.visibility || "",
+          opacity: canvas.style.opacity || "",
+          display: canvas.style.display || ""
         });
         
         canvas.style.visibility = "visible";
@@ -133,9 +138,9 @@ const PrintControl = () => {
       tiles.forEach((tile) => {
         tileStyles.push({
           element: tile,
-          visibility: tile.style.visibility,
-          opacity: tile.style.opacity,
-          display: tile.style.display
+          visibility: tile.style.visibility || "",
+          opacity: tile.style.opacity || "",
+          display: tile.style.display || ""
         });
         
         tile.style.visibility = "visible";
@@ -148,6 +153,9 @@ const PrintControl = () => {
       mapElement.style.display = "block";
       mapElement.style.opacity = "1";
       mapElement.style.background = "#ffffff";
+
+      // Add a small delay to ensure styles are applied before capture
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Capture the map with improved settings for vector layers
       const canvas = await html2canvas(mapElement, {
@@ -191,8 +199,8 @@ const PrintControl = () => {
               layer.style.visibility = "visible";
               layer.style.opacity = "1";
               layer.style.display = "block";
-              layer.style.fillOpacity = "1";
-              layer.style.strokeOpacity = "1";
+              if (layer.style.fillOpacity !== undefined) layer.style.fillOpacity = "1";
+              if (layer.style.strokeOpacity !== undefined) layer.style.strokeOpacity = "1";
             });
 
             // Ensure canvas layers are visible in clone
@@ -213,39 +221,43 @@ const PrintControl = () => {
         },
       });
 
-      // Restore original styles PROPERLY
+      // Restore original styles PROPERLY - only restore if value exists
       controls.forEach((control, index) => {
-        control.style.display = originalStyles.controls[index].display;
+        if (originalStyles.controls[index].display !== undefined) {
+          control.style.display = originalStyles.controls[index].display;
+        } else {
+          control.style.display = "";
+        }
       });
 
       // Restore vector layer styles
       vectorLayerStyles.forEach((style) => {
-        style.element.style.visibility = style.visibility;
-        style.element.style.opacity = style.opacity;
-        style.element.style.display = style.display;
-        style.element.style.fillOpacity = style.fillOpacity;
-        style.element.style.strokeOpacity = style.strokeOpacity;
+        if (style.visibility !== undefined) style.element.style.visibility = style.visibility;
+        if (style.opacity !== undefined) style.element.style.opacity = style.opacity;
+        if (style.display !== undefined) style.element.style.display = style.display;
+        if (style.fillOpacity !== undefined) style.element.style.fillOpacity = style.fillOpacity;
+        if (style.strokeOpacity !== undefined) style.element.style.strokeOpacity = style.strokeOpacity;
       });
 
       // Restore canvas layer styles
       canvasLayerStyles.forEach((style) => {
-        style.element.style.visibility = style.visibility;
-        style.element.style.opacity = style.opacity;
-        style.element.style.display = style.display;
+        if (style.visibility !== undefined) style.element.style.visibility = style.visibility;
+        if (style.opacity !== undefined) style.element.style.opacity = style.opacity;
+        if (style.display !== undefined) style.element.style.display = style.display;
       });
 
       // Restore tile styles
       tileStyles.forEach((style) => {
-        style.element.style.visibility = style.visibility;
-        style.element.style.opacity = style.opacity;
-        style.element.style.display = style.display;
+        if (style.visibility !== undefined) style.element.style.visibility = style.visibility;
+        if (style.opacity !== undefined) style.element.style.opacity = style.opacity;
+        if (style.display !== undefined) style.element.style.display = style.display;
       });
 
       // Restore map container styles
-      mapElement.style.visibility = originalStyles.mapVisibility;
-      mapElement.style.display = originalStyles.mapDisplay;
-      mapElement.style.opacity = originalStyles.mapOpacity;
-      mapElement.style.background = originalStyles.mapBackground;
+      if (originalStyles.mapVisibility !== undefined) mapElement.style.visibility = originalStyles.mapVisibility;
+      if (originalStyles.mapDisplay !== undefined) mapElement.style.display = originalStyles.mapDisplay;
+      if (originalStyles.mapOpacity !== undefined) mapElement.style.opacity = originalStyles.mapOpacity;
+      if (originalStyles.mapBackground !== undefined) mapElement.style.background = originalStyles.mapBackground;
 
       // Check if canvas has content
       if (canvas.width === 0 || canvas.height === 0) {
