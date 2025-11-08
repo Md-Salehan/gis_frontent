@@ -6,11 +6,12 @@ import React, {
   useEffect,
   useRef,
 } from "react";
-import { Checkbox, Col, Row, Space, Spin } from "antd";
+import { Checkbox, Col, Row, Space, Spin, Modal } from "antd";
 import { useGetLayerObjectsMutation } from "../../../../store/api/layerApi";
 import { useDispatch, useSelector } from "react-redux";
 import { LeyerIcon } from "../../../../components";
 import { setGeoJsonLayer } from "../../../../store/slices/mapSlice";
+import { setLoadingMessage } from "../../../../store/slices/uiSlice";
 
 // const renderLayerIcon = (iconInfo) => {
 //   let geom_typ = iconInfo?.geom_typ;
@@ -43,6 +44,7 @@ LayerCheckbox.displayName = "LayerCheckbox";
 
 const LayerPanel = memo(({ layers = [] }) => {
   const dispatch = useDispatch();
+  const loadingMessage = useSelector((state) => state.ui.loadingMessage);
 
   // Single source of truth for checked state
   const [checkedState, setCheckedState] = useState({
@@ -91,9 +93,9 @@ const LayerPanel = memo(({ layers = [] }) => {
         setCheckedState((prev) => {
           if (!prev.checkedLayers.includes(layerId)) return prev;
 
-        const layerMetaData = response?.metaData || {};
+          const layerMetaData = response?.metaData || {};
 
-          handleLayerToggle(layerId, response.geojson, layerMetaData,true);
+          handleLayerToggle(layerId, response.geojson, layerMetaData, true);
           const newLoading = new Set(prev.loadingLayers);
           newLoading.delete(layerId);
 
@@ -169,9 +171,67 @@ const LayerPanel = memo(({ layers = [] }) => {
     [layers]
   );
 
+  // Load default layers on initial mount
+  useEffect(() => {
+    const loadDefaultLayers = async () => {
+      if (!layers?.length) return;
+
+      const defaultLayers = layers.filter(
+        (layer) => layer.default_view_flg === "Y"
+      );
+      if (!defaultLayers.length) return;
+
+      dispatch(setLoadingMessage("Loading default layers..."));
+
+      try {
+        // Load all default layers in parallel
+        const promises = defaultLayers.map((layer) =>
+          getLayerObjects(layer.layer_mst.layer_id).unwrap()
+        );
+
+        const results = await Promise.all(promises);
+
+        // Update state for each loaded layer
+        results.forEach((response, index) => {
+          const layerId = defaultLayers[index].layer_mst.layer_id;
+          const layerMetaData = response?.metaData || {};
+          handleLayerToggle(layerId, response.geojson, layerMetaData, true);
+        });
+
+        // Update checked state
+        setCheckedState((prev) => ({
+          ...prev,
+          checkedLayers: [
+            ...prev.checkedLayers,
+            ...defaultLayers.map((l) => l.layer_mst.layer_id),
+          ],
+        }));
+      } catch (error) {
+        console.error("Error loading default layers:", error);
+      } finally {
+        dispatch(setLoadingMessage(null));
+      }
+    };
+
+    loadDefaultLayers();
+  }, [layers, dispatch, getLayerObjects, handleLayerToggle]);
+
   return (
     <div className="layer-panel">
       <h2 className="panel-title">Layers</h2>
+      {loadingMessage && (
+        <Modal
+          title="Loading"
+          visible={!!loadingMessage}
+          footer={null}
+          closable={false}
+        >
+          <Space>
+            <Spin />
+            <span>{loadingMessage}</span>
+          </Space>
+        </Modal>
+      )}
       <Checkbox.Group
         onChange={onChange}
         value={checkedState.checkedLayers}

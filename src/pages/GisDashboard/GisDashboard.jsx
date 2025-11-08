@@ -95,7 +95,7 @@ const GisDashboard = memo(() => {
     {
       key: "5",
       icon: React.createElement(Download),
-      label: "Download",
+      label: "Downlood",
     },
   ];
 

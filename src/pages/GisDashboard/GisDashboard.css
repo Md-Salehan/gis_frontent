@@ -84,6 +84,16 @@ Place this CSS content into src/pages/YourPage/GisLayerPage.css (or wherever you
   width: 100%;
 }
 
+.ant-modal-loading {
+  text-align: center;
+}
+
+.ant-modal-loading .ant-space {
+  display: inline-flex;
+  align-items: center;
+  margin: 20px 0;
+}
+
 
 
 
