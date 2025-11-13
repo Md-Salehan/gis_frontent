@@ -2,7 +2,6 @@ import React, { memo, useCallback } from "react";
 import { GeoJSON } from "react-leaflet";
 import L from "leaflet";
 import { useSelector } from "react-redux";
-import { bindTooltip, buildTooltipHtml } from "../../utils";
 
 const SelectedFeaturesLayer = memo(() => {
   const selectedFeatures = useSelector((state) => state.map.selectedFeatures);
@@ -29,16 +28,6 @@ const SelectedFeaturesLayer = memo(() => {
     });
   }, []);
 
-  // Handle feature events - add tooltips
-  const onEachFeature = useCallback((feature, layer) => {
-    if (feature.properties) {
-      const name = feature.properties.label_text || feature.properties.name || "";
-      const tooltipHtml = buildTooltipHtml(name, feature.properties);
-      bindTooltip(layer, tooltipHtml);
-
-    }
-  }, []);
-
   if (!selectedFeatures || selectedFeatures.length === 0) {
     return null;
   }
@@ -54,7 +43,6 @@ const SelectedFeaturesLayer = memo(() => {
       data={selectedFeaturesGeoJson}
       style={selectedStyle}
       pointToLayer={pointToLayer}
-      onEachFeature={onEachFeature}
       interactive={false}
     />
   );

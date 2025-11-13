@@ -13,28 +13,12 @@ import { LeyerIcon } from "../../../../components";
 import { setGeoJsonLayer } from "../../../../store/slices/mapSlice";
 import { setLoadingMessage } from "../../../../store/slices/uiSlice";
 
-// const renderLayerIcon = (iconInfo) => {
-//   let geom_typ = iconInfo?.geom_typ;
-//   let iconType = "unknown-layer-icon";
-//   let style = {
-//     backgroundColor: iconInfo?.fill_color || "transparent",
-//     borderColor: iconInfo?.stroke_color || "black",
-//   };
-
-//   if (geom_typ === "G") {
-//     iconType = "polygon-icon";
-//   } else if (geom_typ === "P") iconType = "point-icon";
-//   else if (geom_typ === "L") iconType = "line-icon";
-
-//   return <div className={iconType} style={style}></div>;
-// };
-
 const LayerCheckbox = memo(({ option, disabled }) => (
   <Col span={24}>
     <Checkbox value={option.value} disabled={disabled}>
       <Space>
         <LeyerIcon iconInfo={option?.styleInfo} />
-        {option.label}
+        {option.label}| {option.value}
         {disabled && <Spin size="small" style={{ marginLeft: 8 }} />}
       </Space>
     </Checkbox>
@@ -44,9 +28,9 @@ LayerCheckbox.displayName = "LayerCheckbox";
 
 const LayerPanel = memo(({ layers = [] }) => {
   const dispatch = useDispatch();
+  const { portalId } = useSelector((state) => state.map);
   const loadingMessage = useSelector((state) => state.ui.loadingMessage);
 
-  // Single source of truth for checked state
   const [checkedState, setCheckedState] = useState({
     checkedLayers: [],
     loadingLayers: new Set(),
@@ -55,26 +39,62 @@ const LayerPanel = memo(({ layers = [] }) => {
 
   const [getLayerObjects] = useGetLayerObjectsMutation();
 
-  // Get active layers from Redux store
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers || {});
 
-  // Sync with Redux state
-  useEffect(() => {
-    if (!layers?.length) return;
+  // Memoized layer options - single source of truth
+  const layerOptions = useMemo(() => {
+    const unsortedList = layers.filter((item) => item?.layer_order_no === "0");
+    const sortedList = layers
+      .filter((item) => item?.layer_order_no !== "0")
+      .sort((a, b) => {
+        const orderA = Number(a.layer_order_no);
+        const orderB = Number(b.layer_order_no);
+        return orderA - orderB;
+      });
 
-    const activeIds = layers
-      .map((item) => item.layer_mst.layer_id)
+    const sortedLayers = [...sortedList, ...unsortedList];
+    return (
+      sortedLayers?.map((item, idx) => ({
+        label: item.layer_mst.layer_nm,
+        value: item.layer_mst.layer_id,
+        styleInfo: {
+          geom_typ: item.geomStyle_mst.geom_typ,
+          fill_color: item.geomStyle_mst.fill_color,
+          stroke_color: item.geomStyle_mst.stroke_color,
+          marker_fa_icon_name: item.geomStyle_mst.marker_fa_icon_name,
+          marker_color: item.geomStyle_mst.marker_color,
+          marker_size: item.geomStyle_mst.marker_size,
+        },
+        orderNo: idx.toString(),
+      })) || []
+    );
+  }, [layers]);
+
+  // Sync with Redux state using layerOptions
+  useEffect(() => {
+    if (!layerOptions?.length) return;
+
+    const activeIds = layerOptions
+      .map((item) => item.value)
       .filter((id) => !!geoJsonLayers[id]);
 
     setCheckedState((prev) => ({
       ...prev,
       checkedLayers: activeIds,
     }));
-  }, [layers, geoJsonLayers]);
+  }, [layerOptions, geoJsonLayers]);
 
   const handleLayerToggle = useCallback(
-    (layerId, geoJsonData, metaData, isActive) => {
-      dispatch(setGeoJsonLayer({ layerId, geoJsonData, metaData, isActive }));
+    (layerId, geoJsonData, metaData, isActive, orderNo) => {
+      dispatch(
+        setGeoJsonLayer({
+          layerId,
+          geoJsonData,
+          metaData,
+          isActive,
+          orderNo,
+        })
+      );
     },
     [dispatch]
   );
@@ -87,15 +107,21 @@ const LayerPanel = memo(({ layers = [] }) => {
       }));
 
       try {
-        const response = await getLayerObjects(layerId).unwrap();
-
-        // Only update if still mounted and checked
+        const response = await getLayerObjects({ layerId, portalId }).unwrap();
         setCheckedState((prev) => {
           if (!prev.checkedLayers.includes(layerId)) return prev;
 
           const layerMetaData = response?.metaData || {};
+          const orderNo =
+            layerOptions.find((opt) => opt.value === layerId)?.orderNo || "0";
 
-          handleLayerToggle(layerId, response.geojson, layerMetaData, true);
+          handleLayerToggle(
+            layerId,
+            response.geojson,
+            layerMetaData,
+            true,
+            orderNo
+          );
           const newLoading = new Set(prev.loadingLayers);
           newLoading.delete(layerId);
 
@@ -109,7 +135,6 @@ const LayerPanel = memo(({ layers = [] }) => {
           console.error(`Error fetching layer ${layerId}:`, error);
         }
 
-        // Cleanup loading state
         setCheckedState((prev) => {
           const newLoading = new Set(prev.loadingLayers);
           newLoading.delete(layerId);
@@ -120,7 +145,7 @@ const LayerPanel = memo(({ layers = [] }) => {
         });
       }
     },
-    [getLayerObjects, handleLayerToggle]
+    [getLayerObjects, handleLayerToggle, portalId, layerOptions]
   );
 
   const onChange = useCallback(
@@ -128,12 +153,10 @@ const LayerPanel = memo(({ layers = [] }) => {
       const previous = new Set(checkedState.checkedLayers);
       const current = new Set(checkedValues);
 
-      // Handle newly checked layers
       const toFetch = checkedValues.filter(
         (id) => !previous.has(id) && !geoJsonLayers[id]
       );
 
-      // Handle unchecked layers
       const toRemove = [...previous].filter((id) => !current.has(id));
 
       setCheckedState((prev) => ({
@@ -141,12 +164,10 @@ const LayerPanel = memo(({ layers = [] }) => {
         checkedLayers: checkedValues,
       }));
 
-      // Start new fetches
       toFetch.forEach(fetchLayerData);
 
-      // Remove unchecked layers
       toRemove.forEach((layerId) => {
-        handleLayerToggle(layerId, null, {}, false);
+        handleLayerToggle(layerId, null, {}, false, "0");
       });
     },
     [
@@ -156,59 +177,52 @@ const LayerPanel = memo(({ layers = [] }) => {
       geoJsonLayers,
     ]
   );
-  console.log(layers, "xxx");
-  
 
-  const layerOptions = useMemo(
-    () =>
-      layers
-        ?.map((item) => ({
-          label: item.layer_mst.layer_nm,
-          value: item.layer_mst.layer_id,
-          orderNo: parseInt(item.layer_order_no) || 0,
-          styleInfo: {
-            geom_typ: item.geomStyle_mst.geom_typ,
-            fill_color: item.geomStyle_mst.fill_color,
-            stroke_color: item.geomStyle_mst.stroke_color,
-          },
-        }))
-        .sort((a, b) => a.orderNo - b.orderNo) || [],
-    [layers]
-  );
-
-  // Load default layers on initial mount
+  // Load default layers using layerOptions
   useEffect(() => {
     const loadDefaultLayers = async () => {
-      if (!layers?.length) return;
+      if (!layerOptions?.length) return;
 
-      const defaultLayers = layers.filter(
-        (layer) => layer.default_view_flg === "Y"
-      );
+      const defaultLayers = layerOptions.filter((opt) => {
+        const originalLayer = layers.find(
+          (l) => l.layer_mst.layer_id === opt.value
+        );
+        return originalLayer?.default_view_flg === "Y";
+      });
+
       if (!defaultLayers.length) return;
 
       dispatch(setLoadingMessage("Loading default layers..."));
 
       try {
-        // Load all default layers in parallel
         const promises = defaultLayers.map((layer) =>
-          getLayerObjects(layer.layer_mst.layer_id).unwrap()
+          getLayerObjects({
+            layerId: layer.value,
+            portalId,
+          }).unwrap()
         );
 
         const results = await Promise.all(promises);
 
-        // Update state for each loaded layer
         results.forEach((response, index) => {
-          const layerId = defaultLayers[index].layer_mst.layer_id;
+          const layerId = defaultLayers[index].value;
           const layerMetaData = response?.metaData || {};
-          handleLayerToggle(layerId, response.geojson, layerMetaData, true);
+          const orderNo = defaultLayers[index].orderNo || "0";
+
+          handleLayerToggle(
+            layerId,
+            response.geojson,
+            layerMetaData,
+            true,
+            orderNo
+          );
         });
 
-        // Update checked state
         setCheckedState((prev) => ({
           ...prev,
           checkedLayers: [
             ...prev.checkedLayers,
-            ...defaultLayers.map((l) => l.layer_mst.layer_id),
+            ...defaultLayers.map((l) => l.value),
           ],
         }));
       } catch (error) {
@@ -219,7 +233,14 @@ const LayerPanel = memo(({ layers = [] }) => {
     };
 
     loadDefaultLayers();
-  }, [layers, dispatch, getLayerObjects, handleLayerToggle]);
+  }, [
+    layerOptions,
+    layers,
+    dispatch,
+    getLayerObjects,
+    handleLayerToggle,
+    portalId,
+  ]);
 
   return (
     <div className="layer-panel">
@@ -227,7 +248,7 @@ const LayerPanel = memo(({ layers = [] }) => {
       {loadingMessage && (
         <Modal
           title="Loading"
-          visible={!!loadingMessage}
+          open={!!loadingMessage}
           footer={null}
           closable={false}
         >
@@ -242,7 +263,6 @@ const LayerPanel = memo(({ layers = [] }) => {
         value={checkedState.checkedLayers}
         style={{ width: "100%" }}
       >
-        {console.log(layerOptions, "layerOptions")}
         <Row gutter={[8, 8]}>
           {layerOptions.map((option) => (
             <LayerCheckbox

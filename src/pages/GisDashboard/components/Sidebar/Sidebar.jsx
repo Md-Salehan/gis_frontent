@@ -5,16 +5,18 @@ import FiltersPanel from "./FiltersPanel";
 import LayerPanel from "./layerPanel";
 import { useParams } from "react-router-dom";
 import { useGetLayersMutation } from "../../../../store/api/layerApi";
+import { useDispatch, useSelector } from "react-redux";
+import { setPortalId } from "../../../../store/slices/mapSlice";
 
 const Sidebar = memo(({  }) => {
-  const { portal_id } = useParams();
+  const { portalId } = useSelector((state) => state.map);
   const [getLayers, { data: layerInfo, isLoading, error }] = useGetLayersMutation();
 
   useEffect(() => {
-    if (portal_id) {
-      getLayers(portal_id);
+    if (portalId) {
+      getLayers(portalId);
     }
-  }, [portal_id, getLayers]);
+  }, [portalId, getLayers]);
 
   if (isLoading) return <div>Loading layers...</div>;
   if (error) return <div>Error loading layers: {error.message}</div>;

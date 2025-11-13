@@ -2,15 +2,16 @@ import { createSlice } from "@reduxjs/toolkit";
 
 const initialState = {
   geoJsonLayers: {},
-  selectedFeatures: [], 
+  selectedFeatures: [],
   viewport: {
-    center: [35.6892, 51.389],
-    zoom: 11,
+    center: [28.7041, 77.1025],
+    zoom: 8,
   },
   activeBasemap: "streets",
   sidebarCollapsed: false,
   selectedFeature: null,
-
+  portalId: null,
+  layerOrder: [],
   measure: {
     type: "line", // "line" | "area"
     unit: "km", // default unit
@@ -22,11 +23,16 @@ const mapSlice = createSlice({
   initialState,
   reducers: {
     setGeoJsonLayer: (state, action) => {
-      const { layerId, geoJsonData, metaData, isActive } = action.payload;
+      const { layerId, geoJsonData, metaData, isActive, orderNo } = action.payload;
       if (isActive) {
-        state.geoJsonLayers[layerId] = { geoJsonData, metaData };
+        state.geoJsonLayers[layerId] = { geoJsonData, metaData, orderNo };
+        // Update layer order if not already present
+        if (!state.layerOrder.includes(layerId)) {
+          state.layerOrder.push(layerId);
+        }
       } else {
         delete state.geoJsonLayers[layerId];
+        state.layerOrder = state.layerOrder.filter(id => id !== layerId);
       }
     },
     setSelectedFeatures: (state, action) => {
@@ -57,6 +63,10 @@ const mapSlice = createSlice({
     setMeasure: (state, action) => {
       state.measure = { ...state.measure, ...action.payload };
     },
+    // Add new reducer for portal ID
+    setPortalId: (state, action) => {
+      state.portalId = action.payload;
+    },
   },
 });
 
@@ -71,6 +81,7 @@ export const {
   setMeasureType,
   setMeasureUnit,
   setMeasure,
+  setPortalId,
 } = mapSlice.actions;
 
 export default mapSlice.reducer;

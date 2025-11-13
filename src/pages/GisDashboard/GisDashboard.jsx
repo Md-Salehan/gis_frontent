@@ -11,9 +11,13 @@ import {
   Col,
   Tooltip,
 } from "antd";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { setGeoJsonLayer, toggleSidebar } from "../../store/slices/mapSlice";
+import {
+  setGeoJsonLayer,
+  setPortalId,
+  toggleSidebar,
+} from "../../store/slices/mapSlice";
 import "./GisDashboard.css";
 import Sidebar from "./components/Sidebar/Sidebar";
 import MapPanel from "./components/MapPanel/MapPanel";
@@ -48,16 +52,22 @@ import {
   toggleMeasure,
   togglePrintModal,
 } from "../../store/slices/uiSlice";
-
 const { Sider, Content, Header, Footer } = Layout;
 
 const GisDashboard = memo(() => {
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
+  const { portal_id } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { sidebarCollapsed } = useSelector((state) => state.map);
+
+  useEffect(() => {
+    if (portal_id) {
+      dispatch(setPortalId(portal_id));
+    }
+  }, [portal_id]);
 
   useEffect(() => {
     document.title = "GIS Dashboard";

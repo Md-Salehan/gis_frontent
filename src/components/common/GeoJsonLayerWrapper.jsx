@@ -2,24 +2,29 @@ import React from "react";
 import { memo, useCallback } from "react";
 import { GeoJSON, CircleMarker } from "react-leaflet";
 import { useDispatch, useSelector } from "react-redux";
-import { setSelectedFeature, updateViewport, setSelectedFeatures } from "../../store/slices/mapSlice";
-import { circleMarker } from "leaflet";
+import {
+  setSelectedFeature,
+  updateViewport,
+  setSelectedFeatures,
+} from "../../store/slices/mapSlice";
+import L, { circleMarker } from "leaflet";
+import { bindTooltip, buildTooltipHtml } from "../../utils";
 
-const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData }) => {
+const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
   const dispatch = useDispatch();
   const viewport = useSelector((state) => state.map.viewport);
 
   // Memoize style function
   const style = useCallback((feature) => {
     const props = feature?.properties || {};
-    
+
     // Default styles if properties are missing
     const defaultStyle = {
       color: "#000000",
       weight: 1,
-      opacity: 0.8,
-      fillOpacity: 0.6,
-      fillColor: "#3bf6ae"
+      opacity: 1,
+      fillOpacity: 1,
+      fillColor: "none",
     };
 
     // Get styles from properties
@@ -33,20 +38,20 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData }) => {
 
     // Apply styles based on geometry type
     switch (props.geom_typ) {
-      case 'G': // Polygon
+      case "G": // Polygon
         return customStyle;
-      case 'L': // Line
+      case "L": // Line
         return {
           ...customStyle,
-          fillOpacity: 0 // Lines don't need fill
+          fillOpacity: 0, // Lines don't need fill
         };
-      case 'P': // Point
+      case "P": // Point
         return {
           radius: props.marker_size || 8,
           color: props.marker_color || props.stroke_color || defaultStyle.color,
           fillColor: props.fill_color || defaultStyle.fillColor,
           fillOpacity: props.fill_opacity || defaultStyle.fillOpacity,
-          weight: props.stroke_width || defaultStyle.weight
+          weight: props.stroke_width || defaultStyle.weight,
         };
       default:
         return defaultStyle;
@@ -57,15 +62,11 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData }) => {
   const onEachFeature = useCallback(
     (feature, layer) => {
       if (feature.properties) {
-        const name = feature.properties.ac_nm || feature.properties.blknm || 'xvfbvgfdbdgbgdbnagdabn gfbagfbngfnb athe thth ht4hth 4qt4q 53htht';
-        layer.bindTooltip(name, {
-          // sticky: true,
-          className: 'custom-tooltip',
-          style: {
-            color: feature.properties.label_color || '#000000',
-            backgroundColor: feature.properties.label_bg_color || '#FFFFFF'
-          }
-        });
+        const name =
+          feature.properties[metaData?.portal_layer_map?.label_text_col_nm] ||
+          "";
+        const tooltipHtml = buildTooltipHtml(name, feature.properties);
+        bindTooltip(layer, tooltipHtml);
       }
 
       // highlight on mouseover
@@ -74,7 +75,7 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData }) => {
         e.target.setStyle({
           ...currentStyle,
           weight: currentStyle.weight + 1,
-          fillOpacity: (currentStyle.fillOpacity || 0) + 0.2
+          fillOpacity: (currentStyle.fillOpacity || 0) + 0.2,
         });
       });
 
@@ -87,7 +88,7 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData }) => {
         // Clear any previous table selections by setting only this feature
         dispatch(setSelectedFeatures([feature]));
         dispatch(setSelectedFeature(feature));
-        
+
         try {
           const bounds = layer.getBounds?.();
           if (bounds?.isValid()) {
@@ -111,9 +112,48 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData }) => {
   );
 
   // Point features need special handling
-  const pointToLayer = useCallback((feature, latlng) => {
-    return new circleMarker(latlng, style(feature));
-  }, [style]);
+  // const pointToLayer = useCallback(
+  //   (feature, latlng) => {
+  //     const iconName = feature.properties.marker_fa_icon_name;
+  //     if (iconName) {
+  //       // Create a custom icon using Font Awesome
+  //       const icon = L.divIcon({
+  //         className: "fa-icon-marker",
+  //         html: `<i class="fa ${iconName}"></i>`, // Use Font Awesome icon
+  //         iconSize: [20, 20], // Adjust size as needed
+  //         iconAnchor: [10, 20], // Adjust anchor point
+  //       });
+  //       return L.marker(latlng, { icon });
+  //     }
+  //     return new circleMarker(latlng, style(feature));
+  //   },
+  //   [style]
+  // );
+
+  const pointToLayer = useCallback(
+    (feature, latlng) => {
+      const props = feature.properties || {};
+      const iconName = props.marker_fa_icon_name;
+      const markerSize = Number(props.marker_size) || 18; // px
+      const markerColor = props.marker_color || "#2c3e50";
+
+      if (iconName) {
+        // Build inline-styled FA icon so color/size are dynamic
+        const html = `<i class="${iconName}" style="font-size:${markerSize}px;color:${markerColor};line-height:1;"></i>`;
+        const icon = L.divIcon({
+          className: "fa-icon-marker",
+          html,
+          iconSize: [markerSize, markerSize],
+          iconAnchor: [Math.round(markerSize / 2), Math.round(markerSize / 2)],
+        });
+        return L.marker(latlng, { icon });
+      }
+
+      // fallback to Leaflet circle marker for non-font-awesome points
+      return L.circleMarker(latlng, style(feature));
+    },
+    [style]
+  );
 
   return (
     <GeoJSON
@@ -122,6 +162,7 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData }) => {
       style={style}
       pointToLayer={pointToLayer}
       onEachFeature={onEachFeature}
+      pane={pane}
     />
   );
 });
