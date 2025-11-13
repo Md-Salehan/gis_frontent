@@ -56,7 +56,7 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
       default:
         return defaultStyle;
     }
-  }, []);
+  }, []);x
 
   // handle feature events
   const onEachFeature = useCallback(
