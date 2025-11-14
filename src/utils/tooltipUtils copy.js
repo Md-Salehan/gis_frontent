@@ -8,12 +8,10 @@ import { TOOLTIP_CONFIG, DEFAULT_LABEL_STYLE } from "../constants";
  */
 export const buildTooltipHtml = (name, properties = {}) => {
   const labelFontTyp = properties.label_font_typ || DEFAULT_LABEL_STYLE.fontTyp;
-  const labelFontSize =
-    properties.label_font_size || DEFAULT_LABEL_STYLE.fontSize;
+  const labelFontSize = properties.label_font_size || DEFAULT_LABEL_STYLE.fontSize;
   const labelColor = properties.label_color || DEFAULT_LABEL_STYLE.color;
   const labelBgColor = properties.label_bg_color || DEFAULT_LABEL_STYLE.bgColor;
-  const labelBgStrokeWidth =
-    properties.label_bg_stroke_width || DEFAULT_LABEL_STYLE.bgStrokeWidth;
+  const labelBgStrokeWidth = properties.label_bg_stroke_width || DEFAULT_LABEL_STYLE.bgStrokeWidth;
 
   return `<div class="tooltip-content" style="
     --label-font-typ: ${labelFontTyp};
@@ -42,8 +40,5 @@ export const bindTooltip = (layer, tooltipHtml) => {
  * @returns {string} Feature name/label
  */
 export const getFeatureName = (properties = {}, labelColumn = null) => {
-  if (labelColumn && properties[labelColumn]) {
-    return properties[labelColumn];
-  }
-  return properties.label_text || properties.name || "Unnamed Feature";
+  return properties[labelColumn] || properties.label_text || properties.name || "";
 };

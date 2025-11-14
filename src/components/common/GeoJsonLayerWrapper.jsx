@@ -1,24 +1,25 @@
 import React from "react";
-import { memo, useCallback } from "react";
-import { GeoJSON, CircleMarker } from "react-leaflet";
+import { memo, useCallback, useState } from "react";
+import { GeoJSON } from "react-leaflet";
 import { useDispatch, useSelector } from "react-redux";
 import {
-  setSelectedFeature,
   updateViewport,
   setSelectedFeatures,
+  setSelectedFeature,
 } from "../../store/slices/mapSlice";
-import L, { circleMarker } from "leaflet";
-import { bindTooltip, buildTooltipHtml } from "../../utils";
+import { bindTooltip, getFeatureName } from "../../utils/tooltipUtils";
+import FeatureDetailsPopup from "../map/FeatureDetailsPopup";
+import L from "leaflet";
 
 const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
   const dispatch = useDispatch();
   const viewport = useSelector((state) => state.map.viewport);
+  const [popupFeature, setPopupFeature] = useState(null);
+  const [popupVisible, setPopupVisible] = useState(false);
 
   // Memoize style function
   const style = useCallback((feature) => {
     const props = feature?.properties || {};
-
-    // Default styles if properties are missing
     const defaultStyle = {
       color: "#000000",
       weight: 1,
@@ -27,7 +28,6 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
       fillColor: "none",
     };
 
-    // Get styles from properties
     const customStyle = {
       color: props.stroke_color || defaultStyle.color,
       weight: props.stroke_width || defaultStyle.weight,
@@ -36,16 +36,12 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
       fillColor: props.fill_color || defaultStyle.fillColor,
     };
 
-    // Apply styles based on geometry type
     switch (props.geom_typ) {
-      case "G": // Polygon
+      case "G":
         return customStyle;
-      case "L": // Line
-        return {
-          ...customStyle,
-          fillOpacity: 0, // Lines don't need fill
-        };
-      case "P": // Point
+      case "L":
+        return { ...customStyle, fillOpacity: 0 };
+      case "P":
         return {
           radius: props.marker_size || 8,
           color: props.marker_color || props.stroke_color || defaultStyle.color,
@@ -58,87 +54,55 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
     }
   }, []);
 
-  // handle feature events
+  // Handle feature events
   const onEachFeature = useCallback(
     (feature, layer) => {
       if (feature.properties) {
-        const name =
-          feature.properties[metaData?.portal_layer_map?.label_text_col_nm] ||
-          "";
-        const tooltipHtml = buildTooltipHtml(name, feature.properties);
-        bindTooltip(layer, tooltipHtml);
+        // Add hover tooltip with feature name only
+        const labelColumn = metaData?.portal_layer_map?.label_text_col_nm;
+        const featureName = getFeatureName(feature.properties, labelColumn);
+        bindTooltip(layer, featureName);
       }
 
-      // highlight on mouseover
-      layer.on("mouseover", (e) => {
+      // Highlight on mouseover
+      layer.on("mouseover", () => {
         const currentStyle = style(feature);
-        e.target.setStyle({
+        layer.setStyle({
           ...currentStyle,
-          weight: currentStyle.weight + 1,
+          weight: (currentStyle.weight || 1) + 1,
           fillOpacity: (currentStyle.fillOpacity || 0) + 0.2,
         });
       });
 
-      layer.on("mouseout", (e) => {
-        e.target.setStyle(style(feature));
+      layer.on("mouseout", () => {
+        layer.setStyle(style(feature));
       });
 
-      // click -> save selected feature and center map viewport on it
+      // Click -> Open detailed popup
       layer.on("click", (e) => {
-        // Clear any previous table selections by setting only this feature
+        L.DomEvent.stopPropagation(e);
+        const labelColumn = metaData?.portal_layer_map?.label_text_col_nm;
+        const featureName = getFeatureName(feature.properties, labelColumn);
+
+        setPopupFeature(feature);
+        setPopupVisible(true);
+
+        // Update Redux state
         dispatch(setSelectedFeatures([feature]));
         dispatch(setSelectedFeature(feature));
-
-        try {
-          const bounds = layer.getBounds?.();
-          if (bounds?.isValid()) {
-            const center = bounds.getCenter();
-            dispatch(
-              updateViewport({
-                center: [center.lat, center.lng],
-                zoom: Math.min(16, viewport.zoom || 13),
-              })
-            );
-          } else if (feature.geometry?.coordinates) {
-            const [lng, lat] = feature.geometry.coordinates;
-            dispatch(updateViewport({ center: [lat, lng] }));
-          }
-        } catch (err) {
-          // ignore
-        }
       });
     },
-    [dispatch, style, viewport.zoom]
+    [dispatch, style, metaData]
   );
-
-  // Point features need special handling
-  // const pointToLayer = useCallback(
-  //   (feature, latlng) => {
-  //     const iconName = feature.properties.marker_fa_icon_name;
-  //     if (iconName) {
-  //       // Create a custom icon using Font Awesome
-  //       const icon = L.divIcon({
-  //         className: "fa-icon-marker",
-  //         html: `<i class="fa ${iconName}"></i>`, // Use Font Awesome icon
-  //         iconSize: [20, 20], // Adjust size as needed
-  //         iconAnchor: [10, 20], // Adjust anchor point
-  //       });
-  //       return L.marker(latlng, { icon });
-  //     }
-  //     return new circleMarker(latlng, style(feature));
-  //   },
-  //   [style]
-  // );
 
   const pointToLayer = useCallback(
     (feature, latlng) => {
       const props = feature.properties || {};
       const iconName = props.marker_fa_icon_name;
-      const markerSize = Number(props.marker_size) || 18; // px
+      const markerSize = Number(props.marker_size) || 18;
       const markerColor = props.marker_color || "#2c3e50";
 
       if (iconName) {
-        // Build inline-styled FA icon so color/size are dynamic
         const html = `<i class="${iconName}" style="font-size:${markerSize}px;color:${markerColor};line-height:1;"></i>`;
         const icon = L.divIcon({
           className: "fa-icon-marker",
@@ -149,21 +113,35 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
         return L.marker(latlng, { icon });
       }
 
-      // fallback to Leaflet circle marker for non-font-awesome points
       return L.circleMarker(latlng, style(feature));
     },
     [style]
   );
 
+  const featureName = popupFeature
+    ? getFeatureName(
+        popupFeature.properties,
+        metaData?.portal_layer_map?.label_text_col_nm
+      )
+    : "";
+
   return (
-    <GeoJSON
-      key={layerId}
-      data={geoJsonData}
-      style={style}
-      pointToLayer={pointToLayer}
-      onEachFeature={onEachFeature}
-      pane={pane}
-    />
+    <>
+      <GeoJSON
+        key={layerId}
+        data={geoJsonData}
+        style={style}
+        pointToLayer={pointToLayer}
+        onEachFeature={onEachFeature}
+        pane={pane}
+      />
+      <FeatureDetailsPopup
+        feature={popupFeature}
+        visible={popupVisible}
+        onClose={() => setPopupVisible(false)}
+        featureName={featureName}
+      />
+    </>
   );
 });
 

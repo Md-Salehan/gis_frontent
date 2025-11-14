@@ -19,6 +19,63 @@
     outline: none !important;
 }
 
+
+
+.feature-details-modal {
+  /* Ensure modal appears above map */
+  z-index: 1050;
+}
+
+.feature-details-modal .ant-modal-header {
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.feature-popup-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.feature-name {
+  font-weight: 600;
+  font-size: 16px;
+  color: #1f1f1f;
+  word-break: break-word;
+}
+
+.feature-popup-content {
+  padding: 8px 0;
+}
+
+.feature-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.feature-details-modal .ant-table {
+  font-size: 13px;
+}
+
+.feature-details-modal .ant-table-cell {
+  padding: 8px 12px;
+}
+
+.feature-details-modal .ant-pagination {
+  margin-top: 12px;
+  text-align: right;
+}
+
+.custom-tooltip {
+  background-color: rgba(0, 0, 0, 0.75);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 /* legend ////////////////////////////////////////////////////////////////////////////////////////////////// */
 .map-legend {
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
