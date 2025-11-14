@@ -8,7 +8,7 @@ import {
   setSelectedFeatures,
 } from "../../store/slices/mapSlice";
 import L, { circleMarker } from "leaflet";
-import { bindTooltip, buildTooltipHtml } from "../../utils";
+import { bindTooltip } from "../../utils";
 
 const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
   const dispatch = useDispatch();
@@ -65,8 +65,7 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
         const name =
           feature.properties[metaData?.portal_layer_map?.label_text_col_nm] ||
           "";
-        const tooltipHtml = buildTooltipHtml(name, feature.properties);
-        bindTooltip(layer, tooltipHtml);
+        bindTooltip(layer, name);
       }
 
       // highlight on mouseover
@@ -85,10 +84,6 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
 
       // click -> save selected feature and center map viewport on it
       layer.on("click", (e) => {
-        // Clear any previous table selections by setting only this feature
-        dispatch(setSelectedFeatures([feature]));
-        dispatch(setSelectedFeature(feature));
-
         try {
           const bounds = layer.getBounds?.();
           if (bounds?.isValid()) {
@@ -111,24 +106,6 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
     [dispatch, style, viewport.zoom]
   );
 
-  // Point features need special handling
-  // const pointToLayer = useCallback(
-  //   (feature, latlng) => {
-  //     const iconName = feature.properties.marker_fa_icon_name;
-  //     if (iconName) {
-  //       // Create a custom icon using Font Awesome
-  //       const icon = L.divIcon({
-  //         className: "fa-icon-marker",
-  //         html: `<i class="fa ${iconName}"></i>`, // Use Font Awesome icon
-  //         iconSize: [20, 20], // Adjust size as needed
-  //         iconAnchor: [10, 20], // Adjust anchor point
-  //       });
-  //       return L.marker(latlng, { icon });
-  //     }
-  //     return new circleMarker(latlng, style(feature));
-  //   },
-  //   [style]
-  // );
 
   const pointToLayer = useCallback(
     (feature, latlng) => {
