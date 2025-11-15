@@ -3,9 +3,7 @@ import { memo, useCallback } from "react";
 import { GeoJSON, CircleMarker } from "react-leaflet";
 import { useDispatch, useSelector } from "react-redux";
 import {
-  setSelectedFeature,
   updateViewport,
-  setSelectedFeatures,
 } from "../../store/slices/mapSlice";
 import L, { circleMarker } from "leaflet";
 import { bindTooltip } from "../../utils";
@@ -62,10 +60,10 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
   const onEachFeature = useCallback(
     (feature, layer) => {
       if (feature.properties) {
-        const name =
+        const title =
           feature.properties[metaData?.portal_layer_map?.label_text_col_nm] ||
           "";
-        bindTooltip(layer, name);
+        bindTooltip(layer, feature.properties, title);
       }
 
       // highlight on mouseover
@@ -106,7 +104,6 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
     [dispatch, style, viewport.zoom]
   );
 
-
   const pointToLayer = useCallback(
     (feature, latlng) => {
       const props = feature.properties || {};
@@ -114,17 +111,6 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
       const markerSize = Number(props.marker_size) || 18; // px
       const markerColor = props.marker_color || "#2c3e50";
 
-      if (iconName) {
-        // Build inline-styled FA icon so color/size are dynamic
-        const html = `<i class="${iconName}" style="font-size:${markerSize}px;color:${markerColor};line-height:1;"></i>`;
-        const icon = L.divIcon({
-          className: "fa-icon-marker",
-          html,
-          iconSize: [markerSize, markerSize],
-          iconAnchor: [Math.round(markerSize / 2), Math.round(markerSize / 2)],
-        });
-        return L.marker(latlng, { icon });
-      }
 
       // fallback to Leaflet circle marker for non-font-awesome points
       return L.circleMarker(latlng, style(feature));

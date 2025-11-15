@@ -1,3 +1,4 @@
+import { meta } from "@eslint/js";
 import { createSlice } from "@reduxjs/toolkit";
 
 const initialState = {
@@ -9,7 +10,10 @@ const initialState = {
   },
   activeBasemap: "streets",
   sidebarCollapsed: false,
-  selectedFeature: null,
+  selectedFeature: {
+    metaData: null,
+    feature: null,
+  },
   portalId: null,
   layerOrder: [],
   measure: {
@@ -51,7 +55,7 @@ const mapSlice = createSlice({
       state.sidebarCollapsed = !state.sidebarCollapsed;
     },
     setSelectedFeature: (state, action) => {
-      state.selectedFeature = action.payload;
+      state.selectedFeature = { ...state.selectedFeature, ...action.payload };
     },
     // measurement reducers
     setMeasureType: (state, action) => {

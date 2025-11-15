@@ -5,7 +5,8 @@ import { useSelector } from "react-redux";
 import { bindTooltip } from "../../utils";
 
 const SelectedFeaturesLayer = memo(() => {
-  const selectedFeatures = useSelector((state) => state.map.selectedFeatures);
+  const selectedFeatures = useSelector((state) => state.map.selectedFeatures.feature);
+  const selectedFeaturesMetadata = useSelector((state) => state.map.selectedFeatures.metaData);
 
   const selectedStyle = useCallback((feature) => {
     return {
@@ -32,11 +33,13 @@ const SelectedFeaturesLayer = memo(() => {
   // Handle feature events - add tooltips
   const onEachFeature = useCallback((feature, layer) => {
     if (feature.properties) {
-      const name =
-        feature.properties[metaData?.portal_layer_map?.label_text_col_nm] || "";
-      bindTooltip(layer, name);
+      const title =
+      
+          feature.properties[selectedFeaturesMetadata?.portal_layer_map?.label_text_col_nm] ||
+          "";
+      bindTooltip(layer, feature.properties, title);
     }
-  }, []);
+  }, [selectedFeaturesMetadata]);
 
   if (!selectedFeatures || selectedFeatures.length === 0) {
     return null;

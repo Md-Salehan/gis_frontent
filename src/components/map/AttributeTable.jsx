@@ -63,7 +63,12 @@ function AttributeTable() {
       
       if (selectedFeature) {
         // Update selected features in Redux (only one feature)
-        dispatch(setSelectedFeatures([selectedFeature]));
+        console.log(geoJsonLayers[layerId]?.metaData, layerId, "sel");
+        
+        dispatch(setSelectedFeatures({
+          feature: [selectedFeature],
+          metaData: geoJsonLayers[layerId]?.metaData
+        }));
 
         // Fit map bounds to selected feature
         if (map) {
@@ -84,7 +89,7 @@ function AttributeTable() {
       }
     } else {
       // If no rows selected, clear all selections
-      dispatch(setSelectedFeatures([]));
+      dispatch(setSelectedFeatures({ feature: [], metaData: null }));
     }
 
     setSelectedRowKeys(newSelectedRowKeys);
@@ -146,13 +151,13 @@ function AttributeTable() {
   const handleTabChange = (activeKey) => {
     setActiveTab(activeKey);
     setSelectedRowKeys({});
-    dispatch(setSelectedFeatures([]));
+    dispatch(setSelectedFeatures({ feature: [], metaData: null }));
   };
 
   // Clear selection when drawer closes
   const handleAfterDrawerClose = () => {
     setSelectedRowKeys({});
-    dispatch(setSelectedFeatures([]));
+    dispatch(setSelectedFeatures({ feature: [], metaData: null }));
   };
 
   return (

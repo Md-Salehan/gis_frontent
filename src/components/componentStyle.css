@@ -16,7 +16,7 @@
 }
 
 .leaflet-interactive:focus {
-    outline: none !important;
+  outline: none !important;
 }
 
 /* legend ////////////////////////////////////////////////////////////////////////////////////////////////// */
@@ -37,11 +37,9 @@
   padding: 8px 0;
 }
 
-
-
 /* LeyerIcon///////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 /* PLOLYGON-ICON//////////////////////*/
-.polygon-icon{
+.polygon-icon {
   width: 16px;
   height: 16px;
   margin-right: 4px;
@@ -52,7 +50,7 @@
   box-shadow: 3px 3px 3px rgba(43, 42, 42, 0.2);
 }
 
-.point-icon{
+.point-icon {
   width: 12px;
   height: 12px;
   border-radius: 50%;
@@ -78,8 +76,7 @@
   /* box-shadow: 3px 3px 3px rgba(43, 42, 42, 0.2); */
 }
 
-
-.line-icon{
+.line-icon {
   width: 4px;
   height: 16px;
   margin-right: 8px;
@@ -92,8 +89,7 @@
   transform: rotate(45deg);
 }
 
-
-.unknown-layer-icon{
+.unknown-layer-icon {
   width: 16px;
   height: 16px;
   margin-right: 4px;
@@ -102,18 +98,29 @@
   border: 1px solid #6b7280;
   display: inline-block;
   box-shadow: 3px 3px 3px rgba(43, 42, 42, 0.2);
-clip-path: polygon(
-    20% 0%, 40% 0%, 40% 20%, 60% 20%, 60% 40%, 40% 40%, 40% 60%, 60% 60%,
-    60% 80%, 40% 80%, 40% 100%, 20% 100%, 20% 80%, 0% 80%, 0% 60%, 20% 60%,
-    20% 40%, 0% 40%, 0% 20%, 20% 20%
+  clip-path: polygon(
+    20% 0%,
+    40% 0%,
+    40% 20%,
+    60% 20%,
+    60% 40%,
+    40% 40%,
+    40% 60%,
+    60% 60%,
+    60% 80%,
+    40% 80%,
+    40% 100%,
+    20% 100%,
+    20% 80%,
+    0% 80%,
+    0% 60%,
+    20% 60%,
+    20% 40%,
+    0% 40%,
+    0% 20%,
+    20% 20%
   );
 }
-
-
-
-
-
-
 
 /* Measurement Tooltip Styles ////////////////////////////////////////////////////////////////////////// */
 .measure-tooltip {
@@ -140,77 +147,42 @@ clip-path: polygon(
   stroke-dasharray: none;
 }
 
-
-
-
-
-
-
-/* ...existing code... */
-
-/* custom tooltip uses CSS variables provided per-feature */
-.custom-tooltip {
-  /* keep Leaflet default wrapper minimal; variables are consumed by inner .tooltip-content */
-  pointer-events: none;
+/* map Feature Popup ///////////////////////////////////////////////////////////////////////// */
+/* Custom Popup Styles */
+.custom-popup .leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid #d1d5db;
 }
 
-.custom-tooltip .tooltip-content {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  white-space: nowrap;
-  background: var(--label-bg-color, #ffffff);
-  color: var(--label-color, #000000);
-  font-family: var(--label-font-typ, inherit);
-  font-size: var(--label-font-size, 12px);
-  box-shadow: 0 1px 6px rgba(0,0,0,0.12);
-  border: var(--label-bg-stroke-width, 0px) solid rgba(0,0,0,0.12);
-  line-height: 1;
-}
-
-/* ensure inner text has no extra spacing */
-.custom-tooltip .tooltip-content * {
+.custom-popup .leaflet-popup-content {
   margin: 0;
   padding: 0;
+  max-width: 450px;
 }
 
-/* custom tooltip uses CSS variables provided per-feature */
-.custom-tooltip {
-  /* keep Leaflet default wrapper minimal; variables are consumed by inner .tooltip-content */
-  pointer-events: none;
+.custom-popup .leaflet-popup-tip {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
 }
 
-.custom-tooltip .tooltip-content {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  white-space: nowrap;
-  background: var(--label-bg-color, #ffffff);
-  color: var(--label-color, #000000);
-  font-family: var(--label-font-typ, inherit);
-  font-size: var(--label-font-size, 12px);
-  box-shadow: 0 1px 6px rgba(0,0,0,0.12);
-  border: var(--label-bg-stroke-width, 0px) solid rgba(0,0,0,0.12);
-  line-height: 1;
+.custom-popup table {
+  width: 100%;
 }
 
-/* ensure inner text has no extra spacing */
-.custom-tooltip .tooltip-content * {
-  margin: 0;
-  padding: 0;
+.custom-popup td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e5e7eb;
 }
 
+.custom-popup tbody tr:nth-child(even) {
+  background-color: #f9fafb;
+}
 
+.custom-popup tbody tr:nth-child(odd) {
+  background-color: #ffffff;
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
+.custom-popup tbody tr:hover {
+  background-color: #f0f1f3;
+}
