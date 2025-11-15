@@ -17,7 +17,6 @@ function AttributeTable() {
   const isAttributeTableOpen = useSelector(
     (state) => state.ui.isAttributeTableOpen
   );
-  const selectedFeatures = useSelector((state) => state.map.selectedFeatures);
 
   // Generate table columns from properties
   const getColumns = useCallback((properties) => {
@@ -43,7 +42,6 @@ function AttributeTable() {
     return features.map((feature, index) => ({
       key: `${layerId}-${index}`,
       featureIndex: index,
-      layerId: layerId,
       ...feature.properties,
     }));
   }, []);
@@ -51,6 +49,7 @@ function AttributeTable() {
   // Handle row selection with single selection mode
   const handleRowSelection = useCallback(
     (selectedKeys, selectedRows, layerId) => {
+      console.log("Row selection changed:", selectedKeys, selectedRows, layerId);
       const newSelectedRowKeys = {};
 
       if (selectedKeys.length > 0) {
@@ -58,7 +57,7 @@ function AttributeTable() {
 
         const selectedRow = selectedRows[0];
         const selectedFeature =
-          geoJsonLayers[selectedRow.layerId]?.geoJsonData.features[
+          geoJsonLayers[layerId]?.geoJsonData.features[
             selectedRow.featureIndex
           ];
 
@@ -98,6 +97,8 @@ function AttributeTable() {
   // Handle individual row click for selection/deselection
   const handleRowClick = useCallback(
     (record, layerId) => {
+      console.log("Row clicked:", record, layerId);
+      
       const rowKey = record.key;
       const currentSelectedKeys = selectedRowKeys[layerId] || [];
 
@@ -141,9 +142,9 @@ function AttributeTable() {
             dataSource={getTableData(layerData?.geoJsonData?.features, layerId)}
             scroll={{ x: true, y: 600 }}
             size="small"
-            pagination={{ pageSize: 10 }}
+            pagination={{ pageSize: 5 }}
             onRow={(record) => ({
-              onClick: () => handleRowClick(record, layerId),
+              // onClick: () => handleRowClick(record, layerId),
               style: {
                 cursor: "pointer",
                 backgroundColor: selectedRowKeys[layerId]?.includes(record.key)

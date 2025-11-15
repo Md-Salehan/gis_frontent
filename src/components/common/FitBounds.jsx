@@ -37,10 +37,10 @@ const FitBounds = memo(({ geoJsonLayers }) => {
           combinedBounds.isValid()
         ) {
           try {
-            map.flyToBounds(combinedBounds, {
-              padding: [40, 40],
+            map.fitBounds(combinedBounds, {
+              padding: [10, 10],
               maxZoom: 16,
-              duration: 0.7,
+              animate: false,
             });
           } catch {
             map.fitBounds(combinedBounds, { padding: [40, 40], maxZoom: 16 });
