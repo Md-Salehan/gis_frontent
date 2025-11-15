@@ -196,6 +196,8 @@ const GisDashboard = memo(() => {
           >
             <MapPanel />
           </div>
+
+          
         </Content>
 
         <FooterBar />
