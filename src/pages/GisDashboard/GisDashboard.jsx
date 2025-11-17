@@ -100,6 +100,7 @@ const GisDashboard = memo(() => {
       key: "3",
       icon: React.createElement(Eraser),
       label: "Clear",
+      onClick: () => window.location.reload(),
     },
     {
       key: "4",
@@ -107,11 +108,11 @@ const GisDashboard = memo(() => {
       label: "Print",
       onClick: () => dispatch(togglePrintModal()),
     },
-    {
-      key: "5",
-      icon: React.createElement(Download),
-      label: "Download",
-    },
+    // {
+    //   key: "5",
+    //   icon: React.createElement(Download),
+    //   label: "Download",
+    // },
   ];
 
   const handleSiderCollapse = (collapsed) => {
