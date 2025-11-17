@@ -12,12 +12,13 @@ import L from "leaflet";
 import { useMap } from "react-leaflet";
 
 function AttributeTable() {
+  const dispatch = useDispatch();
+  const map = useMap();
+
   const [activeTab, setActiveTab] = useState(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState({});
   // multi-select state: { [layerId]: Set<rowKey> }
   const [multiSelected, setMultiSelected] = useState({});
-  const dispatch = useDispatch();
-  const map = useMap();
 
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
   const isAttributeTableOpen = useSelector(
@@ -66,7 +67,7 @@ function AttributeTable() {
           geoJsonLayers[layerId]?.geoJsonData.features[
             selectedRow.featureIndex
           ];
-
+        console.log(selectedFeature, "selectedFeature1");
         if (selectedFeature) {
           dispatch(
             setSelectedFeature({
@@ -100,21 +101,6 @@ function AttributeTable() {
     [dispatch, geoJsonLayers, map]
   );
 
-  // Handle individual row click for selection/deselection (single)
-  // const handleRowClick = useCallback(
-  //   (record, layerId) => {
-  //     const rowKey = record.key;
-  //     const currentSelectedKeys = selectedRowKeys[layerId] || [];
-
-  //     if (currentSelectedKeys.includes(rowKey)) {
-  //       handleRowSelection([], [], layerId);
-  //     } else {
-  //       handleRowSelection([rowKey], [record], layerId);
-  //     }
-  //   },
-  //   [selectedRowKeys, handleRowSelection]
-  // );
-
   // Handle multi-select toggle for the custom column
   const toggleMultiSelect = useCallback((layerId, rowKey, checked) => {
     setMultiSelected((prev) => {
@@ -133,6 +119,7 @@ function AttributeTable() {
     const multiFeatures = [];
     Object.entries(multiSelected).forEach(([layerId, keySet]) => {
       const features = geoJsonLayers[layerId]?.geoJsonData?.features || [];
+      const metaData = geoJsonLayers[layerId]?.metaData || {};
       Array.from(keySet || []).forEach((rowKey) => {
         const parts = rowKey.split("-");
         const idxStr = parts[parts.length - 1];
@@ -140,10 +127,11 @@ function AttributeTable() {
         const feature = features[idx];
         if (feature) {
           // include layerId to allow downstream logic if needed
-          multiFeatures.push({ ...feature, __layerId: layerId });
+          multiFeatures.push({ layerId, feature, metaData  });
         }
       });
     });
+    console.log(multiFeatures, "selectedFeature2");
 
     dispatch(setMultiSelectedFeatures(multiFeatures));
   }, [multiSelected, geoJsonLayers, dispatch]);
@@ -221,6 +209,7 @@ function AttributeTable() {
       const label = layerData?.metaData?.layer?.layer_nm || layerId;
 
       const rowSelection = {
+        title: "Find",
         type: "radio",
         selectedRowKeys: selectedRowKeys[layerId] || [],
         onChange: (selectedKeys, selectedRows) =>
@@ -273,7 +262,7 @@ function AttributeTable() {
                 backgroundColor: multiSelected[layerId]?.has(record.key)
                   ? "#fff7cc" // yellow for multi-selected
                   : selectedRowKeys[layerId]?.includes(record.key)
-                  ? "#e6f7ff" // existing blue for single-selected
+                  ? "#ffece6ff" // existing blue for single-selected
                   : "white",
               },
             })}

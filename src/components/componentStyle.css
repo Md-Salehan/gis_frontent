@@ -153,6 +153,7 @@
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   border: 1px solid #d1d5db;
+  z-index: 1000000;
 }
 
 .custom-popup .leaflet-popup-content {
@@ -185,4 +186,20 @@
 
 .custom-popup tbody tr:hover {
   background-color: #f0f1f3;
+}
+
+
+.leaflet-popup {
+  z-index: 10001 !important;
+}
+
+.leaflet-popup-pane {
+  z-index: 10001 !important;
+}
+
+.custom-popup .leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid #d1d5db;
+  z-index: 10001 !important;
 }

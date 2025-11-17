@@ -1,8 +1,14 @@
-import React, { memo, useCallback } from "react";
+import React, { memo, useCallback, useMemo } from "react";
 import { GeoJSON } from "react-leaflet";
 import L from "leaflet";
 import { useSelector } from "react-redux";
 import { bindTooltip } from "../../utils";
+import {
+  SELECTED_FEATURE_STYLE,
+  SELECTED_CIRCLE_MARKER_STYLE,
+  MULTI_SELECTED_FEATURE_STYLE,
+  MULTI_SELECTED_CIRCLE_MARKER_STYLE,
+} from "../../constants";
 
 const SelectedFeaturesLayer = memo(() => {
   const selectedFeature = useSelector(
@@ -12,56 +18,22 @@ const SelectedFeaturesLayer = memo(() => {
     (state) => state.map.selectedFeature.metaData
   );
 
-  // read multi-selected features (array) from redux
   const multiSelectedFeatures = useSelector(
     (state) => state.map.multiSelectedFeatures || []
   );
 
-  const selectedStyle = useCallback((feature) => {
-    return {
-      color: "#ff0000",
-      weight: 3,
-      opacity: 0.8,
-      fillColor: "#ff0000",
-      fillOpacity: 0.6,
-    };
-  }, []);
+  // Memoize styles - no need for useMemo with constants
+  const selectedStyle = SELECTED_FEATURE_STYLE;
+  const multiSelectedStyle = MULTI_SELECTED_FEATURE_STYLE;
 
-  // yellow style for multi-selected
-  const multiSelectedStyle = useCallback((feature) => {
-    return {
-      color: "#ffbf00",
-      weight: 2,
-      opacity: 0.9,
-      fillColor: "#fff7cc",
-      fillOpacity: 0.6,
-    };
-  }, []);
-
-  // Use circle markers for Point features
   const pointToLayer = useCallback((feature, latlng) => {
-    return L.circleMarker(latlng, {
-      radius: 10,
-      color: "#ff0000",
-      weight: 2,
-      opacity: 0.9,
-      fillColor: "#ff0000",
-      fillOpacity: 0.6,
-    });
+    return L.circleMarker(latlng, SELECTED_CIRCLE_MARKER_STYLE);
   }, []);
 
   const multiPointToLayer = useCallback((feature, latlng) => {
-    return L.circleMarker(latlng, {
-      radius: 8,
-      color: "#ffbf00",
-      weight: 2,
-      opacity: 0.9,
-      fillColor: "#fff7cc",
-      fillOpacity: 0.6,
-    });
+    return L.circleMarker(latlng, MULTI_SELECTED_CIRCLE_MARKER_STYLE);
   }, []);
 
-  // Handle feature events - add tooltips
   const onEachFeature = useCallback(
     (feature, layer) => {
       if (feature.properties) {
@@ -75,23 +47,24 @@ const SelectedFeaturesLayer = memo(() => {
     [selectedFeatureMetadata]
   );
 
-  // for multi-selected we don't assume a single metadata; use properties only
-  const onEachMultiFeature = useCallback((feature, layer) => {
-    if (feature.properties) {
-      bindTooltip(layer, feature.properties, "");
-    }
-  }, []);
-
   const hasSingle = selectedFeature && selectedFeature.length > 0;
   const hasMulti = multiSelectedFeatures && multiSelectedFeatures.length > 0;
+
+  const singleKey = useMemo(
+    () => `selected-single-${selectedFeature?.length || 0}`,
+    [selectedFeature?.length]
+  );
+
+  const multiKey = useMemo(
+    () => `selected-multi-${multiSelectedFeatures.length}`,
+    [multiSelectedFeatures.length]
+  );
 
   return (
     <>
       {hasSingle && (
         <GeoJSON
-          key={`selected-features-single-${
-            selectedFeature.length
-          }-${Date.now()}`}
+          key={singleKey}
           data={{
             type: "FeatureCollection",
             features: selectedFeature,
@@ -106,22 +79,14 @@ const SelectedFeaturesLayer = memo(() => {
 
       {hasMulti && (
         <GeoJSON
-          key={`selected-features-multi-${
-            multiSelectedFeatures.length
-          }-${Date.now()}`}
+          key={multiKey}
           data={{
             type: "FeatureCollection",
-            // multiSelectedFeatures may include __layerId but are valid Feature objects
-            features: multiSelectedFeatures.map((f) => {
-              // strip helper fields to keep valid GeoJSON
-              const clone = { ...f };
-              delete clone.__layerId;
-              return clone;
-            }),
+            features: multiSelectedFeatures.map((f) => f.feature),
           }}
           style={multiSelectedStyle}
           pointToLayer={multiPointToLayer}
-          onEachFeature={onEachMultiFeature}
+          onEachFeature={onEachFeature}
           interactive={false}
           pane="pane-selected-features"
         />

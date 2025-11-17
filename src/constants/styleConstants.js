@@ -26,6 +26,24 @@ export const SELECTED_CIRCLE_MARKER_STYLE = {
   fillOpacity: 0.6,
 };
 
+// Multi-selected feature styles (for multiple feature selection)
+export const MULTI_SELECTED_FEATURE_STYLE = {
+  color: "#ffbf00",
+  weight: 2,
+  opacity: 0.9,
+  fillColor: "#fff7cc",
+  fillOpacity: 0.6,
+};
+
+export const MULTI_SELECTED_CIRCLE_MARKER_STYLE = {
+  radius: 8,
+  color: "#ffbf00",
+  weight: 2,
+  opacity: 0.9,
+  fillColor: "#fff7cc",
+  fillOpacity: 0.6,
+};
+
 // Default tooltip configuration
 export const TOOLTIP_CONFIG = {
   className: "custom-tooltip",
@@ -40,4 +58,29 @@ export const DEFAULT_LABEL_STYLE = {
   color: "#000000",
   bgColor: "#FFFFFF",
   bgStrokeWidth: 0,
+};
+
+// Popup configuration (ensures popups always appear on top)
+export const POPUP_CONFIG = {
+  maxWidth: 450,
+  maxHeight: 400,
+  className: "custom-popup",
+  autoPan: true,
+  autoPanPadding: [50, 50],
+  autoPanPaddingTopLeft: [50, 50],
+  autoPanPaddingBottomRight: [50, 50],
+};
+
+// Hover effect offsets
+export const HOVER_EFFECT = {
+  weightIncrease: 1,
+  fillOpacityIncrease: 0.2,
+};
+
+// Pane z-index configuration
+export const PANE_ZINDEX = {
+  BASE_LAYER: 0,
+  OVERLAY_BASE: 400,
+  SELECTED_FEATURES: 10000,
+  POPUP: 10001,
 };
