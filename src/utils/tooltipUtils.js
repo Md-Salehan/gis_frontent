@@ -39,7 +39,7 @@ const generatePropertiesTable = (properties = {}, title) => {
  * @param {Object} layer - Leaflet layer object
  * @param {Object} properties - Feature properties object
  */
-export const bindTooltip = (layer, properties = {}, title="") => {
+export const bindTooltip = (layer, properties = {}, title = "") => {
   if (properties && Object.keys(properties).length > 0) {
     const tableHtml = generatePropertiesTable(properties, title);
     layer.bindPopup(tableHtml, {

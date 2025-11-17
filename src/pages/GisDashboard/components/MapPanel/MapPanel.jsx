@@ -12,7 +12,6 @@ import L from "leaflet";
 import { useDispatch, useSelector } from "react-redux";
 import {
   updateViewport,
-  setSelectedFeature,
 } from "../../../../store/slices/mapSlice";
 import MiniMapControl from "../../../../components/common/MiniMapControl";
 import BaseMapSwitcher from "../../../../components/common/BaseMapSwitcher";

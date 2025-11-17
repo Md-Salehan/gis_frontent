@@ -3,10 +3,7 @@ import { Table, Tabs, Checkbox, Button, message } from "antd";
 import { DownloadOutlined } from "@ant-design/icons";
 import { useSelector, useDispatch } from "react-redux";
 import { toggleAttributeTable } from "../../store/slices/uiSlice";
-import {
-  setSelectedFeature,
-  setMultiSelectedFeatures,
-} from "../../store/slices/mapSlice";
+import { setSelectedFeatures } from "../../store/slices/mapSlice";
 import CustomDrawer from "../common/CustomDrawer";
 import L from "leaflet";
 import { useMap } from "react-leaflet";
@@ -69,7 +66,7 @@ function AttributeTable() {
 
         if (selectedFeature) {
           dispatch(
-            setSelectedFeature({
+            setSelectedFeatures({
               feature: [selectedFeature],
               metaData: geoJsonLayers[layerId]?.metaData,
             })
@@ -92,7 +89,7 @@ function AttributeTable() {
           }
         }
       } else {
-        dispatch(setSelectedFeature({ feature: [], metaData: null }));
+        dispatch(setSelectedFeatures({ feature: [], metaData: null }));
       }
 
       setSelectedRowKeys(newSelectedRowKeys);
@@ -127,26 +124,6 @@ function AttributeTable() {
       return { ...prev, [layerId]: layerSet };
     });
   }, []);
-
-  // sync multiSelected -> redux so SelectedFeaturesLayer can render them
-  useEffect(() => {
-    const multiFeatures = [];
-    Object.entries(multiSelected).forEach(([layerId, keySet]) => {
-      const features = geoJsonLayers[layerId]?.geoJsonData?.features || [];
-      Array.from(keySet || []).forEach((rowKey) => {
-        const parts = rowKey.split("-");
-        const idxStr = parts[parts.length - 1];
-        const idx = Number(idxStr);
-        const feature = features[idx];
-        if (feature) {
-          // include layerId to allow downstream logic if needed
-          multiFeatures.push({ ...feature, __layerId: layerId });
-        }
-      });
-    });
-
-    dispatch(setMultiSelectedFeatures(multiFeatures));
-  }, [multiSelected, geoJsonLayers, dispatch]);
 
   // Prepare minimal list of layers (memoized)
   const layerEntries = useMemo(() => {
@@ -315,8 +292,7 @@ function AttributeTable() {
       setActiveTab(activeKey);
       setSelectedRowKeys({});
       setMultiSelected({}); // clear multi-select on tab change for clarity
-      dispatch(setSelectedFeature({ feature: [], metaData: null }));
-      dispatch(setMultiSelectedFeatures([])); // clear multi-selected in redux
+      dispatch(setSelectedFeatures({ feature: [], metaData: null }));
     },
     [dispatch]
   );
@@ -325,8 +301,7 @@ function AttributeTable() {
   const handleAfterDrawerClose = useCallback(() => {
     setSelectedRowKeys({});
     setMultiSelected({});
-    dispatch(setSelectedFeature({ feature: [], metaData: null }));
-    dispatch(setMultiSelectedFeatures([]));
+    dispatch(setSelectedFeatures({ feature: [], metaData: null }));
   }, [dispatch]);
 
   return (

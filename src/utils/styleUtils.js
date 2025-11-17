@@ -51,7 +51,8 @@ export const applyHoverStyle = (
   layer.setStyle({
     ...currentStyle,
     weight: currentStyle.weight + hoverSettings.weightIncrease,
-    fillOpacity: (currentStyle.fillOpacity || 0) + hoverSettings.fillOpacityIncrease,
+    fillOpacity:
+      (currentStyle.fillOpacity || 0) + hoverSettings.fillOpacityIncrease,
   });
 };
 
