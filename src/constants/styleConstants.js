@@ -84,3 +84,21 @@ export const PANE_ZINDEX = {
   SELECTED_FEATURES: 10000,
   POPUP: 10001,
 };
+
+// Geometry types
+export const GEOMETRY_TYPES = {
+  POLYGON: "G",
+  LINE: "L",
+  POINT: "P",
+};
+
+// Hover effect configuration
+export const HOVER_STYLE_CONFIG = {
+  weightIncrease: 1,
+  fillOpacityIncrease: 0.2,
+};
+
+// Line-specific style
+export const LINE_STYLE = {
+  fillOpacity: 0,
+};

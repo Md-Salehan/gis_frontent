@@ -8,6 +8,7 @@ import {
   SELECTED_CIRCLE_MARKER_STYLE,
   MULTI_SELECTED_FEATURE_STYLE,
   MULTI_SELECTED_CIRCLE_MARKER_STYLE,
+  PANE_ZINDEX,
 } from "../../constants";
 
 const SelectedFeaturesLayer = memo(() => {
@@ -21,10 +22,6 @@ const SelectedFeaturesLayer = memo(() => {
   const multiSelectedFeatures = useSelector(
     (state) => state.map.multiSelectedFeatures || []
   );
-
-  // Memoize styles - no need for useMemo with constants
-  const selectedStyle = SELECTED_FEATURE_STYLE;
-  const multiSelectedStyle = MULTI_SELECTED_FEATURE_STYLE;
 
   const pointToLayer = useCallback((feature, latlng) => {
     return L.circleMarker(latlng, SELECTED_CIRCLE_MARKER_STYLE);
@@ -69,11 +66,11 @@ const SelectedFeaturesLayer = memo(() => {
             type: "FeatureCollection",
             features: selectedFeature,
           }}
-          style={selectedStyle}
+          style={SELECTED_FEATURE_STYLE}
           pointToLayer={pointToLayer}
           onEachFeature={onEachFeature}
           interactive={false}
-          pane="pane-selected-features"
+          pane={`pane-selected-features`}
         />
       )}
 
@@ -84,11 +81,11 @@ const SelectedFeaturesLayer = memo(() => {
             type: "FeatureCollection",
             features: multiSelectedFeatures.map((f) => f.feature),
           }}
-          style={multiSelectedStyle}
+          style={MULTI_SELECTED_FEATURE_STYLE}
           pointToLayer={multiPointToLayer}
           onEachFeature={onEachFeature}
           interactive={false}
-          pane="pane-selected-features"
+          pane={`pane-selected-features`}
         />
       )}
     </>

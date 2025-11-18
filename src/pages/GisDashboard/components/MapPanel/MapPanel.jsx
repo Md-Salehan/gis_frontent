@@ -1,18 +1,8 @@
-import React, { memo, useMemo, useCallback, useEffect } from "react";
-import { Button } from "antd";
-import {
-  MapContainer,
-  TileLayer,
-  GeoJSON,
-  ZoomControl,
-  useMap,
-} from "react-leaflet";
+import React, { memo, useMemo } from "react";
+import { MapContainer, TileLayer, ZoomControl } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import L from "leaflet";
-import { useDispatch, useSelector } from "react-redux";
-import {
-  updateViewport,
-} from "../../../../store/slices/mapSlice";
+import { useSelector } from "react-redux";
+import { PANE_ZINDEX } from "../../../../constants";
 import MiniMapControl from "../../../../components/common/MiniMapControl";
 import BaseMapSwitcher from "../../../../components/common/BaseMapSwitcher";
 import GeomanControl from "../../../../components/common/GeomanControl";
@@ -26,9 +16,6 @@ import {
   PrintControl,
 } from "../../../../components";
 import SelectedFeaturesLayer from "../../../../components/map/SelectedFeaturesLayer";
-
-
-
 
 const MapPanel = memo(() => {
   // read layers & viewport from redux
@@ -53,7 +40,7 @@ const MapPanel = memo(() => {
 
   // build panes from sorted list (deterministic zIndex per index)
   const panes = useMemo(() => {
-    const base = 400; // overlay pane base zIndex
+    const base = PANE_ZINDEX.OVERLAY_BASE;
     return sortedLayers.map((l, idx) => ({
       name: `pane-layer-${l.layerId}`,
       zIndex: base + idx,
@@ -102,7 +89,12 @@ const MapPanel = memo(() => {
 
         {/* Selected features on a very top pane */}
         <PaneCreator
-          panes={[{ name: "pane-selected-features", zIndex: 10000 }]}
+          panes={[
+            {
+              name: "pane-selected-features",
+              zIndex: PANE_ZINDEX.SELECTED_FEATURES,
+            },
+          ]}
         />
         <SelectedFeaturesLayer />
 

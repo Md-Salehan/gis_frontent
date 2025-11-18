@@ -155,28 +155,7 @@ function AttributeTable() {
         const idx = Number(idxStr);
         const feature = features[idx];
         if (feature) {
-          // Extract lat/long for point geometries
-          let latitude = null;
-          let longitude = null;
-          let isPoint = false;
-
-          if (
-            feature.geometry?.type === "Point" &&
-            feature.geometry?.coordinates
-          ) {
-            const [lng, lat] = feature.geometry.coordinates;
-            longitude = lng;
-            latitude = lat;
-            isPoint = true;
-          }
-
-          selected.push({
-            layerId,
-            properties: feature.properties || {},
-            latitude,
-            longitude,
-            isPoint,
-          });
+          selected.push({ layerId, properties: feature.properties || {} });
         }
       });
     });
@@ -186,15 +165,8 @@ function AttributeTable() {
       return;
     }
 
-    // Check if any selected feature is a point
-    const hasPointFeatures = selected.some((s) => s.isPoint);
-
     // build headers (union of all property keys)
     const headersSet = new Set();
-    if (hasPointFeatures) {
-      headersSet.add("latitude");
-      headersSet.add("longitude");
-    }
     selected.forEach((s) => {
       Object.keys(s.properties).forEach((k) => headersSet.add(k));
     });
@@ -210,12 +182,9 @@ function AttributeTable() {
     const csvRows = [];
     csvRows.push(headers.join(","));
     selected.forEach((s) => {
-      const row = headers.map((h) => {
-        if (h === "layerId") return escapeCell(s.layerId);
-        if (h === "latitude") return escapeCell(s.latitude);
-        if (h === "longitude") return escapeCell(s.longitude);
-        return escapeCell(s.properties[h]);
-      });
+      const row = headers.map((h) =>
+        h === "layerId" ? escapeCell(s.layerId) : escapeCell(s.properties[h])
+      );
       csvRows.push(row.join(","));
     });
 

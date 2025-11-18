@@ -1,8 +1,9 @@
-import { TOOLTIP_CONFIG, DEFAULT_LABEL_STYLE } from "../constants";
+import { POPUP_CONFIG } from "../constants";
 
 /**
  * Generate HTML table from feature properties
  * @param {Object} properties - Feature properties
+ * @param {string} title - Table title
  * @returns {string} HTML table string
  */
 const generatePropertiesTable = (properties = {}, title) => {
@@ -35,19 +36,15 @@ const generatePropertiesTable = (properties = {}, title) => {
 };
 
 /**
- * Bind tooltip to a Leaflet layer
+ * Bind popup to a Leaflet layer
  * @param {Object} layer - Leaflet layer object
  * @param {Object} properties - Feature properties object
+ * @param {string} title - Popup title
  */
 export const bindTooltip = (layer, properties = {}, title = "") => {
   if (properties && Object.keys(properties).length > 0) {
     const tableHtml = generatePropertiesTable(properties, title);
-    layer.bindPopup(tableHtml, {
-      ...TOOLTIP_CONFIG,
-      maxWidth: 450,
-      maxHeight: 400,
-      className: "custom-popup",
-    });
+    layer.bindPopup(tableHtml, POPUP_CONFIG);
   }
 };
 
