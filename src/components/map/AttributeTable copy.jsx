@@ -114,7 +114,61 @@ function AttributeTable() {
     });
   }, []);
 
+  // Fit map to combined bounds of all multi-selected features
+  const fitToMultiSelectedBounds = useCallback(() => {
+    if (!map || !multiSelected || Object.keys(multiSelected).length === 0) {
+      return;
+    }
+
+    try {
+      let combinedBounds = null;
+
+      Object.entries(multiSelected).forEach(([layerId, keySet]) => {
+        const features = geoJsonLayers[layerId]?.geoJsonData?.features || [];
+        Array.from(keySet || []).forEach((rowKey) => {
+          const parts = rowKey.split("-");
+          const idxStr = parts[parts.length - 1];
+          const idx = Number(idxStr);
+          const feature = features[idx];
+
+          if (feature) {
+            try {
+              const layer = L.geoJSON(feature);
+              const bounds = layer.getBounds();
+
+              if (bounds && bounds.isValid && bounds.isValid()) {
+                if (!combinedBounds) {
+                  combinedBounds = bounds;
+                } else {
+                  combinedBounds.extend(bounds);
+                }
+              }
+            } catch (error) {
+              console.error(`Error processing feature at ${idx}:`, error);
+            }
+          }
+        });
+      });
+
+      // Fit map to combined bounds if valid
+      if (
+        combinedBounds &&
+        combinedBounds.isValid &&
+        combinedBounds.isValid()
+      ) {
+        map.flyToBounds(combinedBounds, {
+          padding: [10, 10],
+          maxZoom: 16,
+          duration: 0.7,
+        });
+      }
+    } catch (error) {
+      console.error("Error fitting to multi-selected bounds:", error);
+    }
+  }, [map, multiSelected, geoJsonLayers]);
+
   // sync multiSelected -> redux so SelectedFeaturesLayer can render them
+  // and fit map to combined bounds
   useEffect(() => {
     const multiFeatures = [];
     Object.entries(multiSelected).forEach(([layerId, keySet]) => {
@@ -134,7 +188,12 @@ function AttributeTable() {
     console.log(multiFeatures, "selectedFeature2");
 
     dispatch(setMultiSelectedFeatures(multiFeatures));
-  }, [multiSelected, geoJsonLayers, dispatch]);
+
+    // Fit map to combined bounds of all selected features
+    if (multiFeatures.length > 0) {
+      fitToMultiSelectedBounds();
+    }
+  }, [multiSelected, geoJsonLayers, dispatch, fitToMultiSelectedBounds]);
 
   // Prepare minimal list of layers (memoized)
   const layerEntries = useMemo(() => {
@@ -155,7 +214,28 @@ function AttributeTable() {
         const idx = Number(idxStr);
         const feature = features[idx];
         if (feature) {
-          selected.push({ layerId, properties: feature.properties || {} });
+          // Extract lat/long for point geometries
+          let latitude = null;
+          let longitude = null;
+          let isPoint = false;
+
+          if (
+            feature.geometry?.type === "Point" &&
+            feature.geometry?.coordinates
+          ) {
+            const [lng, lat] = feature.geometry.coordinates;
+            longitude = lng;
+            latitude = lat;
+            isPoint = true;
+          }
+
+          selected.push({
+            layerId,
+            properties: feature.properties || {},
+            latitude,
+            longitude,
+            isPoint,
+          });
         }
       });
     });
@@ -165,8 +245,15 @@ function AttributeTable() {
       return;
     }
 
+    // Check if any selected feature is a point
+    const hasPointFeatures = selected.some((s) => s.isPoint);
+
     // build headers (union of all property keys)
     const headersSet = new Set();
+    if (hasPointFeatures) {
+      headersSet.add("latitude");
+      headersSet.add("longitude");
+    }
     selected.forEach((s) => {
       Object.keys(s.properties).forEach((k) => headersSet.add(k));
     });
@@ -182,9 +269,12 @@ function AttributeTable() {
     const csvRows = [];
     csvRows.push(headers.join(","));
     selected.forEach((s) => {
-      const row = headers.map((h) =>
-        h === "layerId" ? escapeCell(s.layerId) : escapeCell(s.properties[h])
-      );
+      const row = headers.map((h) => {
+        if (h === "layerId") return escapeCell(s.layerId);
+        if (h === "latitude") return escapeCell(s.latitude);
+        if (h === "longitude") return escapeCell(s.longitude);
+        return escapeCell(s.properties[h]);
+      });
       csvRows.push(row.join(","));
     });
 
@@ -291,7 +381,6 @@ function AttributeTable() {
     getColumns,
     getTableData,
     handleRowSelection,
-    // handleRowClick,
     multiSelected,
     toggleMultiSelect,
   ]);

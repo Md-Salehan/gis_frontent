@@ -31,7 +31,7 @@ export const MULTI_SELECTED_FEATURE_STYLE = {
   color: "#ffbf00",
   weight: 2,
   opacity: 0.9,
-  fillColor: "#fff7cc",
+  fillColor: "#ffbf00",
   fillOpacity: 0.6,
 };
 
@@ -40,7 +40,7 @@ export const MULTI_SELECTED_CIRCLE_MARKER_STYLE = {
   color: "#ffbf00",
   weight: 2,
   opacity: 0.9,
-  fillColor: "#fff7cc",
+  fillColor: "##ffbf00",
   fillOpacity: 0.6,
 };
 

@@ -11,13 +11,20 @@ import CustomDrawer from "../common/CustomDrawer";
 import L from "leaflet";
 import { useMap } from "react-leaflet";
 
+// Constants
+const DEBUG = process.env.NODE_ENV === "development";
+const MAP_FIT_OPTIONS = {
+  padding: [50, 50],
+  maxZoom: 16,
+  duration: 0.7,
+};
+
 function AttributeTable() {
   const dispatch = useDispatch();
   const map = useMap();
 
   const [activeTab, setActiveTab] = useState(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState({});
-  // multi-select state: { [layerId]: Set<rowKey> }
   const [multiSelected, setMultiSelected] = useState({});
 
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
@@ -25,7 +32,30 @@ function AttributeTable() {
     (state) => state.ui.isAttributeTableOpen
   );
 
-  // Generate table columns from properties (returns columns for properties only)
+  // ============================================
+  // Utility: Parse row key to feature index
+  // ============================================
+  const parseRowKeyToIndex = useCallback((rowKey) => {
+    const parts = rowKey.split("-");
+    const idxStr = parts[parts.length - 1];
+    return Number(idxStr);
+  }, []);
+
+  // ============================================
+  // Get feature by layerId and rowKey
+  // ============================================
+  const getFeatureByRowKey = useCallback(
+    (layerId, rowKey) => {
+      const features = geoJsonLayers[layerId]?.geoJsonData?.features || [];
+      const idx = parseRowKeyToIndex(rowKey);
+      return features[idx] || null;
+    },
+    [geoJsonLayers, parseRowKeyToIndex]
+  );
+
+  // ============================================
+  // Table Utilities
+  // ============================================
   const getColumns = useCallback((properties) => {
     if (!properties || Object.keys(properties).length === 0) return [];
 
@@ -42,7 +72,6 @@ function AttributeTable() {
     }));
   }, []);
 
-  // Generate table data from features
   const getTableData = useCallback((features, layerId) => {
     if (!features || features.length === 0) return [];
 
@@ -53,10 +82,11 @@ function AttributeTable() {
     }));
   }, []);
 
-  // Handle row selection with single selection mode
+  // ============================================
+  // Selection Handlers
+  // ============================================
   const handleRowSelection = useCallback(
     (selectedKeys, selectedRows, layerId) => {
-      // single selection logic preserved
       const newSelectedRowKeys = {};
 
       if (selectedKeys.length > 0) {
@@ -67,7 +97,7 @@ function AttributeTable() {
           geoJsonLayers[layerId]?.geoJsonData.features[
             selectedRow.featureIndex
           ];
-        console.log(selectedFeature, "selectedFeature1");
+
         if (selectedFeature) {
           dispatch(
             setSelectedFeature({
@@ -81,11 +111,7 @@ function AttributeTable() {
               const layer = L.geoJSON(selectedFeature);
               const bounds = layer.getBounds();
               if (bounds && bounds.isValid && bounds.isValid()) {
-                map.flyToBounds(bounds, {
-                  padding: [50, 50],
-                  maxZoom: 16,
-                  duration: 0.7,
-                });
+                map.flyToBounds(bounds, MAP_FIT_OPTIONS);
               }
             } catch (error) {
               console.error("Error fitting bounds:", error);
@@ -101,7 +127,6 @@ function AttributeTable() {
     [dispatch, geoJsonLayers, map]
   );
 
-  // Handle multi-select toggle for the custom column
   const toggleMultiSelect = useCallback((layerId, rowKey, checked) => {
     setMultiSelected((prev) => {
       const layerSet = new Set(prev[layerId] ? Array.from(prev[layerId]) : []);
@@ -114,48 +139,96 @@ function AttributeTable() {
     });
   }, []);
 
-  // sync multiSelected -> redux so SelectedFeaturesLayer can render them
+  // ============================================
+  // Map Bounds Fitting
+  // ============================================
+  const fitToMultiSelectedBounds = useCallback(() => {
+    if (!map) {
+      DEBUG && console.warn("Map instance not available");
+      return;
+    }
+
+    if (!multiSelected || Object.keys(multiSelected).length === 0) {
+      return;
+    }
+
+    try {
+      let combinedBounds = null;
+
+      Object.entries(multiSelected).forEach(([layerId, keySet]) => {
+        const features = geoJsonLayers[layerId]?.geoJsonData?.features || [];
+        Array.from(keySet || []).forEach((rowKey) => {
+          const idx = parseRowKeyToIndex(rowKey);
+          const feature = features[idx];
+
+          if (feature) {
+            try {
+              const layer = L.geoJSON(feature);
+              const bounds = layer.getBounds();
+
+              if (bounds?.isValid?.()) {
+                if (!combinedBounds) {
+                  combinedBounds = bounds;
+                } else {
+                  combinedBounds.extend(bounds);
+                }
+              }
+            } catch (error) {
+              console.error(`Error processing feature at ${idx}:`, error);
+            }
+          }
+        });
+      });
+
+      if (combinedBounds?.isValid?.()) {
+        map.flyToBounds(combinedBounds, MAP_FIT_OPTIONS);
+      }
+    } catch (error) {
+      console.error("Error fitting to multi-selected bounds:", error);
+    }
+  }, [map, multiSelected, geoJsonLayers, parseRowKeyToIndex]);
+
+  // ============================================
+  // Redux Sync & Auto-fit
+  // ============================================
   useEffect(() => {
     const multiFeatures = [];
     Object.entries(multiSelected).forEach(([layerId, keySet]) => {
       const features = geoJsonLayers[layerId]?.geoJsonData?.features || [];
       const metaData = geoJsonLayers[layerId]?.metaData || {};
       Array.from(keySet || []).forEach((rowKey) => {
-        const parts = rowKey.split("-");
-        const idxStr = parts[parts.length - 1];
-        const idx = Number(idxStr);
+        const idx = parseRowKeyToIndex(rowKey);
         const feature = features[idx];
         if (feature) {
-          // include layerId to allow downstream logic if needed
           multiFeatures.push({ layerId, feature, metaData });
         }
       });
     });
-    console.log(multiFeatures, "selectedFeature2");
+
+    DEBUG && console.log("multiFeatures:", multiFeatures);
 
     dispatch(setMultiSelectedFeatures(multiFeatures));
-  }, [multiSelected, geoJsonLayers, dispatch]);
 
-  // Prepare minimal list of layers (memoized)
-  const layerEntries = useMemo(() => {
-    return Object.entries(geoJsonLayers || {}).filter(
-      ([_, layerData]) => layerData && layerData?.geoJsonData?.features
-    );
-  }, [geoJsonLayers]);
+    if (multiFeatures.length > 0) {
+      fitToMultiSelectedBounds();
+    }
+  }, [
+    multiSelected,
+    geoJsonLayers,
+    dispatch,
+    fitToMultiSelectedBounds,
+    parseRowKeyToIndex,
+  ]);
 
-  // CSV export for all multi-selected features across layers
+  // ============================================
+  // CSV Export
+  // ============================================
   const exportSelectedToCSV = useCallback(() => {
-    // collect selected features
     const selected = [];
     Object.entries(multiSelected).forEach(([layerId, keySet]) => {
-      const features = geoJsonLayers[layerId]?.geoJsonData?.features || [];
       Array.from(keySet || []).forEach((rowKey) => {
-        const parts = rowKey.split("-");
-        const idxStr = parts[parts.length - 1];
-        const idx = Number(idxStr);
-        const feature = features[idx];
+        const feature = getFeatureByRowKey(layerId, rowKey);
         if (feature) {
-          // Extract lat/long for point geometries
           let latitude = null;
           let longitude = null;
           let isPoint = false;
@@ -186,11 +259,9 @@ function AttributeTable() {
       return;
     }
 
-    // Check if any selected feature is a point
     const hasPointFeatures = selected.some((s) => s.isPoint);
 
-    // build headers (union of all property keys)
-    const headersSet = new Set();
+    const headersSet = new Set(["layerId"]);
     if (hasPointFeatures) {
       headersSet.add("latitude");
       headersSet.add("longitude");
@@ -198,17 +269,15 @@ function AttributeTable() {
     selected.forEach((s) => {
       Object.keys(s.properties).forEach((k) => headersSet.add(k));
     });
-    const headers = ["layerId", ...Array.from(headersSet)];
+    const headers = Array.from(headersSet);
 
-    // build CSV rows
     const escapeCell = (v) => {
       if (v === undefined || v === null) return "";
       const s = String(v).replace(/"/g, '""');
       return `"${s}"`;
     };
 
-    const csvRows = [];
-    csvRows.push(headers.join(","));
+    const csvRows = [headers.join(",")];
     selected.forEach((s) => {
       const row = headers.map((h) => {
         if (h === "layerId") return escapeCell(s.layerId);
@@ -232,9 +301,11 @@ function AttributeTable() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-  }, [multiSelected, geoJsonLayers]);
+  }, [multiSelected, getFeatureByRowKey]);
 
-  // Add validation helper
+  // ============================================
+  // Styling
+  // ============================================
   const getRowBackgroundColor = useCallback(
     (record, layerId) => {
       const isMultiSelected = multiSelected[layerId]?.has(record.key);
@@ -247,7 +318,15 @@ function AttributeTable() {
     [multiSelected, selectedRowKeys]
   );
 
-  // Build Tabs items but only render Table for the active tab (lazy)
+  // ============================================
+  // Tab Configuration
+  // ============================================
+  const layerEntries = useMemo(() => {
+    return Object.entries(geoJsonLayers || {}).filter(
+      ([_, layerData]) => layerData?.geoJsonData?.features
+    );
+  }, [geoJsonLayers]);
+
   const tabs = useMemo(() => {
     return layerEntries.map(([layerId, layerData]) => {
       const label = layerData?.metaData?.layer?.layer_nm || layerId;
@@ -260,17 +339,13 @@ function AttributeTable() {
           handleRowSelection(selectedKeys, selectedRows, layerId),
       };
 
-      // custom select column (checkboxes) for multi-select
       const selectColumn = {
         title: "Select",
         key: `${layerId}-select`,
         width: 80,
         fixed: "left",
         render: (text, record) => {
-          const checked =
-            (multiSelected[layerId] &&
-              multiSelected[layerId].has(record.key)) ||
-            false;
+          const checked = multiSelected[layerId]?.has(record.key) || false;
           return (
             <Checkbox
               checked={checked}
@@ -288,7 +363,6 @@ function AttributeTable() {
 
       const columns = [selectColumn, ...propertyColumns];
 
-      // Only create the heavy Table when this tab is active
       const children =
         activeTab === layerId ? (
           <Table
@@ -300,7 +374,6 @@ function AttributeTable() {
             size="small"
             pagination={{ pageSize: 5 }}
             onRow={(record) => ({
-              // onClick: () => handleRowClick(record, layerId),
               style: {
                 cursor: "pointer",
                 backgroundColor: getRowBackgroundColor(record, layerId),
@@ -322,12 +395,14 @@ function AttributeTable() {
     getColumns,
     getTableData,
     handleRowSelection,
-    // handleRowClick,
     multiSelected,
     toggleMultiSelect,
+    getRowBackgroundColor,
   ]);
 
-  // Ensure there's a sensible default active tab
+  // ============================================
+  // Lifecycle
+  // ============================================
   useEffect(() => {
     if (!activeTab && tabs.length > 0) {
       setActiveTab(tabs[0].key);
@@ -338,19 +413,17 @@ function AttributeTable() {
     dispatch(toggleAttributeTable());
   }, [dispatch]);
 
-  // Clear selection when changing tabs
   const handleTabChange = useCallback(
     (activeKey) => {
       setActiveTab(activeKey);
       setSelectedRowKeys({});
-      setMultiSelected({}); // clear multi-select on tab change for clarity
+      setMultiSelected({});
       dispatch(setSelectedFeature({ feature: [], metaData: null }));
-      dispatch(setMultiSelectedFeatures([])); // clear multi-selected in redux
+      dispatch(setMultiSelectedFeatures([]));
     },
     [dispatch]
   );
 
-  // Clear selection when drawer closes
   const handleAfterDrawerClose = useCallback(() => {
     setSelectedRowKeys({});
     setMultiSelected({});
@@ -358,6 +431,9 @@ function AttributeTable() {
     dispatch(setMultiSelectedFeatures([]));
   }, [dispatch]);
 
+  // ============================================
+  // Render
+  // ============================================
   return (
     <CustomDrawer
       title="Attribute Table"
@@ -372,7 +448,6 @@ function AttributeTable() {
       height="40vh"
       mask={false}
     >
-      {/* top-right download button */}
       <div
         style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}
       >
@@ -393,8 +468,8 @@ function AttributeTable() {
           items={tabs}
           onChange={handleTabChange}
           activeKey={activeTab}
-          destroyOnHidden={true} // unmount inactive panes
-          animated={false} // disable animation for snappier switch
+          destroyOnHidden={true}
+          animated={false}
         />
       )}
     </CustomDrawer>
