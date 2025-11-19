@@ -48,8 +48,8 @@ const SelectedFeaturesLayer = memo(() => {
   const hasMulti = multiSelectedFeatures && multiSelectedFeatures.length > 0;
 
   const singleKey = useMemo(
-    () => `selected-single-${selectedFeature?.length || 0}`,
-    [selectedFeature?.length]
+    () => `selected-single-${selectedFeatureMetadata?.selectedKeys }`,
+    [selectedFeatureMetadata]
   );
 
   const multiKey = useMemo(

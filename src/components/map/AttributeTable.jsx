@@ -102,7 +102,10 @@ function AttributeTable() {
           dispatch(
             setSelectedFeature({
               feature: [selectedFeature],
-              metaData: geoJsonLayers[layerId]?.metaData,
+              metaData: {
+                ...geoJsonLayers[layerId]?.metaData,
+                selectedKeys,
+              },
             })
           );
 
