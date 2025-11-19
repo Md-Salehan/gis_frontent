@@ -34,10 +34,7 @@ const SelectedFeaturesLayer = memo(() => {
   const onEachFeature = useCallback(
     (feature, layer) => {
       if (feature.properties) {
-        const title =
-          feature.properties[
-            selectedFeatureMetadata?.portal_layer_map?.label_text_col_nm
-          ] || "";
+        const title = "Tooltip";
         bindTooltip(layer, feature.properties, title);
       }
     },
@@ -48,7 +45,7 @@ const SelectedFeaturesLayer = memo(() => {
   const hasMulti = multiSelectedFeatures && multiSelectedFeatures.length > 0;
 
   const singleKey = useMemo(
-    () => `selected-single-${selectedFeatureMetadata?.selectedKeys }`,
+    () => `selected-single-${selectedFeatureMetadata?.selectedKeys}`,
     [selectedFeatureMetadata]
   );
 

@@ -42,7 +42,7 @@ export const uiSlice = createSlice({
     toggleMeasure: (state) => {
       state.isMeasureOpen = !state.isMeasureOpen;
     },
-    // toggle print modal
+    // toggle print modal 
     togglePrintModal: (state) => {
       state.isPrintModalOpen = !state.isPrintModalOpen;
     },

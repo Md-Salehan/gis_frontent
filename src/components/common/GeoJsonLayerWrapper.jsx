@@ -18,7 +18,7 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
 
   // Memoize style function
   const style = useCallback((feature) => {
-    const props = feature?.properties || {};
+    const props = metaData?.style || {};
 
     // Get styles from properties
     const customStyle = {
@@ -56,9 +56,8 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
   const onEachFeature = useCallback(
     (feature, layer) => {
       if (feature.properties) {
-        const title =
-          feature.properties[metaData?.portal_layer_map?.label_text_col_nm] ||
-          "";
+        const title = "Tooltip"
+          
         bindTooltip(layer, feature.properties, title);
       }
 
@@ -104,7 +103,7 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
 
   const pointToLayer = useCallback(
     (feature, latlng) => {
-      const props = feature.properties || {};
+      const props = metaData?.style || {};
       const iconName = props.marker_fa_icon_name;
       const markerSize = Number(props.marker_size) || 18; // px
       const markerColor = props.marker_color || "#2c3e50";

@@ -1,6 +1,15 @@
 // MeasureControl.jsx
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Drawer, Select, Space, Typography, Divider, Button, Tooltip, Alert } from "antd";
+import {
+  Drawer,
+  Select,
+  Space,
+  Typography,
+  Divider,
+  Button,
+  Tooltip,
+  Alert,
+} from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { useMap } from "react-leaflet";
 import L from "leaflet";
@@ -20,9 +29,14 @@ const useLineMeasurement = () => {
   const [measurementResult, setMeasurementResult] = useState(null);
 
   // Use refs for all mutable values
-  const measuredLinesRef = useRef([]);
+  // const measuredLinesRef = useRef([]);
   const currentLayerRef = useRef(null);
   const isMountedRef = useRef(true);
+
+  // Keep references to handlers so we can remove only those
+  const clickHandlerRef = useRef(null);
+  const dblClickHandlerRef = useRef(null);
+  const keydownHandlerRef = useRef(null);
 
   // Set mounted flag
   useEffect(() => {
@@ -60,28 +74,28 @@ const useLineMeasurement = () => {
   // Format measurement results
   const formatMeasurement = useCallback((value, unit) => {
     const roundedValue = Math.round(value * 100) / 100;
-    
+
     switch (unit) {
       case "km":
         return {
           value: roundedValue,
           unit: "km",
           full: `${roundedValue} km`,
-          rawValue: value
+          rawValue: value,
         };
       case "mi":
         return {
           value: roundedValue,
           unit: "mi",
           full: `${roundedValue} miles`,
-          rawValue: value
+          rawValue: value,
         };
       default: // meters
         return {
           value: roundedValue,
           unit: "m",
           full: `${roundedValue} meters`,
-          rawValue: value
+          rawValue: value,
         };
     }
   }, []);
@@ -91,8 +105,14 @@ const useLineMeasurement = () => {
     (layer, latLngs) => {
       if (latLngs.length > 1) {
         const distanceInMeters = calculateDistance(latLngs);
-        const convertedDistance = convertToUnit(distanceInMeters, measure?.unit || "km");
-        const formatted = formatMeasurement(convertedDistance, measure?.unit || "km");
+        const convertedDistance = convertToUnit(
+          distanceInMeters,
+          measure?.unit || "km"
+        );
+        const formatted = formatMeasurement(
+          convertedDistance,
+          measure?.unit || "km"
+        );
         const lastPoint = latLngs[latLngs.length - 1];
 
         if (layer.getTooltip()) {
@@ -114,12 +134,22 @@ const useLineMeasurement = () => {
     [calculateDistance, formatMeasurement, convertToUnit, measure?.unit]
   );
 
-  // Clean up measurement resources
+  // Clean up measurement resources (only remove handlers added by this hook)
   const cleanupMeasurement = useCallback(
     (removeCurrentLayer = false) => {
-      // Remove event listeners from map
-      map.off("click");
-      map.off("dblclick");
+      // Remove only handlers we added
+      if (clickHandlerRef.current) {
+        map.off("click", clickHandlerRef.current);
+        clickHandlerRef.current = null;
+      }
+      if (dblClickHandlerRef.current) {
+        map.off("dblclick", dblClickHandlerRef.current);
+        dblClickHandlerRef.current = null;
+      }
+      if (keydownHandlerRef.current) {
+        document.removeEventListener("keydown", keydownHandlerRef.current);
+        keydownHandlerRef.current = null;
+      }
 
       // Remove current measurement layer if specified
       if (
@@ -132,7 +162,11 @@ const useLineMeasurement = () => {
       }
 
       // Reset cursor
-      map.getContainer().style.cursor = "";
+      try {
+        map.getContainer().style.cursor = "";
+      } catch (err) {
+        // ignore if map container not available
+      }
     },
     [map]
   );
@@ -147,12 +181,8 @@ const useLineMeasurement = () => {
           currentLayerRef.current = null;
         }
 
-        // Clean up event listeners
-        map.off("click");
-        map.off("dblclick");
-
-        // Reset cursor
-        map.getContainer().style.cursor = "";
+        // Clean up event listeners we added
+        cleanupMeasurement(false);
 
         // Update state
         if (isMountedRef.current) {
@@ -161,7 +191,7 @@ const useLineMeasurement = () => {
         }
       }
     },
-    [map]
+    [map, cleanupMeasurement]
   );
 
   const stopMeasuring = useCallback(() => {
@@ -176,12 +206,12 @@ const useLineMeasurement = () => {
     cleanupMeasurement(true);
 
     // Remove all measured lines from map
-    measuredLinesRef.current.forEach((line) => {
-      if (line && map.hasLayer(line)) {
-        map.removeLayer(line);
-      }
-    });
-    measuredLinesRef.current = [];
+    // measuredLinesRef.current.forEach((line) => {
+    //   if (line && map.hasLayer(line)) {
+    //     map.removeLayer(line);
+    //   }
+    // });
+    // measuredLinesRef.current = [];
 
     if (isMountedRef.current) {
       setMeasurementResult(null);
@@ -195,19 +225,25 @@ const useLineMeasurement = () => {
     setIsMeasuring(true);
     setMeasurementResult(null);
 
-    // Clean up any existing measurement first
-    map.off("click");
-    map.off("dblclick");
-    document.removeEventListener("keydown", handleKeyDown);
+    // Clean up any existing handlers added by this hook
+    if (clickHandlerRef.current) {
+      map.off("click", clickHandlerRef.current);
+      clickHandlerRef.current = null;
+    }
+    if (dblClickHandlerRef.current) {
+      map.off("dblclick", dblClickHandlerRef.current);
+      dblClickHandlerRef.current = null;
+    }
+    if (keydownHandlerRef.current) {
+      document.removeEventListener("keydown", keydownHandlerRef.current);
+      keydownHandlerRef.current = null;
+    }
 
     // Remove current measurement layer if exists
     if (currentLayerRef.current && map.hasLayer(currentLayerRef.current)) {
       map.removeLayer(currentLayerRef.current);
       currentLayerRef.current = null;
     }
-
-    // Reset cursor
-    map.getContainer().style.cursor = "";
 
     // Create line layer for measurement
     const layerOptions = {
@@ -254,36 +290,54 @@ const useLineMeasurement = () => {
 
         if (finalLatLngs.length > 1) {
           const distanceInMeters = calculateDistance(finalLatLngs);
-          const convertedDistance = convertToUnit(distanceInMeters, measure?.unit || "km");
-          const formatted = formatMeasurement(convertedDistance, measure?.unit || "km");
+          const convertedDistance = convertToUnit(
+            distanceInMeters,
+            measure?.unit || "km"
+          );
+          const formatted = formatMeasurement(
+            convertedDistance,
+            measure?.unit || "km"
+          );
           const lastPoint = finalLatLngs[finalLatLngs.length - 1];
 
           // Make the line permanent
           currentLayerRef.current.setStyle({
             dashArray: null,
-            color: "#1890ff"
+            color: "#1890ff",
           });
 
-          currentLayerRef.current
-            .bindTooltip(formatted.full, {
-              permanent: true,
-              direction: "center",
-              className: "measure-tooltip",
-            })
-            .openTooltip(lastPoint);
+          // currentLayerRef.current
+          //   .bindTooltip(formatted.full, {
+          //     permanent: true,
+          //     direction: "center",
+          //     className: "measure-tooltip",
+          //   })
+          //   .openTooltip(lastPoint);
 
           if (isMountedRef.current) {
             setMeasurementResult(formatted);
           }
 
-          // Store the measured line to keep it visible
-          measuredLinesRef.current.push(currentLayerRef.current);
+          // // Store the measured line to keep it visible
+          // measuredLinesRef.current.push(currentLayerRef.current);
 
           // Stop measuring but keep the line visible
-          map.off("click", handleClick);
-          map.off("dblclick", handleDoubleClick);
-          document.removeEventListener("keydown", handleKeyDown);
-          map.getContainer().style.cursor = "";
+          if (clickHandlerRef.current) {
+            map.off("click", clickHandlerRef.current);
+            clickHandlerRef.current = null;
+          }
+          if (dblClickHandlerRef.current) {
+            map.off("dblclick", dblClickHandlerRef.current);
+            dblClickHandlerRef.current = null;
+          }
+          if (keydownHandlerRef.current) {
+            document.removeEventListener("keydown", keydownHandlerRef.current);
+            keydownHandlerRef.current = null;
+          }
+
+          try {
+            map.getContainer().style.cursor = "";
+          } catch (err) {}
 
           if (isMountedRef.current) {
             setIsMeasuring(false);
@@ -298,19 +352,38 @@ const useLineMeasurement = () => {
       }
     };
 
+    // Store handlers in refs so they can be removed specifically later
+    clickHandlerRef.current = handleClick;
+    dblClickHandlerRef.current = handleDoubleClick;
+    keydownHandlerRef.current = handleKeyDown;
+
     // Add event listeners
     map.on("click", handleClick);
     map.on("dblclick", handleDoubleClick);
     document.addEventListener("keydown", handleKeyDown);
 
     // Update cursor
-    map.getContainer().style.cursor = "crosshair";
+    try {
+      map.getContainer().style.cursor = "crosshair";
+    } catch (err) {}
 
     // Store cleanup functions for this session
     const cleanupSession = () => {
-      map.off("click", handleClick);
-      map.off("dblclick", handleDoubleClick);
-      document.removeEventListener("keydown", handleKeyDown);
+      if (clickHandlerRef.current) {
+        map.off("click", clickHandlerRef.current);
+        clickHandlerRef.current = null;
+      }
+      if (dblClickHandlerRef.current) {
+        map.off("dblclick", dblClickHandlerRef.current);
+        dblClickHandlerRef.current = null;
+      }
+      if (keydownHandlerRef.current) {
+        document.removeEventListener("keydown", keydownHandlerRef.current);
+        keydownHandlerRef.current = null;
+      }
+      try {
+        map.getContainer().style.cursor = "";
+      } catch (err) {}
     };
 
     return cleanupSession;
@@ -321,7 +394,7 @@ const useLineMeasurement = () => {
     updateMeasurementDisplay,
     handleKeyDown,
     convertToUnit,
-    measure?.unit
+    measure?.unit,
   ]);
 
   // Effect to manage measurement lifecycle
@@ -342,9 +415,8 @@ const useLineMeasurement = () => {
     return () => {
       isMountedRef.current = false;
       cleanupMeasurement(true);
-      document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [cleanupMeasurement, handleKeyDown]);
+  }, [cleanupMeasurement]);
 
   return {
     startMeasuring: () => setIsMeasuring(true),
@@ -359,7 +431,7 @@ const MeasureControl = () => {
   const dispatch = useDispatch();
   const isOpen = useSelector((s) => s.ui.isMeasureOpen);
   const measure = useSelector((s) => s.map.measure);
-  
+
   const {
     startMeasuring,
     stopMeasuring,

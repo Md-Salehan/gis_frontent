@@ -1,6 +1,11 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
-import { Table, Tabs, Checkbox, Button, message } from "antd";
-import { DownloadOutlined } from "@ant-design/icons";
+import { Table, Tabs, Checkbox, Button, message, Space, Tooltip } from "antd";
+import {
+  DownloadOutlined,
+  EyeOutlined,
+  EyeInvisibleOutlined,
+  SearchOutlined,
+} from "@ant-design/icons";
 import { useSelector, useDispatch } from "react-redux";
 import { toggleAttributeTable } from "../../store/slices/uiSlice";
 import {
@@ -85,47 +90,39 @@ function AttributeTable() {
   // ============================================
   // Selection Handlers
   // ============================================
-  const handleRowSelection = useCallback(
-    (selectedKeys, selectedRows, layerId) => {
-      const newSelectedRowKeys = {};
+  const handleViewFeature = useCallback(
+    (record, layerId) => {
+      const selectedFeature =
+        geoJsonLayers[layerId]?.geoJsonData.features[record.featureIndex];
 
-      if (selectedKeys.length > 0) {
-        newSelectedRowKeys[layerId] = selectedKeys;
+      if (selectedFeature) {
+        dispatch(
+          setSelectedFeature({
+            feature: [selectedFeature],
+            metaData: {
+              ...geoJsonLayers[layerId]?.metaData,
+              selectedKeys: [record.key],
+            },
+          })
+        );
 
-        const selectedRow = selectedRows[0];
-        const selectedFeature =
-          geoJsonLayers[layerId]?.geoJsonData.features[
-            selectedRow.featureIndex
-          ];
-
-        if (selectedFeature) {
-          dispatch(
-            setSelectedFeature({
-              feature: [selectedFeature],
-              metaData: {
-                ...geoJsonLayers[layerId]?.metaData,
-                selectedKeys,
-              },
-            })
-          );
-
-          if (map) {
-            try {
-              const layer = L.geoJSON(selectedFeature);
-              const bounds = layer.getBounds();
-              if (bounds && bounds.isValid && bounds.isValid()) {
-                map.flyToBounds(bounds, MAP_FIT_OPTIONS);
-              }
-            } catch (error) {
-              console.error("Error fitting bounds:", error);
+        if (map) {
+          try {
+            const layer = L.geoJSON(selectedFeature);
+            const bounds = layer.getBounds();
+            if (bounds && bounds.isValid && bounds.isValid()) {
+              map.flyToBounds(bounds, MAP_FIT_OPTIONS);
             }
+          } catch (error) {
+            console.error("Error fitting bounds:", error);
           }
         }
-      } else {
-        dispatch(setSelectedFeature({ feature: [], metaData: null }));
-      }
 
-      setSelectedRowKeys(newSelectedRowKeys);
+        // Update selected row keys
+        setSelectedRowKeys({
+          [layerId]: [record.key],
+        });
+      }
     },
     [dispatch, geoJsonLayers, map]
   );
@@ -314,8 +311,8 @@ function AttributeTable() {
       const isMultiSelected = multiSelected[layerId]?.has(record.key);
       const isSingleSelected = selectedRowKeys[layerId]?.includes(record.key);
 
-      if (isMultiSelected) return "#fff7cc";
       if (isSingleSelected) return "#ffece6ff";
+      if (isMultiSelected) return "#fff7cc";
       return "white";
     },
     [multiSelected, selectedRowKeys]
@@ -334,12 +331,33 @@ function AttributeTable() {
     return layerEntries.map(([layerId, layerData]) => {
       const label = layerData?.metaData?.layer?.layer_nm || layerId;
 
-      const rowSelection = {
+      // ✅ NEW: Action column with view button instead of radio
+      const actionColumn = {
         title: "Find",
-        type: "radio",
-        selectedRowKeys: selectedRowKeys[layerId] || [],
-        onChange: (selectedKeys, selectedRows) =>
-          handleRowSelection(selectedKeys, selectedRows, layerId),
+        key: `${layerId}-action`,
+        width: 80,
+        fixed: "left",
+        render: (text, record) => {
+          const isSingleSelected = selectedRowKeys[layerId]?.includes(
+            record.key
+          );
+          return (
+            <Tooltip
+              title={
+                isSingleSelected
+                  ? "View feature on map (currently selected)"
+                  : "View feature on map"
+              }
+            >
+              <Button
+                type={isSingleSelected ? "primary" : "default"}
+                icon={<SearchOutlined />}
+                size="small"
+                onClick={() => handleViewFeature(record, layerId)}
+              />
+            </Tooltip>
+          );
+        },
       };
 
       const selectColumn = {
@@ -364,13 +382,13 @@ function AttributeTable() {
         layerData?.geoJsonData?.features[0]?.properties
       );
 
-      const columns = [selectColumn, ...propertyColumns];
+      // ✅ UPDATED: Replaced rowSelection with custom columns
+      const columns = [actionColumn, selectColumn, ...propertyColumns];
 
       const children =
         activeTab === layerId ? (
           <Table
             rowKey="key"
-            rowSelection={rowSelection}
             columns={columns}
             dataSource={getTableData(layerData?.geoJsonData?.features, layerId)}
             scroll={{ x: true, y: 600 }}
@@ -397,7 +415,7 @@ function AttributeTable() {
     selectedRowKeys,
     getColumns,
     getTableData,
-    handleRowSelection,
+    handleViewFeature,
     multiSelected,
     toggleMultiSelect,
     getRowBackgroundColor,
