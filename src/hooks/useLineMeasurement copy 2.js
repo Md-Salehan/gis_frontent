@@ -529,7 +529,7 @@ export const useLineMeasurement = () => {
     return () => {
       cleanupFunction?.();
     };
-  }, [isMeasuring, measure?.type]);
+  }, [isMeasuring, measure?.type, startLineMeasurement]);
 
   // Whenever the measurement unit changes, recompute and update the displayed
   // measurement (tooltip + measurementResult) for the current line — this

@@ -107,7 +107,6 @@ const MeasureControl = () => {
           value={measure?.unit || "km"}
           onChange={(val) => dispatch(setMeasureUnit(val))}
           style={{ width: "100%" }}
-          disabled={isMeasuring}
         >
           <Option value="m">meters (m)</Option>
           <Option value="km">kilometers (km)</Option>
