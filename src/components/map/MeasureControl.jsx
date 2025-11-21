@@ -18,51 +18,82 @@ import { setMeasureType, setMeasureUnit } from "../../store/slices/mapSlice";
 import CustomDrawer from "../common/CustomDrawer";
 import { Ruler, Square, X } from "lucide-react";
 import { useLineMeasurement } from "../../hooks";
+import useAreaMeasurement from "../../hooks/useAreaMeasurement";
 
 const { Text } = Typography;
 const { Option } = Select;
-
-
 
 const MeasureControl = () => {
   const dispatch = useDispatch();
   const isOpen = useSelector((s) => s.ui.isMeasureOpen);
   const measure = useSelector((s) => s.map.measure);
 
-  const {
-    startMeasuring,
-    stopMeasuring,
-    clearAllMeasurements,
-    isMeasuring,
-    measurementResult,
-  } = useLineMeasurement();
+  // both hooks available; we will use based on measure.type
+  const lineHook = useLineMeasurement();
+  const areaHook = useAreaMeasurement();
+
+  // pick relevant API depending on current measure.type
+  const activeHook = measure?.type === "area" ? areaHook : lineHook;
 
   const onClose = () => {
-    stopMeasuring();
+    // ensure any active measurement stops
+    lineHook.stopMeasuring();
+    areaHook.stopMeasuring();
     dispatch(toggleMeasure());
   };
 
   const handleMeasureTypeChange = (type) => {
-    if (isMeasuring) {
-      stopMeasuring();
-    }
+    // stop both before switching to avoid duplicate listeners
+    lineHook.stopMeasuring();
+    areaHook.stopMeasuring();
     dispatch(setMeasureType(type));
   };
 
   const handleStartMeasurement = () => {
     if (measure?.type === "line") {
-      if (isMeasuring) {
-        stopMeasuring();
+      if (lineHook.isMeasuring) {
+        lineHook.stopMeasuring();
       } else {
-        startMeasuring();
+        lineHook.startMeasuring();
+      }
+    } else if (measure?.type === "area") {
+      if (areaHook.isMeasuring) {
+        areaHook.stopMeasuring();
+      } else {
+        areaHook.startMeasuring();
       }
     }
-    // Area measurement will be implemented later
   };
 
   const handleClearMeasurements = () => {
-    clearAllMeasurements();
+    // clear both to be safe
+    lineHook.clearAllMeasurements();
+    areaHook.clearAllMeasurements();
   };
+
+  // unit options depend on measurement type
+  const renderUnitOptions = () => {
+    if (measure?.type === "area") {
+      return (
+        <>
+          <Option value="m2">m²</Option>
+          <Option value="km2">km²</Option>
+          <Option value="ha">hectares (ha)</Option>
+          <Option value="ac">acres (ac)</Option>
+        </>
+      );
+    }
+    return (
+      <>
+        <Option value="m">meters (m)</Option>
+        <Option value="km">kilometers (km)</Option>
+        <Option value="mi">miles (mi)</Option>
+      </>
+    );
+  };
+
+  const isMeasuring = activeHook?.isMeasuring;
+  const measurementResult = activeHook?.measurementResult;
 
   return (
     <CustomDrawer
@@ -88,12 +119,11 @@ const MeasureControl = () => {
             </Button>
           </Tooltip>
 
-          <Tooltip title="Area (measure polygon) - Coming Soon">
+          <Tooltip title="Area (measure polygon)">
             <Button
               type={measure?.type === "area" ? "primary" : "default"}
               icon={<Square size={16} />}
               onClick={() => handleMeasureTypeChange("area")}
-              disabled
             >
               Area
             </Button>
@@ -104,13 +134,11 @@ const MeasureControl = () => {
 
         <Text strong>Units</Text>
         <Select
-          value={measure?.unit || "km"}
+          value={measure?.unit || (measure?.type === "area" ? "m2" : "km")}
           onChange={(val) => dispatch(setMeasureUnit(val))}
           style={{ width: "100%" }}
         >
-          <Option value="m">meters (m)</Option>
-          <Option value="km">kilometers (km)</Option>
-          <Option value="mi">miles (mi)</Option>
+          {renderUnitOptions()}
         </Select>
 
         <Divider />
@@ -164,12 +192,53 @@ const MeasureControl = () => {
         )}
 
         {measure?.type === "area" && (
-          <Alert
-            message="Area Measurement"
-            description="Area measurement functionality will be implemented in the next phase."
-            type="warning"
-            showIcon
-          />
+          <>
+            <Space direction="vertical" style={{ width: "100%" }}>
+              <Button
+                type={isMeasuring ? "primary" : "default"}
+                onClick={handleStartMeasurement}
+                style={{ width: "100%" }}
+              >
+                {isMeasuring ? "Stop Measuring" : "Start Area Measurement"}
+              </Button>
+
+              {measurementResult && (
+                <Alert
+                  message={`Area: ${measurementResult.full}`}
+                  type="info"
+                  showIcon
+                />
+              )}
+
+              {(isMeasuring || measurementResult) && (
+                <Button
+                  icon={<X size={14} />}
+                  onClick={handleClearMeasurements}
+                  danger
+                  style={{ width: "100%" }}
+                >
+                  Clear Measurements
+                </Button>
+              )}
+            </Space>
+
+            {isMeasuring && (
+              <Alert
+                message="Measurement Instructions"
+                description={
+                  <Space direction="vertical" size="small">
+                    <Text>• Click on map to add polygon vertices</Text>
+                    <Text>
+                      • Double-click to finish (needs at least 3 points)
+                    </Text>
+                    <Text>• Press ESC to cancel</Text>
+                  </Space>
+                }
+                type="info"
+                showIcon
+              />
+            )}
+          </>
         )}
 
         <Divider />
