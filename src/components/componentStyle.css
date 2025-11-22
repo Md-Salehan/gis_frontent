@@ -203,3 +203,10 @@
   border: 1px solid #d1d5db;
   z-index: 10001 !important;
 }
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  width: auto !important;
+  padding: 0;
+  max-width: 450px;
+}

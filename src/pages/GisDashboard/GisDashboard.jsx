@@ -42,6 +42,7 @@ import {
   Eraser,
   Info,
   Printer,
+  Proportions,
   TableProperties,
 } from "lucide-react";
 import { initGeoman } from "../../utils/map/geoman-setup";
@@ -108,11 +109,11 @@ const GisDashboard = memo(() => {
       label: "Print",
       onClick: () => dispatch(togglePrintModal()),
     },
-    // {
-    //   key: "5",
-    //   icon: React.createElement(Download),
-    //   label: "Download",
-    // },
+    {
+      key: "5",
+      icon: React.createElement(Proportions),
+      label: "Buffer",
+    },
   ];
 
   const handleSiderCollapse = (collapsed) => {
@@ -138,7 +139,7 @@ const GisDashboard = memo(() => {
             align="middle"
             justify="space-between"
             wrap={false}
-            style={{ width: "100%" }}
+            style={{ width: "1000px" }}
           >
             <Col>
               <Space align="center" size={12}>

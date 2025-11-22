@@ -35,22 +35,7 @@ const SelectedFeaturesLayer = memo(() => {
     (feature, layer) => {
       if (feature.properties) {
         const title = "Tooltip";
-        const geometryType = feature.geometry?.type?.toLowerCase();
-        let coordinates = null;
-
-        // Extract coordinates for points
-        if (geometryType === "point" && feature.geometry?.coordinates) {
-          const [lng, lat] = feature.geometry.coordinates;
-          coordinates = L.latLng(lat, lng);
-        }
-
-        bindTooltip(
-          layer,
-          feature.properties,
-          title,
-          coordinates,
-          geometryType
-        );
+        bindTooltip(layer, feature.properties, title);
       }
     },
     [selectedFeatureMetadata]
