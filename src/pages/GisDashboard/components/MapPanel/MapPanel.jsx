@@ -16,6 +16,7 @@ import {
   PrintControl,
 } from "../../../../components";
 import SelectedFeaturesLayer from "../../../../components/map/SelectedFeaturesLayer";
+import BufferTool from "../../../../components/map/BufferTool";
 
 const MapPanel = memo(() => {
   // read layers & viewport from redux
@@ -104,6 +105,7 @@ const MapPanel = memo(() => {
         <AttributeTable />
         <MeasureControl />
         <PrintControl />
+        <BufferTool />
       </MapContainer>
     </div>
   );

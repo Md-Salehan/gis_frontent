@@ -49,6 +49,7 @@ import { initGeoman } from "../../utils/map/geoman-setup";
 import FooterBar from "./components/FooterBar";
 import {
   toggleAttributeTable,
+  toggleBuffer,
   toggleLegend,
   toggleMeasure,
   togglePrintModal,
@@ -113,6 +114,7 @@ const GisDashboard = memo(() => {
       key: "5",
       icon: React.createElement(Proportions),
       label: "Buffer",
+      onClick: () => dispatch(toggleBuffer()), 
     },
   ];
 
@@ -171,7 +173,14 @@ const GisDashboard = memo(() => {
                     mode="horizontal"
                     items={items}
                     selectable={false}
-                    style={{ borderBottom: "none", background: "transparent" }}
+                    style={{
+                      borderBottom: "none",
+                      background: "transparent",
+                      whiteSpace: "nowrap",
+                      overflow: "visible",
+                      display: "flex",
+                      gap: 8,
+                    }}
                   />
                 </div>
               </Space>
@@ -198,8 +207,6 @@ const GisDashboard = memo(() => {
           >
             <MapPanel />
           </div>
-
-          
         </Content>
 
         <FooterBar />

@@ -11,6 +11,7 @@ const initialState = {
   // measure panel visibility
   isMeasureOpen: false,
   isPrintModalOpen: false,
+  isBufferOpen: false,
   loadingMessage: null,
 };
 
@@ -46,6 +47,9 @@ export const uiSlice = createSlice({
     togglePrintModal: (state) => {
       state.isPrintModalOpen = !state.isPrintModalOpen;
     },
+    toggleBuffer: (state) => { // Add buffer toggle
+      state.isBufferOpen = !state.isBufferOpen;
+    },
     setLoadingMessage: (state, action) => {
       state.loadingMessage = action.payload;
     },
@@ -61,6 +65,7 @@ export const {
   toggleAttributeTable,
   toggleMeasure,
   togglePrintModal,
+  toggleBuffer,
   setLoadingMessage,
 } = uiSlice.actions;
 export default uiSlice.reducer;
