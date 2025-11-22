@@ -32,10 +32,34 @@ const { Option } = Select;
 const { Text, Title } = Typography;
 const { Panel } = Collapse;
 
-// Debounce utility function
+// Type definitions for better code clarity
+const BUFFER_OPTIONS = {
+  mergeBuffers: true,
+  highPrecision: false,
+  steps: 8
+};
+
+const FILTER_CRITERIA = {
+  layer: 'all',
+  distanceRange: [0, 10000],
+  geometryType: 'all'
+};
+
+const UNITS = [
+  { value: "meters", label: "Meters", conversion: 1 },
+  { value: "kilometers", label: "Kilometers", conversion: 1000 },
+  { value: "miles", label: "Miles", conversion: 1609.34 },
+  { value: "feet", label: "Feet", conversion: 0.3048 }
+];
+
+const VALID_GEOMETRY_TYPES = ['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon'];
+const MAX_FEATURES_DISPLAY = 100;
+const MAX_BUFFER_DISTANCE = 1000000;
+
+// Enhanced debounce utility with cancellation
 const debounce = (func, wait) => {
   let timeout;
-  return function executedFunction(...args) {
+  const debounced = function executedFunction(...args) {
     const later = () => {
       clearTimeout(timeout);
       func(...args);
@@ -43,7 +67,185 @@ const debounce = (func, wait) => {
     clearTimeout(timeout);
     timeout = setTimeout(later, wait);
   };
+  
+  debounced.cancel = () => {
+    clearTimeout(timeout);
+  };
+  
+  return debounced;
 };
+
+// Buffer Statistics Component
+const BufferStatistics = React.memo(({ bufferLayer, analysisResults }) => {
+  if (!bufferLayer) return null;
+
+  return (
+    <Card size="small" title="Buffer Statistics" style={{ marginBottom: 16 }}>
+      <Space direction="vertical" style={{ width: '100%' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Text>Area:</Text>
+          <Text strong>{(bufferLayer.properties.bufferArea / 1000000).toFixed(2)} km²</Text>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Text>Perimeter:</Text>
+          <Text strong>{bufferLayer.properties.bufferPerimeter.toFixed(2)} m</Text>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Text>Features in Buffer:</Text>
+          <Text strong>{analysisResults.length}</Text>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Text>Source Features:</Text>
+          <Text strong>{bufferLayer.properties.featureCount}</Text>
+        </div>
+      </Space>
+    </Card>
+  );
+});
+
+BufferStatistics.displayName = 'BufferStatistics';
+
+// Analysis Results Component
+const AnalysisResults = React.memo(({ 
+  results, 
+  filterCriteria, 
+  onFilterChange, 
+  onExport, 
+  onHighlight,
+  availableLayers,
+  availableGeometryTypes 
+}) => {
+  if (results.length === 0) return null;
+
+  const filteredResults = useMemo(() => {
+    return results.filter(result => {
+      const layerMatch = filterCriteria.layer === 'all' || 
+                        result.layerName === filterCriteria.layer;
+      const distanceMatch = result.distance >= filterCriteria.distanceRange[0] && 
+                           result.distance <= filterCriteria.distanceRange[1];
+      const geometryMatch = filterCriteria.geometryType === 'all' || 
+                           result.geometryType === filterCriteria.geometryType;
+      
+      return layerMatch && distanceMatch && geometryMatch;
+    });
+  }, [results, filterCriteria]);
+
+  return (
+    <Card 
+      size="small" 
+      title={
+        <Space>
+          <FilterOutlined />
+          <span>Proximity Analysis</span>
+          <Tag color="blue">{filteredResults.length} features</Tag>
+        </Space>
+      }
+      extra={
+        <Space>
+          <Button 
+            size="small" 
+            icon={<DownloadOutlined />}
+            onClick={onExport}
+          >
+            Export
+          </Button>
+          <Button size="small" onClick={onHighlight}>
+            Highlight
+          </Button>
+        </Space>
+      }
+    >
+      {/* Filter Controls */}
+      <Space direction="vertical" style={{ width: '100%', marginBottom: 16 }}>
+        <Select
+          size="small"
+          value={filterCriteria.layer}
+          onChange={(value) => onFilterChange('layer', value)}
+          style={{ width: '100%' }}
+          placeholder="Filter by layer"
+        >
+          <Option value="all">All Layers</Option>
+          {availableLayers.map(layer => (
+            <Option key={layer} value={layer}>{layer}</Option>
+          ))}
+        </Select>
+        
+        <Select
+          size="small"
+          value={filterCriteria.geometryType}
+          onChange={(value) => onFilterChange('geometryType', value)}
+          style={{ width: '100%' }}
+          placeholder="Filter by geometry type"
+        >
+          <Option value="all">All Geometry Types</Option>
+          {availableGeometryTypes.map(type => (
+            <Option key={type} value={type}>{type}</Option>
+          ))}
+        </Select>
+
+        <div>
+          <Text style={{ fontSize: 12 }}>
+            Distance Range: {filterCriteria.distanceRange[0].toFixed(0)} - {filterCriteria.distanceRange[1].toFixed(0)} meters
+          </Text>
+          <Slider
+            range
+            min={0}
+            max={filterCriteria.distanceRange[1]}
+            value={filterCriteria.distanceRange}
+            onChange={(value) => onFilterChange('distanceRange', value)}
+          />
+        </div>
+      </Space>
+
+      {/* Results List */}
+      <List
+        size="small"
+        dataSource={filteredResults.slice(0, MAX_FEATURES_DISPLAY)}
+        renderItem={(item, index) => (
+          <List.Item
+            actions={[
+              <Tag 
+                color={
+                  item.distanceCategory === 'Very Close' ? 'red' : 
+                  item.distanceCategory === 'Close' ? 'orange' : 'green'
+                }
+                size="small"
+              >
+                {item.distanceCategory}
+              </Tag>
+            ]}
+          >
+            <List.Item.Meta
+              title={
+                <Text ellipsis>
+                  {item.properties?.name || item.properties?.id || `Feature ${index + 1}`}
+                </Text>
+              }
+              description={
+                <Space direction="vertical" size={0}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {item.layerName} • {item.geometryType}
+                  </Text>
+                  <Text style={{ fontSize: 12 }}>
+                    Distance: {item.distance.toFixed(2)} meters
+                    {item.area && ` • Area: ${(item.area / 10000).toFixed(2)} ha`}
+                  </Text>
+                </Space>
+              }
+            />
+          </List.Item>
+        )}
+      />
+      {filteredResults.length > MAX_FEATURES_DISPLAY && (
+        <Text type="secondary" style={{ fontSize: 12, textAlign: "center", display: "block", marginTop: 8 }}>
+          Showing first {MAX_FEATURES_DISPLAY} of {filteredResults.length} features
+        </Text>
+      )}
+    </Card>
+  );
+});
+
+AnalysisResults.displayName = 'AnalysisResults';
 
 function BufferTool() {
   const dispatch = useDispatch();
@@ -56,24 +258,10 @@ function BufferTool() {
   const [bufferLayer, setBufferLayer] = useState(null);
   const [analysisResults, setAnalysisResults] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [bufferOptions, setBufferOptions] = useState({
-    mergeBuffers: true,
-    highPrecision: false,
-    steps: 8
-  });
-  const [filterCriteria, setFilterCriteria] = useState({
-    layer: 'all',
-    distanceRange: [0, 10000],
-    geometryType: 'all'
-  });
+  const [bufferOptions, setBufferOptions] = useState(BUFFER_OPTIONS);
+  const [filterCriteria, setFilterCriteria] = useState(FILTER_CRITERIA);
 
-  // Buffer configuration
-  const units = [
-    { value: "meters", label: "Meters", conversion: 1 },
-    { value: "kilometers", label: "Kilometers", conversion: 1000 },
-    { value: "miles", label: "Miles", conversion: 1609.34 },
-    { value: "feet", label: "Feet", conversion: 0.3048 }
-  ];
+  const debouncedAnalysisRef = useRef(null);
 
   // Get all features from active layers for analysis
   const allFeatures = useMemo(() => {
@@ -121,7 +309,7 @@ function BufferTool() {
     };
   }, [getSourceFeatures]);
 
-  // Input validation
+  // Enhanced input validation
   const validateInputs = useCallback((values) => {
     const { distance, unit } = values;
     
@@ -129,12 +317,79 @@ function BufferTool() {
       throw new Error("Buffer distance must be greater than 0");
     }
     
-    if (distance > 1000000) {
-      throw new Error("Buffer distance is too large. Maximum is 1,000,000");
+    if (distance > MAX_BUFFER_DISTANCE) {
+      throw new Error(`Buffer distance is too large. Maximum is ${MAX_BUFFER_DISTANCE}`);
     }
     
+    const sourceFeatures = getSourceFeatures();
+    if (!sourceFeatures || sourceFeatures.length === 0) {
+      throw new Error("Please select one or more features on the map");
+    }
+
+    // Validate geometry types
+    const invalidFeatures = sourceFeatures.filter(feature => 
+      !VALID_GEOMETRY_TYPES.includes(feature.geometry?.type)
+    );
+    
+    if (invalidFeatures.length > 0) {
+      throw new Error(`Unsupported geometry types: ${invalidFeatures.map(f => f.geometry?.type).join(', ')}`);
+    }
+
     return true;
+  }, [getSourceFeatures]);
+
+  // Enhanced distance calculation
+  const calculateMinDistance = useCallback((sourceFeatures, targetFeature) => {
+    let minDistance = Infinity;
+    
+    for (const source of sourceFeatures) {
+      try {
+        // Use pointOnFeature for more accurate distance calculation
+        const distance = turf.distance(
+          turf.pointOnFeature(source),
+          turf.pointOnFeature(targetFeature),
+          { units: 'kilometers' }
+        ) * 1000;
+        
+        minDistance = Math.min(minDistance, distance);
+      } catch (error) {
+        // Fallback to center points
+        try {
+          const sourceCenter = turf.center(source);
+          const featureCenter = turf.center(targetFeature);
+          const distance = turf.distance(sourceCenter, featureCenter, { units: 'kilometers' }) * 1000;
+          minDistance = Math.min(minDistance, distance);
+        } catch (fallbackError) {
+          console.warn("All distance calculation methods failed:", fallbackError);
+        }
+      }
+    }
+    
+    return minDistance;
   }, []);
+
+  // Create buffer for a single feature
+  const createBuffer = useCallback((feature, distanceInMeters) => {
+    try {
+      if (!feature.geometry) {
+        throw new Error("Feature has no geometry");
+      }
+      
+      const buffer = turf.buffer(feature, distanceInMeters / 1000, { 
+        units: 'kilometers',
+        steps: bufferOptions.highPrecision ? 64 : bufferOptions.steps
+      });
+      
+      if (!buffer) {
+        throw new Error("Buffer generation returned null");
+      }
+      
+      return buffer;
+    } catch (error) {
+      console.error(`Buffer creation failed for feature:`, feature, error);
+      throw new Error(`Failed to create buffer: ${error.message}`);
+    }
+  }, [bufferOptions]);
 
   // Generate buffer
   const generateBuffer = useCallback(async (values) => {
@@ -144,37 +399,19 @@ function BufferTool() {
       validateInputs(values);
       
       const { distance, unit } = values;
-      const selectedUnit = units.find(u => u.value === unit);
+      const selectedUnit = UNITS.find(u => u.value === unit);
       const distanceInMeters = distance * selectedUnit.conversion;
 
       // Get source features
       const sourceFeatures = getSourceFeatures();
       
-      if (!sourceFeatures || sourceFeatures.length === 0) {
-        throw new Error("Please select one or more features on the map");
-      }
-
-      // Validate geometry types
-      const validGeometries = ['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon'];
-      const invalidFeatures = sourceFeatures.filter(feature => 
-        !validGeometries.includes(feature.geometry?.type)
-      );
-      
-      if (invalidFeatures.length > 0) {
-        throw new Error(`Unsupported geometry types: ${invalidFeatures.map(f => f.geometry?.type).join(', ')}`);
+      if (allFeatures.length > 1000) {
+        message.warning("Large dataset detected. Analysis may take longer.");
       }
 
       // Create buffers with options
       const buffers = sourceFeatures.map(feature => {
-        try {
-          return turf.buffer(feature, distanceInMeters / 1000, { 
-            units: 'kilometers',
-            steps: bufferOptions.highPrecision ? 64 : bufferOptions.steps
-          });
-        } catch (error) {
-          console.warn("Failed to create buffer for feature:", error);
-          return null;
-        }
+        return createBuffer(feature, distanceInMeters);
       }).filter(Boolean);
 
       if (buffers.length === 0) {
@@ -219,7 +456,11 @@ function BufferTool() {
       };
 
       setBufferLayer(styledBuffer);
-      performProximityAnalysis(styledBuffer, distanceInMeters);
+      
+      // Use debounced analysis for better performance
+      if (debouncedAnalysisRef.current) {
+        debouncedAnalysisRef.current(styledBuffer, distanceInMeters);
+      }
 
     } catch (error) {
       console.error("Buffer generation failed:", error);
@@ -227,14 +468,26 @@ function BufferTool() {
     } finally {
       setIsGenerating(false);
     }
-  }, [selectedFeature, multiSelectedFeatures, units, bufferOptions, getSourceFeatures]);
+  }, [selectedFeature, multiSelectedFeatures, bufferOptions, getSourceFeatures, validateInputs, createBuffer, allFeatures]);
 
   // Perform proximity analysis
   const performProximityAnalysis = useCallback((bufferGeometry, distanceInMeters) => {
     const results = [];
     const sourceFeatures = getSourceFeatures();
     
-    allFeatures.forEach(feature => {
+    // Use bounding box for initial filtering to improve performance
+    const bbox = turf.bbox(bufferGeometry);
+    const bboxPolygon = turf.bboxPolygon(bbox);
+    
+    const featuresInBbox = allFeatures.filter(feature => {
+      try {
+        return turf.booleanIntersects(turf.pointOnFeature(feature), bboxPolygon);
+      } catch {
+        return true; // Fallback to include all if bbox check fails
+      }
+    });
+
+    featuresInBbox.forEach(feature => {
       try {
         // Skip if feature is part of the buffer or source features
         if (feature.properties?.isBuffer || sourceFeatures.includes(feature)) return;
@@ -244,26 +497,7 @@ function BufferTool() {
         
         if (intersects) {
           // Calculate precise distance
-          let minDistance = Infinity;
-          
-          sourceFeatures.forEach(source => {
-            try {
-              const distance = turf.distance(source, feature, { units: 'kilometers' }) * 1000;
-              if (distance < minDistance) {
-                minDistance = distance;
-              }
-            } catch (e) {
-              // Use center points for incompatible geometries
-              try {
-                const sourceCenter = turf.center(source);
-                const featureCenter = turf.center(feature);
-                const distance = turf.distance(sourceCenter, featureCenter, { units: 'kilometers' }) * 1000;
-                if (distance < minDistance) minDistance = distance;
-              } catch (centerError) {
-                console.warn("Distance calculation failed:", centerError);
-              }
-            }
-          });
+          const minDistance = calculateMinDistance(sourceFeatures, feature);
 
           // Categorize by distance
           const distanceCategory = minDistance <= distanceInMeters * 0.3 ? 'Very Close' :
@@ -298,22 +532,36 @@ function BufferTool() {
         distanceRange: [0, maxDistance]
       }));
     }
-  }, [allFeatures, getSourceFeatures]);
+  }, [allFeatures, getSourceFeatures, calculateMinDistance]);
 
-  // Debounced analysis for performance
-  const debouncedAnalysis = useMemo(() => 
-    debounce((bufferGeometry, distanceInMeters) => {
+  // Initialize debounced analysis
+  useEffect(() => {
+    debouncedAnalysisRef.current = debounce((bufferGeometry, distanceInMeters) => {
       performProximityAnalysis(bufferGeometry, distanceInMeters);
-    }, 500),
-    [performProximityAnalysis]
-  );
+    }, 500);
+
+    return () => {
+      if (debouncedAnalysisRef.current) {
+        debouncedAnalysisRef.current.cancel();
+      }
+    };
+  }, [performProximityAnalysis]);
 
   // Clear buffer and results
   const clearBuffer = useCallback(() => {
     setBufferLayer(null);
     setAnalysisResults([]);
+    setFilterCriteria(FILTER_CRITERIA);
     form.resetFields();
   }, [form]);
+
+  // Handle filter changes
+  const handleFilterChange = useCallback((key, value) => {
+    setFilterCriteria(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  }, []);
 
   // Highlight features in analysis results
   const highlightFeatures = useCallback(() => {
@@ -363,20 +611,6 @@ function BufferTool() {
     message.success(`Exported ${analysisResults.length} features to CSV`);
   }, [analysisResults]);
 
-  // Filtered results
-  const filteredResults = useMemo(() => {
-    return analysisResults.filter(result => {
-      const layerMatch = filterCriteria.layer === 'all' || 
-                        result.layerName === filterCriteria.layer;
-      const distanceMatch = result.distance >= filterCriteria.distanceRange[0] && 
-                           result.distance <= filterCriteria.distanceRange[1];
-      const geometryMatch = filterCriteria.geometryType === 'all' || 
-                           result.geometryType === filterCriteria.geometryType;
-      
-      return layerMatch && distanceMatch && geometryMatch;
-    });
-  }, [analysisResults, filterCriteria]);
-
   // Get unique layers and geometry types for filters
   const availableLayers = useMemo(() => {
     return [...new Set(analysisResults.map(r => r.layerName))];
@@ -385,34 +619,6 @@ function BufferTool() {
   const availableGeometryTypes = useMemo(() => {
     return [...new Set(analysisResults.map(r => r.geometryType))];
   }, [analysisResults]);
-
-  // Buffer Statistics Component
-  const BufferStatistics = useMemo(() => {
-    if (!bufferLayer) return null;
-
-    return (
-      <Card size="small" title="Buffer Statistics" style={{ marginBottom: 16 }}>
-        <Space direction="vertical" style={{ width: '100%' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Text>Area:</Text>
-            <Text strong>{(bufferLayer.properties.bufferArea / 1000000).toFixed(2)} km²</Text>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Text>Perimeter:</Text>
-            <Text strong>{bufferLayer.properties.bufferPerimeter.toFixed(2)} m</Text>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Text>Features in Buffer:</Text>
-            <Text strong>{analysisResults.length}</Text>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Text>Source Features:</Text>
-            <Text strong>{bufferLayer.properties.featureCount}</Text>
-          </div>
-        </Space>
-      </Card>
-    );
-  }, [bufferLayer, analysisResults]);
 
   // Render buffer layer as GeoJSON
   const renderBufferLayer = useCallback(() => {
@@ -494,7 +700,7 @@ function BufferTool() {
             >
               <InputNumber
                 min={0}
-                max={1000000}
+                max={MAX_BUFFER_DISTANCE}
                 step={10}
                 style={{ width: "100%" }}
                 placeholder="Enter distance"
@@ -507,7 +713,7 @@ function BufferTool() {
               rules={[{ required: true, message: "Please select unit" }]}
             >
               <Select style={{ width: "100%" }}>
-                {units.map(unit => (
+                {UNITS.map(unit => (
                   <Option key={unit.value} value={unit.value}>
                     {unit.label}
                   </Option>
@@ -578,119 +784,17 @@ function BufferTool() {
           </Form>
         </Card>
 
-        {BufferStatistics}
+        <BufferStatistics bufferLayer={bufferLayer} analysisResults={analysisResults} />
 
-        {filteredResults.length > 0 && (
-          <Card 
-            size="small" 
-            title={
-              <Space>
-                <FilterOutlined />
-                <span>Proximity Analysis</span>
-                <Tag color="blue">{filteredResults.length} features</Tag>
-              </Space>
-            }
-            extra={
-              <Space>
-                <Button 
-                  size="small" 
-                  icon={<DownloadOutlined />}
-                  onClick={exportAnalysisResults}
-                >
-                  Export
-                </Button>
-                <Button size="small" onClick={highlightFeatures}>
-                  Highlight
-                </Button>
-              </Space>
-            }
-          >
-            {/* Filter Controls */}
-            <Space direction="vertical" style={{ width: '100%', marginBottom: 16 }}>
-              <Select
-                size="small"
-                value={filterCriteria.layer}
-                onChange={(value) => setFilterCriteria({ ...filterCriteria, layer: value })}
-                style={{ width: '100%' }}
-                placeholder="Filter by layer"
-              >
-                <Option value="all">All Layers</Option>
-                {availableLayers.map(layer => (
-                  <Option key={layer} value={layer}>{layer}</Option>
-                ))}
-              </Select>
-              
-              <Select
-                size="small"
-                value={filterCriteria.geometryType}
-                onChange={(value) => setFilterCriteria({ ...filterCriteria, geometryType: value })}
-                style={{ width: '100%' }}
-                placeholder="Filter by geometry type"
-              >
-                <Option value="all">All Geometry Types</Option>
-                {availableGeometryTypes.map(type => (
-                  <Option key={type} value={type}>{type}</Option>
-                ))}
-              </Select>
-
-              <div>
-                <Text style={{ fontSize: 12 }}>Distance Range: {filterCriteria.distanceRange[0].toFixed(0)} - {filterCriteria.distanceRange[1].toFixed(0)} meters</Text>
-                <Slider
-                  range
-                  min={0}
-                  max={filterCriteria.distanceRange[1]}
-                  value={filterCriteria.distanceRange}
-                  onChange={(value) => setFilterCriteria({ ...filterCriteria, distanceRange: value })}
-                />
-              </div>
-            </Space>
-
-            {/* Results List */}
-            <List
-              size="small"
-              dataSource={filteredResults.slice(0, 100)}
-              renderItem={(item, index) => (
-                <List.Item
-                  actions={[
-                    <Tag 
-                      color={
-                        item.distanceCategory === 'Very Close' ? 'red' : 
-                        item.distanceCategory === 'Close' ? 'orange' : 'green'
-                      }
-                      size="small"
-                    >
-                      {item.distanceCategory}
-                    </Tag>
-                  ]}
-                >
-                  <List.Item.Meta
-                    title={
-                      <Text ellipsis>
-                        {item.properties?.name || item.properties?.id || `Feature ${index + 1}`}
-                      </Text>
-                    }
-                    description={
-                      <Space direction="vertical" size={0}>
-                        <Text type="secondary" style={{ fontSize: 12 }}>
-                          {item.layerName} • {item.geometryType}
-                        </Text>
-                        <Text style={{ fontSize: 12 }}>
-                          Distance: {item.distance.toFixed(2)} meters
-                          {item.area && ` • Area: ${(item.area / 10000).toFixed(2)} ha`}
-                        </Text>
-                      </Space>
-                    }
-                  />
-                </List.Item>
-              )}
-            />
-            {filteredResults.length > 100 && (
-              <Text type="secondary" style={{ fontSize: 12, textAlign: "center", display: "block", marginTop: 8 }}>
-                Showing first 100 of {filteredResults.length} features
-              </Text>
-            )}
-          </Card>
-        )}
+        <AnalysisResults
+          results={analysisResults}
+          filterCriteria={filterCriteria}
+          onFilterChange={handleFilterChange}
+          onExport={exportAnalysisResults}
+          onHighlight={highlightFeatures}
+          availableLayers={availableLayers}
+          availableGeometryTypes={availableGeometryTypes}
+        />
 
         {isGenerating && (
           <div style={{ textAlign: "center", padding: 20 }}>
