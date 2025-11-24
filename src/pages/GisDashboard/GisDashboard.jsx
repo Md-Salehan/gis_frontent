@@ -141,7 +141,7 @@ const GisDashboard = memo(() => {
             align="middle"
             justify="space-between"
             wrap={false}
-            style={{ width: "1000px" }}
+            style={{ width: "100%" }}
           >
             <Col>
               <Space align="center" size={12}>
@@ -176,10 +176,10 @@ const GisDashboard = memo(() => {
                     style={{
                       borderBottom: "none",
                       background: "transparent",
-                      whiteSpace: "nowrap",
-                      overflow: "visible",
-                      display: "flex",
-                      gap: 8,
+                      // whiteSpace: "nowrap",
+                      // overflow: "visible",
+                      // display: "flex",
+                      // gap: 8,
                     }}
                   />
                 </div>
