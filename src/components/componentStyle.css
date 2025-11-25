@@ -254,7 +254,6 @@ clip-path: polygon(
   background-color: #f0f1f3;
 }
 
-
 .leaflet-popup {
   z-index: 10001 !important;
 }
@@ -275,4 +274,173 @@ clip-path: polygon(
   width: auto !important;
   padding: 0;
   max-width: 450px;
+}
+
+/* Print ////////////////////////////////////////////////////// */
+
+.print-modal {
+  .ant-modal-body {
+    display: flex;
+    padding: 24px;
+  }
+}
+
+/* Print Map Container - FIXED ////////////////////////////////////////////////////// */
+
+#print-preview-content .leaflet-container {
+  background: #ffffff !important;
+  z-index: 1;
+}
+
+#print-preview-content .leaflet-map-pane {
+  z-index: 1;
+}
+
+#print-preview-content .leaflet-tile-pane {
+  z-index: 2;
+}
+
+#print-preview-content .leaflet-overlay-pane {
+  z-index: 3;
+}
+
+#print-preview-content .leaflet-marker-pane {
+  z-index: 4;
+}
+
+#print-preview-content .leaflet-popup-pane {
+  z-index: 5;
+}
+
+/* Ensure map renders properly in preview */
+#print-preview-content .leaflet-control-zoom {
+  display: none !important;
+}
+
+#print-preview-content .leaflet-control-attribution {
+  display: none !important;
+}
+
+/* Print Modal Styles ////////////////////////////////////////////////////// */
+
+.print-modal-wrapper {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.print-modal-wrapper .ant-modal {
+  max-width: 1600px !important;
+  width: 95vw !important;
+  margin: 0 !important;
+  max-height: 90vh !important;
+}
+
+.print-modal-wrapper .ant-modal-content {
+  height: 85vh !important;
+  display: flex !important;
+  flex-direction: row !important;
+}
+
+.print-modal-wrapper .ant-modal-header {
+  padding: 16px 24px !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+  flex-shrink: 0;
+  background: #fafafa;
+}
+
+.print-modal-wrapper .ant-modal-body {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 0 !important;
+  padding: 24px !important;
+  height: 100% !important;
+  width: 100% !important;
+  overflow: hidden !important;
+  flex: 1;
+}
+
+.print-modal-wrapper .ant-modal-body > div:nth-child(1) {
+  width: 35% !important;
+  padding-right: 24px !important;
+  border-right: 1px solid #e8e8e8 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  flex-shrink: 0;
+}
+
+.print-modal-wrapper .ant-modal-body > div:nth-child(2) {
+  width: 65% !important;
+  padding-left: 24px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  flex: 1;
+}
+
+.print-preview-container {
+  transition: all 0.3s ease;
+  background: white;
+  position: relative;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.print-preview-container:hover {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Scrollbar styling */
+.print-modal-wrapper .ant-modal-body > div::-webkit-scrollbar {
+  width: 6px;
+}
+
+.print-modal-wrapper .ant-modal-body > div::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.print-modal-wrapper .ant-modal-body > div::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.print-modal-wrapper .ant-modal-body > div::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+@media (max-width: 1400px) {
+  .print-modal-wrapper .ant-modal {
+    width: 98vw !important;
+    max-height: 92vh !important;
+  }
+
+  .print-modal-wrapper .ant-modal-content {
+    height: auto !important;
+  }
+
+  .print-modal-wrapper .ant-modal-body {
+    height: auto !important;
+    flex-direction: column !important;
+  }
+
+  .print-modal-wrapper .ant-modal-body > div {
+    width: 100% !important;
+    padding: 16px !important;
+  }
+
+  .print-modal-wrapper .ant-modal-body > div:nth-child(1) {
+    border-right: none !important;
+    border-bottom: 1px solid #e8e8e8 !important;
+    max-height: 40vh;
+  }
+
+  .print-modal-wrapper .ant-modal-body > div:nth-child(2) {
+    padding-left: 16px !important;
+    max-height: 50vh;
+  }
+}
+
+@media print {
+  .print-modal-wrapper {
+    display: none !important;
+  }
 }
