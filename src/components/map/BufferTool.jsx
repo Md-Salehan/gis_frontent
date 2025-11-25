@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
   InputNumber,
@@ -8,11 +8,9 @@ import {
   Typography,
   List,
 } from "antd";
-import CustomDrawer from "../common/CustomDrawer";
 import { useDispatch, useSelector } from "react-redux";
 import * as turf from "@turf/turf";
-import { setGeoJsonLayer } from "../../store/slices/mapSlice";
-import { toggleBuffer } from "../../store/slices/uiSlice";
+import { setBufferLayer } from "../../store/slices/mapSlice";
 
 const { Text } = Typography;
 const UNITS = [
@@ -24,7 +22,6 @@ const UNITS = [
 
 function BufferTool() {
   const dispatch = useDispatch();
-  const isOpen = useSelector((s) => s.ui.isBufferOpen);
   // return the actual state values (no fallback to a new array)
   const multiSelected = useSelector((s) => s.map.multiSelectedFeatures);
   const singleSelected = useSelector((s) => s.map.selectedFeature?.feature);
@@ -91,15 +88,16 @@ function BufferTool() {
       const fc = turf.featureCollection(bufferedFeatures);
       const id = `buffer-${distance}${unit}-${Date.now()}`;
 
-      // Add layer via setGeoJsonLayer (will appear on top)
+      // Add layer via setBufferLayer (keeps buffers separate and ordered)
       dispatch(
-        setGeoJsonLayer({
+        setBufferLayer({
           layerId: id,
           geoJsonData: fc,
           metaData: {
             layer: { layer_nm: `Buffer ${createdIdsRef.current.length + 1}` },
             style: {
-              geom_typ: "G", // polygon
+              // use recognizable geometry type so GeoJsonLayerWrapper can style as polygon
+              geom_typ: "polygon",
               stroke_color: "#ff0000",
               fill_color: "#ff0000",
               fill_opacity: 0.25,
@@ -107,7 +105,6 @@ function BufferTool() {
             },
           },
           isActive: true,
-          orderNo: 9999,
         })
       );
 
@@ -124,7 +121,7 @@ function BufferTool() {
   const clearAllBuffers = useCallback(() => {
     const ids = [...createdIdsRef.current];
     ids.forEach((id) => {
-      dispatch(setGeoJsonLayer({ layerId: id, isActive: false }));
+      dispatch(setBufferLayer({ layerId: id, isActive: false }));
     });
     setCreatedIds([]);
     message.success("Cleared buffers");
@@ -133,27 +130,22 @@ function BufferTool() {
   const removeBuffer = useCallback(
     (id) => {
       if (!id) return;
-      dispatch(setGeoJsonLayer({ layerId: id, isActive: false }));
+      dispatch(setBufferLayer({ layerId: id, isActive: false }));
       setCreatedIds((prev) => prev.filter((x) => x !== id));
       message.success("Buffer removed");
     },
     [dispatch]
   );
 
+
+  useEffect(()=>{
+    return ()=>{
+      clearAllBuffers();
+    }
+  }, [])
+
   return (
-    <CustomDrawer
-      title="Buffer Tool"
-      placement="right"
-      onClose={() => dispatch(toggleBuffer())}
-      open={isOpen}
-      width={360}
-      mask={false}
-      afterOpenChange={(open) => {
-        if (!open) {
-          // keep created buffers (user can clear), but no state reset required
-        }
-      }}
-    >
+    <>
       <Space direction="vertical" style={{ width: "100%" }}>
         <div>
           <Text strong>Selected features:</Text>
@@ -217,8 +209,8 @@ function BufferTool() {
           />
         </div>
       </Space>
-    </CustomDrawer>
+    </>
   );
 }
 
-export default BufferTool;
+export default memo(BufferTool);

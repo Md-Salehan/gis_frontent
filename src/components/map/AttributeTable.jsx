@@ -1,18 +1,11 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect, memo } from "react";
 import { Table, Tabs, Checkbox, Button, message, Space, Tooltip } from "antd";
-import {
-  DownloadOutlined,
-  EyeOutlined,
-  EyeInvisibleOutlined,
-  SearchOutlined,
-} from "@ant-design/icons";
+import { DownloadOutlined, SearchOutlined } from "@ant-design/icons";
 import { useSelector, useDispatch } from "react-redux";
-import { toggleAttributeTable } from "../../store/slices/uiSlice";
 import {
   setSelectedFeature,
   setMultiSelectedFeatures,
 } from "../../store/slices/mapSlice";
-import CustomDrawer from "../common/CustomDrawer";
 import L from "leaflet";
 import { useMap } from "react-leaflet";
 
@@ -24,7 +17,7 @@ const MAP_FIT_OPTIONS = {
   duration: 0.7,
 };
 
-function AttributeTable() {
+function AttributeTable({ csvDownloader = true, clearDataOnTabChange = true }) {
   const dispatch = useDispatch();
   const map = useMap();
 
@@ -33,9 +26,6 @@ function AttributeTable() {
   const [multiSelected, setMultiSelected] = useState({});
 
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
-  const isAttributeTableOpen = useSelector(
-    (state) => state.ui.isAttributeTableOpen
-  );
 
   // ============================================
   // Utility: Parse row key to feature index
@@ -430,56 +420,50 @@ function AttributeTable() {
     }
   }, [tabs, activeTab]);
 
-  const handleClose = useCallback(() => {
-    dispatch(toggleAttributeTable());
-  }, [dispatch]);
-
   const handleTabChange = useCallback(
     (activeKey) => {
       setActiveTab(activeKey);
+      if (clearDataOnTabChange) {
+        setSelectedRowKeys({});
+        setMultiSelected({});
+        dispatch(setSelectedFeature({ feature: [], metaData: null }));
+        dispatch(setMultiSelectedFeatures([]));
+      }
+    },
+    [dispatch, clearDataOnTabChange]
+  );
+
+  useEffect(() => {
+    return () => {
       setSelectedRowKeys({});
       setMultiSelected({});
       dispatch(setSelectedFeature({ feature: [], metaData: null }));
       dispatch(setMultiSelectedFeatures([]));
-    },
-    [dispatch]
-  );
-
-  const handleAfterDrawerClose = useCallback(() => {
-    setSelectedRowKeys({});
-    setMultiSelected({});
-    dispatch(setSelectedFeature({ feature: [], metaData: null }));
-    dispatch(setMultiSelectedFeatures([]));
+    };
   }, [dispatch]);
 
   // ============================================
   // Render
   // ============================================
   return (
-    <CustomDrawer
-      title="Attribute Table"
-      placement="bottom"
-      onClose={handleClose}
-      afterOpenChange={(open) => {
-        if (!open) {
-          handleAfterDrawerClose();
-        }
-      }}
-      open={isAttributeTableOpen}
-      height="40vh"
-      mask={false}
-    >
-      <div
-        style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}
-      >
-        <Button
-          type="primary"
-          icon={<DownloadOutlined />}
-          onClick={exportSelectedToCSV}
+    <>
+      {csvDownloader && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            marginBottom: 8,
+          }}
         >
-          Download CSV
-        </Button>
-      </div>
+          <Button
+            type="primary"
+            icon={<DownloadOutlined />}
+            onClick={exportSelectedToCSV}
+          >
+            Download CSV
+          </Button>
+        </div>
+      )}
 
       {tabs.length === 0 ? (
         <div>No active layers with attributes to display</div>
@@ -493,8 +477,8 @@ function AttributeTable() {
           animated={false}
         />
       )}
-    </CustomDrawer>
+    </>
   );
 }
 
-export default AttributeTable;
+export default memo(AttributeTable);

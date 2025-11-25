@@ -2,7 +2,7 @@ import { meta } from "@eslint/js";
 import { createSlice } from "@reduxjs/toolkit";
 
 const initialState = {
-  geoJsonLayers: {},
+  geoJsonLayers: {}, // layerId: { geoJsonData, metaData, orderNo }
   multiSelectedFeatures: [],
   viewport: {
     center: [28.7041, 77.1025],
@@ -16,6 +16,8 @@ const initialState = {
   },
   portalId: null,
   layerOrder: [],
+  bufferLayers: {},
+  bufferOrder: [],
   measure: {
     type: "line", // "line" | "area"
     unit: "km", // default unit
@@ -41,6 +43,18 @@ const mapSlice = createSlice({
       } else {
         delete state.geoJsonLayers[layerId];
         state.layerOrder = state.layerOrder.filter((id) => id !== layerId);
+      }
+    },
+    setBufferLayer: (state, action) => {
+      const { layerId, geoJsonData, metaData, isActive } = action.payload;
+      if (isActive) {
+        state.bufferLayers[layerId] = { geoJsonData, metaData };
+        if (!state.bufferOrder.includes(layerId)) {
+          state.bufferOrder.push(layerId);
+        }
+      } else {
+        delete state.bufferLayers[layerId];
+        state.bufferOrder = state.bufferOrder.filter((id) => id !== layerId);
       }
     },
     setMultiSelectedFeatures: (state, action) => {
@@ -80,6 +94,7 @@ const mapSlice = createSlice({
 
 export const {
   setGeoJsonLayer,
+  setBufferLayer,
   setMultiSelectedFeatures,
   clearSelectedFeature,
   updateViewport,
