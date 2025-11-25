@@ -4,6 +4,7 @@ import authReducer from './slices/authSlice';
 import portalReducer from './slices/portalSlice';
 import mapReducer from './slices/mapSlice';
 import uiReducer from './slices/uiSlice';
+import printReducer from './slices/printSlice';
 
 export const store = configureStore({
   reducer: {
@@ -11,7 +12,8 @@ export const store = configureStore({
     auth: authReducer,
     portal: portalReducer,
     map: mapReducer,
-    ui: uiReducer
+    ui: uiReducer,
+    print: printReducer
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
