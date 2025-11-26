@@ -52,6 +52,7 @@ import {
   toggleMeasure,
   togglePrintModal,
 } from "../../store/slices/uiSlice";
+import PrintModal from "../../components/map/PrintModal";
 const { Sider, Content, Header, Footer } = Layout;
 
 const GisDashboard = memo(() => {
@@ -120,6 +121,8 @@ const GisDashboard = memo(() => {
 
   return (
     <Layout className="gis-layout" style={{ minHeight: "100vh" }}>
+      <PrintModal />
+
       <Sider
         style={{ backgroundColor: "white" }}
         width={400}
