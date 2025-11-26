@@ -24,7 +24,7 @@ import {
   Legend,
   MeasureControl,
   PaneCreator,
-  PrintControl,
+  PrintBrowserControl,
   // PrintControl,
 } from "../../../../components";
 import SelectedFeaturesLayer from "../../../../components/map/SelectedFeaturesLayer";
@@ -113,7 +113,7 @@ const MapPanel = memo(() => {
         <Legend visible={isLegendVisible} />
         <AttributeTable />
         <MeasureControl />
-        <PrintControl />
+        <PrintBrowserControl />
       </MapContainer>
     </div>
   );

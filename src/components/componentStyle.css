@@ -444,3 +444,12 @@ clip-path: polygon(
     display: none !important;
   }
 }
+
+
+.leaflet-control-browser-print {
+  /* tweak as needed */
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  background: #fff;
+  border-radius: 4px;
+  padding: 4px;
+}
