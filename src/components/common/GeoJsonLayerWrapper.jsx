@@ -11,6 +11,7 @@ import {
   HOVER_STYLE_CONFIG,
   LINE_STYLE,
 } from "../../constants";
+import LabelLayer from "./LabelLayer";
 
 const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
   const dispatch = useDispatch();
@@ -140,14 +141,22 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
   );
 
   return (
-    <GeoJSON
-      key={layerId}
-      data={geoJsonData}
-      style={style}
-      pointToLayer={pointToLayer}
-      onEachFeature={onEachFeature}
-      pane={pane}
-    />
+    <>
+      <GeoJSON
+        key={layerId}
+        data={geoJsonData}
+        style={style}
+        pointToLayer={pointToLayer}
+        onEachFeature={onEachFeature}
+        pane={pane}
+      />
+      {/* Label layer renders labels (centroid) for active layers using metadata styles */}
+      <LabelLayer
+        layerId={layerId}
+        geoJsonData={geoJsonData}
+        metaData={metaData}
+      />
+    </>
   );
 });
 

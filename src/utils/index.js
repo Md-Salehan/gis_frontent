@@ -5,3 +5,4 @@ export { default as getGeomFullForm } from "./map/getGeomFullForm";
 
 export * from './styleUtils';
 export * from './tooltipUtils';
+export * from './labelUtils';

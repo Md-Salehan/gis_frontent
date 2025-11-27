@@ -15,7 +15,7 @@ const initialState = {
     feature: null,
   },
   portalId: null,
-  layerOrder: [],
+  layerOrder: [], // array of layerIds to maintain order
   bufferLayers: {},
   bufferOrder: [],
   measure: {
