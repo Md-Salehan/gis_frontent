@@ -393,7 +393,7 @@ const LayerPanel = memo(({ layers = [] }) => {
                 </List.Item>
               );
             }}
-            style={{ maxHeight: 320, overflow: "auto" }}
+            style={{  overflow: "auto" }}
           />
         )}
       </Checkbox.Group>
