@@ -4,7 +4,7 @@ import { POPUP_CONFIG } from "../constants";
  * Generate coordinates section HTML
  * @param {Object} latlng - Leaflet LatLng object
  * @returns {string} HTML string for coordinates section
- */
+ */  
 const generateCoordinatesSection = (latlng) => {
   if (!latlng) return '';
   
