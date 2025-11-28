@@ -69,7 +69,11 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
 
         bindTooltip(
           layer,
-          feature.properties,
+          { ...feature.properties, 
+            // dummy_img_url: "https://as2.ftcdn.net/v2/jpg/01/58/22/79/1000_F_158227997_T6BWcvAxqxQe2gYc98jJ5JhoQcjAuCbE.jpg",
+            // dummyx_img_url: "https://as2.ftcdn.net/v2/jpg/01/58/22/79/1000_F_158227997_T6BWcvAxqxQe2gYc98jJ5JhoQcjAuCbE.jpg" 
+
+          },
           title,
           coordinates,
           geometryType

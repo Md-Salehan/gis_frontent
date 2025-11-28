@@ -39,7 +39,6 @@ const generateCoordinatesSection = (latlng) => {
  * - Renders image(s) for any property key that ends with "_img_url"
  * - Preserves existing table layout for other properties
  * - If multiple images exist, shows them in a single horizontal scrollable row
- * Note: removed per-section vertical scrolling so the full content block can scroll together.
  * @param {Object} properties - Feature properties
  * @returns {string} HTML string for properties section
  */
@@ -227,7 +226,7 @@ const generatePropertiesSection = (properties = {}) => {
         nonImageEntries.length > 0
           ? `
         <div style="padding:16px;">
-          <div>
+          <div style="max-height:250px;overflow-y:auto;">
             <table style="width:100%;border-collapse:collapse;font-family:'Segoe UI',Arial,sans-serif;font-size:12px;">
               <tbody>${rows}</tbody>
             </table>
@@ -264,8 +263,8 @@ const generateTooltipHTML = (
   const isPoint = geometryType === "point" || geometryType === "P";
 
   return `
-    <div style="width:380px;max-height:400px;background:#ffffff;border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,0.15);overflow:hidden;border:1px solid #e2e8f0;display:flex;flex-direction:column;">
-      <div style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);padding:16px;flex:0 0 auto;">
+    <div style="width:380px;max-height:400px;background:#ffffff;border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,0.15);overflow:hidden;border:1px solid #e2e8f0;">
+      <div style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);padding:16px;">
         <h2 style="margin:0;font-size:16px;font-weight:700;color:white;display:flex;align-items:center;gap:8px;">
           <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -273,12 +272,8 @@ const generateTooltipHTML = (
           Feature Details
         </h2>
       </div>
-
-      <!-- unified scrollable content block: coordinates, images, properties are inside this element -->
-      <div style="flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;">
-        ${isPoint && latlng ? generateCoordinatesSection(latlng) : ""}
-        ${generatePropertiesSection(properties)}
-      </div>
+      ${isPoint && latlng ? generateCoordinatesSection(latlng) : ""}
+      ${generatePropertiesSection(properties)}
     </div>
   `;
 };

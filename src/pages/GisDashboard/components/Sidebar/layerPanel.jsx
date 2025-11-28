@@ -18,7 +18,7 @@ const LayerCheckbox = memo(({ option, disabled }) => (
     <Checkbox value={option.value} disabled={disabled}>
       <Space>
         <LeyerIcon iconInfo={option?.styleInfo} />
-        {option.label}| {option.value}
+        {option.label}
         {disabled && <Spin size="small" style={{ marginLeft: 8 }} />}
       </Space>
     </Checkbox>

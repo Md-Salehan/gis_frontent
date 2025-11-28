@@ -4,7 +4,7 @@ import { POPUP_CONFIG } from "../constants";
  * Generate coordinates section HTML
  * @param {Object} latlng - Leaflet LatLng object
  * @returns {string} HTML string for coordinates section
- */
+ */  
 const generateCoordinatesSection = (latlng) => {
   if (!latlng) return '';
   
@@ -41,7 +41,7 @@ const generateCoordinatesSection = (latlng) => {
  */
 const generatePropertiesSection = (properties = {}) => {
   const filteredProperties = Object.entries(properties)
-    .filter(([key]) => !key.startsWith("_")) // Filter out internal properties
+    // .filter(([key]) => !key.startsWith("_")) // Filter out internal properties
     // .slice(0, 10); // Limit to first 10 properties for better UX
 
   if (filteredProperties.length === 0) {

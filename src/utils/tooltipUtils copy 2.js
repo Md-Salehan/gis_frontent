@@ -1,73 +1,6 @@
 import { POPUP_CONFIG } from "../constants";
 
 /**
- * Simple HTML-escape to reduce injection risk when inserting text nodes
- * (we still produce HTML for images intentionally)
- */
-const escapeHtml = (str) =>
-  String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-
-/**
- * Detect if a string/value looks like an image URL or data URI
- */
-const isImageUrl = (val) => {
-  if (typeof val !== "string") return false;
-  const trimmed = val.trim();
-  // data URI or absolute/relative http(s) + common image extensions
-  return (
-    /^data:image\/[a-zA-Z0-9+.-]+;base64,/.test(trimmed) ||
-    (/^(https?:\/\/|\/)/i.test(trimmed) &&
-      /\.(png|jpe?g|gif|webp|svg|bmp|tiff?)($|\?)/i.test(trimmed))
-  );
-};
-
-/**
- * Heuristic: key suggests an image (img, image, photo, thumb, thumbnail, picture, avatar, logo, media)
- */
-const isImageKey = (key = "") =>
-  typeof key === "string" &&
-  /(img|image|photo|thumb|thumbnail|picture|avatar|logo|media)/i.test(key);
-
-/**
- * Render one or multiple images into an HTML fragment
- */
-const renderImagesHtml = (images) => {
-  const imgs = Array.isArray(images) ? images : [images];
-  const valid = imgs.filter((i) => isImageUrl(i));
-  if (valid.length === 0) return "";
-  if (valid.length === 1) {
-    const src = escapeHtml(valid[0]);
-    return `
-      <div style="display:flex;justify-content:center;align-items:center;padding:8px 0;">
-        <a href="${src}" target="_blank" rel="noopener noreferrer" style="display:inline-block;max-width:100%;">
-          <img src="${src}" alt="image" loading="lazy" style="max-width:100%;max-height:160px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;"/>
-        </a>
-      </div>
-    `;
-  }
-
-  // multiple thumbnails grid
-  const thumbs = valid
-    .map(
-      (s) => `<a href="${escapeHtml(
-        s
-      )}" target="_blank" rel="noopener noreferrer" style="display:inline-block;">
-        <img src="${escapeHtml(
-          s
-        )}" alt="image" loading="lazy" style="width:100px;height:70px;object-fit:cover;border-radius:4px;border:1px solid #e5e7eb;margin:4px;"/>
-      </a>`
-    )
-    .join("");
-
-  return `<div style="display:flex;flex-wrap:wrap;justify-content:flex-start;padding:8px 0;">${thumbs}</div>`;
-};
-
-/**
  * Generate coordinates section HTML
  * @param {Object} latlng - Leaflet LatLng object
  * @returns {string} HTML string for coordinates section
@@ -103,16 +36,108 @@ const generateCoordinatesSection = (latlng) => {
 
 /**
  * Generate properties section HTML
+ * - Renders image(s) for any property key that ends with "_img_url"
+ * - Preserves existing table layout for other properties
  * @param {Object} properties - Feature properties
  * @returns {string} HTML string for properties section
  */
 const generatePropertiesSection = (properties = {}) => {
-  const filteredProperties = Object.entries(properties).filter(
-    ([key]) => !key.startsWith("_")
-  ); // Filter out internal properties
-  // .slice(0, 10); // Limit to first 10 properties for better UX
+  const entries = Object.entries(properties || {});
 
-  if (filteredProperties.length === 0) {
+  // Separate image properties (keys ending with _img_url) from others
+  const imageEntries = entries.filter(([key]) =>
+    String(key).toLowerCase().endsWith("_img_url")
+  );
+
+  const nonImageEntries = entries.filter(
+    ([key]) => !String(key).toLowerCase().endsWith("_img_url")
+  );
+
+  // Helper: format keys to human readable
+  const formatKey = (key) =>
+    String(key)
+      .replace(/_img_url$/i, "")
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (l) => l.toUpperCase())
+      .trim();
+
+  // Helper: normalize image urls from a value (string, array, or single)
+  const extractImageUrls = (val) => {
+    if (!val && val !== 0) return [];
+    if (Array.isArray(val))
+      return val
+        .map(String)
+        .map((u) => u.trim())
+        .filter(Boolean);
+    if (typeof val === "string") {
+      // support comma separated lists of urls
+      if (val.includes(",")) {
+        return val
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+      return [val.trim()];
+    }
+    // fallback to toString
+    return [String(val)];
+  };
+
+  // build image gallery HTML (if any)
+  const imagesHtml = imageEntries.length
+    ? imageEntries
+        .map(([key, value]) => {
+          const urls = extractImageUrls(value)
+            // basic URL validation - ignore entries that don't look like urls
+            .filter((u) => {
+              try {
+                // allow protocol-relative and data URIs as well
+                if (u.startsWith("data:")) return true;
+                if (u.startsWith("//")) return true;
+                new URL(u);
+                return true;
+              } catch {
+                return false;
+              }
+            });
+
+          if (urls.length === 0) return "";
+
+          const formattedKey = formatKey(key);
+
+          const imgs = urls
+            .map(
+              (u, i) => `
+              <a href="${u}" target="_blank" rel="noopener noreferrer" style="display:inline-block;border-radius:8px;overflow:hidden;box-shadow:0 6px 18px rgba(15,23,42,0.08);margin:6px;">
+                <img loading="lazy" src="${u}" alt="${formattedKey} ${
+                i + 1
+              }" style="display:block;height:120px;width:auto;max-width:180px;object-fit:cover;vertical-align:middle;border:0;">
+              </a>
+            `
+            )
+            .join("");
+
+          return `
+            <div style="padding:12px 16px;border-bottom:1px solid #e5e7eb;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <svg style="width:14px;height:14px;color:#3b82f6;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                  </svg>
+                  <h4 style="margin:0;font-size:13px;font-weight:600;color:#1e293b;">${formattedKey}</h4>
+                </div>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px;">
+                ${imgs}
+              </div>
+            </div>
+          `;
+        })
+        .join("")
+    : "";
+
+  // If there are no non-image properties and no image properties -> show placeholder
+  if (nonImageEntries.length === 0 && imageEntries.length === 0) {
     return `
       <div style="padding:16px;">
         <div style="display:flex;align-items:center;margin-bottom:12px;">
@@ -128,95 +153,68 @@ const generatePropertiesSection = (properties = {}) => {
     `;
   }
 
-  const rows = filteredProperties
+  // Build rows for non-image properties (preserve original table look & behavior)
+  const rows = nonImageEntries
     .map(([key, value], index) => {
-      // handle images (single url, array of urls, or objects with url prop)
-      let imageHtml = "";
-      const normalizedValue =
-        value && typeof value === "object" && !Array.isArray(value)
-          ? // possible { url: "...", src: "...", href: "..." }
-            value.url ||
-            value.src ||
-            value.href ||
-            value.path ||
-            value.link ||
-            value
-          : value;
-
-      if (
-        (isImageKey(key) &&
-          (isImageUrl(normalizedValue) ||
-            (Array.isArray(normalizedValue) &&
-              normalizedValue.some(isImageUrl)))) ||
-        (Array.isArray(normalizedValue) && normalizedValue.every(isImageUrl))
-      ) {
-        imageHtml = renderImagesHtml(normalizedValue);
-      } else if (
-        // also treat any string value that looks like an image URL as image (even if key not obviously image)
-        typeof normalizedValue === "string" &&
-        isImageUrl(normalizedValue)
-      ) {
-        imageHtml = renderImagesHtml(normalizedValue);
-      }
-
-      // if imageHtml present, render a single-row image block spanning both columns
-      if (imageHtml) {
-        return `
-          <tr style="background-color:${
-            index % 2 === 0 ? "#f8fafc" : "#ffffff"
-          };">
-            <td colspan="2" style="padding:10px 12px;border-bottom:1px solid #e5e7eb;">
-              <div style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:500;">${escapeHtml(
-                key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
-              )}</div>
-              ${imageHtml}
-            </td>
-          </tr>
-        `;
-      }
-
       const displayValue =
-        normalizedValue !== null && normalizedValue !== undefined
-          ? escapeHtml(
-              typeof normalizedValue === "object"
-                ? JSON.stringify(normalizedValue)
-                : String(normalizedValue)
-            )
-          : "—";
+        value !== null && value !== undefined ? String(value) : "—";
       const bgColor = index % 2 === 0 ? "#f8fafc" : "#ffffff";
-      const formattedKey = escapeHtml(
-        key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
-      );
+      const formattedKey = formatKey(key);
+
+      // If the value looks like a URL, make it clickable (keeps UX improvement minimal)
+      const isUrlLike =
+        typeof value === "string" &&
+        /^(https?:\/\/|\/\/|data:)/i.test(value.trim());
+
+      const renderedValue = isUrlLike
+        ? `<a href="${String(
+            value
+          ).trim()}" target="_blank" rel="noopener noreferrer" style="color:#2563eb;text-decoration:underline;">${String(
+            value
+          )}</a>`
+        : displayValue;
 
       return `
         <tr style="background-color:${bgColor};">
           <td style="font-weight:600;padding:10px 12px;border-bottom:1px solid #e5e7eb;color:#1f2937;font-size:12px;width:40%;">${formattedKey}</td>
-          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;color:#4b5563;font-size:12px;word-break:break-word;width:60%;">${displayValue}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;color:#4b5563;font-size:12px;word-break:break-word;width:60%;">${renderedValue}</td>
         </tr>
       `;
     })
     .join("");
 
+  // Compose final properties section: images (if any) + table (if non-image props exist)
   return `
-    <div style="padding:16px;">
-      <div style="display:flex;align-items:center;margin-bottom:12px;">
+    <div style="padding:0 0 0 0;">
+      <div style="display:flex;align-items:center;padding:16px;border-bottom:1px solid #e5e7eb;">
         <svg style="width:16px;height:16px;margin-right:8px;color:#3b82f6;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
         </svg>
         <h3 style="margin:0;font-size:14px;font-weight:600;color:#1e293b;">Properties</h3>
       </div>
-      <div style="max-height:250px;overflow-y:auto;">
-        <table style="width:100%;border-collapse:collapse;font-family:'Segoe UI',Arial,sans-serif;font-size:12px;">
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
+
+      ${imagesHtml}
+
       ${
-        filteredProperties.length < Object.keys(properties).length
-          ? `<div style="text-align:center;padding:8px;color:#64748b;font-size:11px;border-top:1px solid #e5e7eb;margin-top:8px;">
-          +${
-            Object.keys(properties).length - filteredProperties.length
-          } more properties
-        </div>`
+        nonImageEntries.length > 0
+          ? `
+        <div style="padding:16px;">
+          <div style="max-height:250px;overflow-y:auto;">
+            <table style="width:100%;border-collapse:collapse;font-family:'Segoe UI',Arial,sans-serif;font-size:12px;">
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          ${
+            nonImageEntries.length < Object.keys(properties).length
+              ? `<div style="text-align:center;padding:8px;color:#64748b;font-size:11px;border-top:1px solid #e5e7eb;margin-top:8px;">
+              +${
+                Object.keys(properties).length - nonImageEntries.length
+              } more properties
+            </div>`
+              : ""
+          }
+        </div>
+      `
           : ""
       }
     </div>

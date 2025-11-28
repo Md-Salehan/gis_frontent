@@ -11,14 +11,31 @@ const LabelLayer = memo(({ layerId, geoJsonData, metaData }) => {
   // Extract label configuration from metadata
   const labelConfig = useMemo(() => {
     const style = metaData?.style || {};
+
+    // Parse label_offset_xy if available
+    let offsetX = 0;
+    let offsetY = 0;
+    if (style.label_offset_xy) {
+      try {
+        const parsed = JSON.parse(style.label_offset_xy);
+        if (Array.isArray(parsed) && parsed.length >= 2) {
+          offsetX = Number(parsed[0]) || 0;
+          offsetY = Number(parsed[1]) || 0;
+        }
+      } catch (err) {
+        console.warn("Failed to parse label_offset_xy:", style.label_offset_xy);
+      }
+    }
+
     return {
       fontType: style.label_font_typ || "Arial",
       fontSize: Number(style.label_font_size) || 12,
       textColor: style.label_color || "#000000",
       bgColor: style.label_bg_color || "transparent",
       bgStrokeWidth: Number(style.label_bg_stroke_width) || 0,
-      // read zoom level from metadata (default 0 => always visible)
-      zoomLevel: 14,
+      zoomLevel: Number(style.label_zoom_level) || 14,
+      offsetX,
+      offsetY,
       enabled:
         style.label_font_size !== undefined && style.label_font_size !== null,
     };
@@ -151,7 +168,7 @@ const LabelLayer = memo(({ layerId, geoJsonData, metaData }) => {
       html,
       className: "feature-label-icon",
       iconSize: null,
-      iconAnchor: [0, 0],
+      iconAnchor: [config.offsetX, config.offsetY],
     });
   };
 
@@ -188,7 +205,6 @@ const LabelLayer = memo(({ layerId, geoJsonData, metaData }) => {
     labelConfig,
     calculateCentroid,
     getFeatureLabel,
-    createLabelIcon, // if defined outside, otherwise omit
   ]);
 
   // Create label markers
