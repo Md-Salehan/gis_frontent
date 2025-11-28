@@ -72,7 +72,7 @@ Place this CSS content into src/pages/YourPage/GisLayerPage.css (or wherever you
   color: var(--muted);
   margin-bottom: 24px;
 } */
-
+/* 
 .layer-panel {
   display: flex;
   flex-direction: column;
@@ -82,7 +82,7 @@ Place this CSS content into src/pages/YourPage/GisLayerPage.css (or wherever you
   padding-bottom: 12px;
   border-bottom: 1px solid #eee;  
   width: 100%;
-}
+} */
 
 .ant-modal-loading {
   text-align: center;

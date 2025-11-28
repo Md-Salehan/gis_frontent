@@ -1,4 +1,11 @@
-import React, { memo, useCallback, useMemo, useState, useEffect } from "react";
+import React, {
+  memo,
+  useCallback,
+  useMemo,
+  useState,
+  useEffect,
+  useRef,
+} from "react";
 import {
   Checkbox,
   Col,
@@ -8,18 +15,13 @@ import {
   Modal,
   Card,
   Input,
-  Button,
   Divider,
-  List,
-  Tooltip,
   Typography,
+  Badge,
+  Tooltip,
   Empty,
 } from "antd";
-import {
-  SearchOutlined,
-  SelectOutlined,
-  ClearOutlined,
-} from "@ant-design/icons";
+import { SearchOutlined } from "@ant-design/icons";
 import { useGetLayerObjectsMutation } from "../../../../store/api/layerApi";
 import { useDispatch, useSelector } from "react-redux";
 import { LeyerIcon } from "../../../../components";
@@ -29,29 +31,28 @@ import { setLoadingMessage } from "../../../../store/slices/uiSlice";
 const { Text } = Typography;
 
 const LayerCheckbox = memo(({ option, disabled }) => (
-  <Checkbox value={option.value} disabled={disabled} style={{ width: "100%" }}>
-    <Space style={{ width: "100%", justifyContent: "space-between" }}>
-      <Space>
+  <Col span={24} className="layer-row">
+    <Checkbox
+      value={option.value}
+      disabled={disabled}
+      className="layer-checkbox"
+    >
+      <Space className="layer-checkbox-space" size="middle">
         <LeyerIcon iconInfo={option?.styleInfo} />
-        <span
-          style={{
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {option.label}
-        </span>
+        <div className="layer-label-wrap">
+          <div className="layer-label">{option.label}</div>
+          <Text type="secondary" className="layer-subtext">
+            Order: {option.orderNo}
+          </Text>
+        </div>
+        {disabled && (
+          <Tooltip title="Loading layer...">
+            <Spin size="small" style={{ marginLeft: 8 }} />
+          </Tooltip>
+        )}
       </Space>
-
-      <Space size="small">
-        {/* <Text type="secondary" style={{ fontSize: 12 }}>
-          {option.orderNo}
-        </Text> */}
-        {disabled && <Spin size="small" />}
-      </Space>
-    </Space>
-  </Checkbox>
+    </Checkbox>
+  </Col>
 ));
 LayerCheckbox.displayName = "LayerCheckbox";
 
@@ -70,7 +71,9 @@ const LayerPanel = memo(({ layers = [] }) => {
 
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers || {});
 
+  // UI state
   const [searchTerm, setSearchTerm] = useState("");
+  const searchRef = useRef(null);
 
   // Memoized layer options - single source of truth
   const layerOptions = useMemo(() => {
@@ -101,12 +104,12 @@ const LayerPanel = memo(({ layers = [] }) => {
     );
   }, [layers]);
 
-  // filtered options for search UI
+  // Filtered options by search
   const filteredOptions = useMemo(() => {
-    const s = (searchTerm || "").trim().toLowerCase();
-    if (!s) return layerOptions;
-    return layerOptions.filter((o) =>
-      (o.label || "").toLowerCase().includes(s)
+    const term = (searchTerm || "").trim().toLowerCase();
+    if (!term) return layerOptions;
+    return layerOptions.filter((opt) =>
+      (opt.label || "").toLowerCase().includes(term)
     );
   }, [layerOptions, searchTerm]);
 
@@ -149,7 +152,12 @@ const LayerPanel = memo(({ layers = [] }) => {
       try {
         const response = await getLayerObjects({ layerId, portalId }).unwrap();
         setCheckedState((prev) => {
-          if (!prev.checkedLayers.includes(layerId)) return prev;
+          if (!prev.checkedLayers.includes(layerId)) {
+            // If user unchecked while fetching, remove loading state and stop
+            const newLoading = new Set(prev.loadingLayers);
+            newLoading.delete(layerId);
+            return { ...prev, loadingLayers: newLoading };
+          }
 
           const layerMetaData = response?.metaData || {};
           const orderNo =
@@ -282,122 +290,96 @@ const LayerPanel = memo(({ layers = [] }) => {
     portalId,
   ]);
 
-  // Select all visible options (keep others intact)
-  const selectAllVisible = useCallback(() => {
-    const visibleIds = filteredOptions.map((o) => o.value);
-    const current = new Set(checkedState.checkedLayers || []);
-    visibleIds.forEach((id) => current.add(id));
-    onChange(Array.from(current));
-  }, [filteredOptions, checkedState.checkedLayers, onChange]);
-
-  // Deselect all visible options
-  const deselectAllVisible = useCallback(() => {
-    const visibleSet = new Set(filteredOptions.map((o) => o.value));
-    const remaining = (checkedState.checkedLayers || []).filter(
-      (id) => !visibleSet.has(id)
-    );
-    onChange(remaining);
-  }, [filteredOptions, checkedState.checkedLayers, onChange]);
-
-  // Number of active layers (selected)
-  const activeCount = (checkedState.checkedLayers || []).length;
+  const activeCount = useMemo(
+    () => (checkedState.checkedLayers || []).length,
+    [checkedState.checkedLayers]
+  );
 
   return (
-    <Card
-      size="small"
-      bordered={false}
-      bodyStyle={{ padding: 12 }}
-      style={{ width: "100%" }}
-      title={
-        <Row align="middle" justify="space-between" style={{ gap: 8 }}>
-          <Col>
-            <Text strong style={{ fontSize: 16 }}>
+    <div className="layer-panel">
+      <Card
+        className="layer-panel-card"
+        size="small"
+        bordered={false}
+        bodyStyle={{ padding: 12 }}
+      >
+        <div
+          className="layer-panel-header"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          <div>
+            <Text strong className="panel-title" style={{ fontSize: 18 }}>
               Layers
             </Text>
-            <div
-              style={{ fontSize: 12, color: "var(--muted, rgba(0,0,0,0.45))" }}
-            >
-              <Text type="secondary" style={{ marginRight: 8 }}>
-                {activeCount} active
+            <div style={{ marginTop: 4 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {layerOptions.length} available
               </Text>
-              <Text type="secondary">{layerOptions.length} available</Text>
+              <span style={{ marginLeft: 8 }} />
+              <Badge count={activeCount} showZero={true} />
             </div>
-          </Col>
+          </div>
 
-          <Col>
-            <Space>
-              {/* <Tooltip title="Select visible">
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<SelectOutlined />}
-                  onClick={selectAllVisible}
-                />
-              </Tooltip> */}
-              <Tooltip title="Deselect visible">
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<ClearOutlined />}
-                  onClick={deselectAllVisible}
-                />
-              </Tooltip>
-            </Space>
-          </Col>
-        </Row>
-      }
-    >
-      {loadingMessage && (
-        <Modal
-          title="Loading"
-          open={!!loadingMessage}
-          footer={null}
-          closable={false}
-        >
-          <Space>
-            <Spin />
-            <span>{loadingMessage}</span>
-          </Space>
-        </Modal>
-      )}
-
-      <Input
-        prefix={<SearchOutlined />}
-        placeholder="Search layers..."
-        allowClear
-        size="middle"
-        onChange={(e) => setSearchTerm(e.target.value)}
-        value={searchTerm}
-        style={{ marginBottom: 8 }}
-      />
-
-      <Divider style={{ margin: "8px 0" }} />
-
-      <Checkbox.Group
-        onChange={onChange}
-        value={checkedState.checkedLayers}
-        style={{ width: "100%" }}
-      >
-        {filteredOptions.length === 0 ? (
-          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No layers" />
-        ) : (
-          <List
+          <Input
+            ref={searchRef}
+            prefix={<SearchOutlined />}
+            placeholder="Search layers..."
+            allowClear
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ width: 200 }}
+            className="layer-search"
             size="small"
-            dataSource={filteredOptions}
-            split={false}
-            renderItem={(option) => {
-              const isLoading = checkedState.loadingLayers.has(option.value);
-              return (
-                <List.Item key={option.value} style={{ padding: "6px 0" }}>
-                  <LayerCheckbox option={option} disabled={isLoading} />
-                </List.Item>
-              );
-            }}
-            style={{ maxHeight: 320, overflow: "auto" }}
           />
+        </div>
+
+        <Divider style={{ margin: "8px 0" }} />
+
+        {loadingMessage && (
+          <Modal
+            title="Loading"
+            open={!!loadingMessage}
+            footer={null}
+            closable={false}
+          >
+            <Space>
+              <Spin />
+              <span>{loadingMessage}</span>
+            </Space>
+          </Modal>
         )}
-      </Checkbox.Group>
-    </Card>
+
+        <Checkbox.Group
+          onChange={onChange}
+          value={checkedState.checkedLayers}
+          style={{ width: "100%" }}
+        >
+          <Row gutter={[8, 8]} className="layer-list">
+            {filteredOptions.length === 0 && (
+              <Col span={24}>
+                <Empty
+                  description="No layers found"
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                />
+              </Col>
+            )}
+
+            {filteredOptions.map((option) => (
+              <LayerCheckbox
+                key={option.value}
+                option={option}
+                disabled={checkedState.loadingLayers.has(option.value)}
+              />
+            ))}
+          </Row>
+        </Checkbox.Group>
+      </Card>
+    </div>
   );
 });
 

@@ -299,9 +299,6 @@ const LayerPanel = memo(({ layers = [] }) => {
     onChange(remaining);
   }, [filteredOptions, checkedState.checkedLayers, onChange]);
 
-  // Number of active layers (selected)
-  const activeCount = (checkedState.checkedLayers || []).length;
-
   return (
     <Card
       size="small"
@@ -317,23 +314,20 @@ const LayerPanel = memo(({ layers = [] }) => {
             <div
               style={{ fontSize: 12, color: "var(--muted, rgba(0,0,0,0.45))" }}
             >
-              <Text type="secondary" style={{ marginRight: 8 }}>
-                {activeCount} active
-              </Text>
-              <Text type="secondary">{layerOptions.length} available</Text>
+              {layerOptions.length} available
             </div>
           </Col>
 
           <Col>
             <Space>
-              {/* <Tooltip title="Select visible">
+              <Tooltip title="Select visible">
                 <Button
                   type="text"
                   size="small"
                   icon={<SelectOutlined />}
                   onClick={selectAllVisible}
                 />
-              </Tooltip> */}
+              </Tooltip>
               <Tooltip title="Deselect visible">
                 <Button
                   type="text"

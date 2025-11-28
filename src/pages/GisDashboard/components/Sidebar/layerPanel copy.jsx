@@ -1,57 +1,28 @@
-import React, { memo, useCallback, useMemo, useState, useEffect } from "react";
-import {
-  Checkbox,
-  Col,
-  Row,
-  Space,
-  Spin,
-  Modal,
-  Card,
-  Input,
-  Button,
-  Divider,
-  List,
-  Tooltip,
-  Typography,
-  Empty,
-} from "antd";
-import {
-  SearchOutlined,
-  SelectOutlined,
-  ClearOutlined,
-} from "@ant-design/icons";
+import React, {
+  memo,
+  useCallback,
+  useMemo,
+  useState,
+  useEffect,
+  useRef,
+} from "react";
+import { Checkbox, Col, Row, Space, Spin, Modal } from "antd";
 import { useGetLayerObjectsMutation } from "../../../../store/api/layerApi";
 import { useDispatch, useSelector } from "react-redux";
 import { LeyerIcon } from "../../../../components";
 import { setGeoJsonLayer } from "../../../../store/slices/mapSlice";
 import { setLoadingMessage } from "../../../../store/slices/uiSlice";
 
-const { Text } = Typography;
-
 const LayerCheckbox = memo(({ option, disabled }) => (
-  <Checkbox value={option.value} disabled={disabled} style={{ width: "100%" }}>
-    <Space style={{ width: "100%", justifyContent: "space-between" }}>
+  <Col span={24}>
+    <Checkbox value={option.value} disabled={disabled}>
       <Space>
         <LeyerIcon iconInfo={option?.styleInfo} />
-        <span
-          style={{
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {option.label}
-        </span>
+        {option.label}
+        {disabled && <Spin size="small" style={{ marginLeft: 8 }} />}
       </Space>
-
-      <Space size="small">
-        {/* <Text type="secondary" style={{ fontSize: 12 }}>
-          {option.orderNo}
-        </Text> */}
-        {disabled && <Spin size="small" />}
-      </Space>
-    </Space>
-  </Checkbox>
+    </Checkbox>
+  </Col>
 ));
 LayerCheckbox.displayName = "LayerCheckbox";
 
@@ -69,8 +40,6 @@ const LayerPanel = memo(({ layers = [] }) => {
   const [getLayerObjects] = useGetLayerObjectsMutation();
 
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers || {});
-
-  const [searchTerm, setSearchTerm] = useState("");
 
   // Memoized layer options - single source of truth
   const layerOptions = useMemo(() => {
@@ -100,15 +69,6 @@ const LayerPanel = memo(({ layers = [] }) => {
       })) || []
     );
   }, [layers]);
-
-  // filtered options for search UI
-  const filteredOptions = useMemo(() => {
-    const s = (searchTerm || "").trim().toLowerCase();
-    if (!s) return layerOptions;
-    return layerOptions.filter((o) =>
-      (o.label || "").toLowerCase().includes(s)
-    );
-  }, [layerOptions, searchTerm]);
 
   // Sync with Redux state using layerOptions
   useEffect(() => {
@@ -282,71 +242,9 @@ const LayerPanel = memo(({ layers = [] }) => {
     portalId,
   ]);
 
-  // Select all visible options (keep others intact)
-  const selectAllVisible = useCallback(() => {
-    const visibleIds = filteredOptions.map((o) => o.value);
-    const current = new Set(checkedState.checkedLayers || []);
-    visibleIds.forEach((id) => current.add(id));
-    onChange(Array.from(current));
-  }, [filteredOptions, checkedState.checkedLayers, onChange]);
-
-  // Deselect all visible options
-  const deselectAllVisible = useCallback(() => {
-    const visibleSet = new Set(filteredOptions.map((o) => o.value));
-    const remaining = (checkedState.checkedLayers || []).filter(
-      (id) => !visibleSet.has(id)
-    );
-    onChange(remaining);
-  }, [filteredOptions, checkedState.checkedLayers, onChange]);
-
-  // Number of active layers (selected)
-  const activeCount = (checkedState.checkedLayers || []).length;
-
   return (
-    <Card
-      size="small"
-      bordered={false}
-      bodyStyle={{ padding: 12 }}
-      style={{ width: "100%" }}
-      title={
-        <Row align="middle" justify="space-between" style={{ gap: 8 }}>
-          <Col>
-            <Text strong style={{ fontSize: 16 }}>
-              Layers
-            </Text>
-            <div
-              style={{ fontSize: 12, color: "var(--muted, rgba(0,0,0,0.45))" }}
-            >
-              <Text type="secondary" style={{ marginRight: 8 }}>
-                {activeCount} active
-              </Text>
-              <Text type="secondary">{layerOptions.length} available</Text>
-            </div>
-          </Col>
-
-          <Col>
-            <Space>
-              {/* <Tooltip title="Select visible">
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<SelectOutlined />}
-                  onClick={selectAllVisible}
-                />
-              </Tooltip> */}
-              <Tooltip title="Deselect visible">
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<ClearOutlined />}
-                  onClick={deselectAllVisible}
-                />
-              </Tooltip>
-            </Space>
-          </Col>
-        </Row>
-      }
-    >
+    <div className="layer-panel">
+      <h2 className="panel-title">Layers</h2>
       {loadingMessage && (
         <Modal
           title="Loading"
@@ -360,44 +258,22 @@ const LayerPanel = memo(({ layers = [] }) => {
           </Space>
         </Modal>
       )}
-
-      <Input
-        prefix={<SearchOutlined />}
-        placeholder="Search layers..."
-        allowClear
-        size="middle"
-        onChange={(e) => setSearchTerm(e.target.value)}
-        value={searchTerm}
-        style={{ marginBottom: 8 }}
-      />
-
-      <Divider style={{ margin: "8px 0" }} />
-
       <Checkbox.Group
         onChange={onChange}
         value={checkedState.checkedLayers}
         style={{ width: "100%" }}
       >
-        {filteredOptions.length === 0 ? (
-          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No layers" />
-        ) : (
-          <List
-            size="small"
-            dataSource={filteredOptions}
-            split={false}
-            renderItem={(option) => {
-              const isLoading = checkedState.loadingLayers.has(option.value);
-              return (
-                <List.Item key={option.value} style={{ padding: "6px 0" }}>
-                  <LayerCheckbox option={option} disabled={isLoading} />
-                </List.Item>
-              );
-            }}
-            style={{ maxHeight: 320, overflow: "auto" }}
-          />
-        )}
+        <Row gutter={[8, 8]}>
+          {layerOptions.map((option) => (
+            <LayerCheckbox
+              key={option.value}
+              option={option}
+              disabled={checkedState.loadingLayers.has(option.value)}
+            />
+          ))}
+        </Row>
       </Checkbox.Group>
-    </Card>
+    </div>
   );
 });
 
