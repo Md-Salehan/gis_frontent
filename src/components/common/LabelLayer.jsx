@@ -11,6 +11,7 @@ const LabelLayer = memo(({ layerId, geoJsonData, metaData }) => {
   // Extract label configuration from metadata
   const labelConfig = useMemo(() => {
     const style = metaData?.style || {};
+    const portal_layer_map = metaData?.portal_layer_map || {};
 
     // Parse label_offset_xy if available
     let offsetX = 0;
@@ -19,7 +20,7 @@ const LabelLayer = memo(({ layerId, geoJsonData, metaData }) => {
       try {
         const parsed = JSON.parse(style.label_offset_xy);
         if (Array.isArray(parsed) && parsed.length >= 2) {
-          offsetX = Number(parsed[0]) || 0;
+          offsetX = Number(parsed[0]) * -1 || 0;
           offsetY = Number(parsed[1]) || 0;
         }
       } catch (err) {
@@ -33,7 +34,7 @@ const LabelLayer = memo(({ layerId, geoJsonData, metaData }) => {
       textColor: style.label_color || "#000000",
       bgColor: style.label_bg_color || "transparent",
       bgStrokeWidth: Number(style.label_bg_stroke_width) || 0,
-      zoomLevel: Number(style.label_zoom_level) || 14,
+      zoomLevel: Number(portal_layer_map?.label_view_zoom_level) || 0,
       offsetX,
       offsetY,
       enabled:

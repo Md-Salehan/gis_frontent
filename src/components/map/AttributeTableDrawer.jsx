@@ -26,7 +26,7 @@ function AttributeTableDrawer() {
       height="40vh"
       mask={false}
     >
-      {isAttributeTableOpen && <AttributeTable csvDownloader={true} clearDataOnTabChange={true} />}
+      {<AttributeTable open={isAttributeTableOpen} csvDownloader={true} clearDataOnTabChange={true} clearDataOnClose={true} defaultSelectAll={false} />}
     </CustomDrawer>
   );
 }

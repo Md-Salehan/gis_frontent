@@ -1,11 +1,4 @@
-import React, {
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
   InputNumber,
@@ -27,11 +20,7 @@ const UNITS = [
   { value: "feet", label: "Feet" },
 ];
 
-function BufferTool({
-  clearDataOnClose = true,
-  open = false,
-  combineBuffers = false,
-}) {
+function BufferTool({clearDataOnClose=true, combineBuffers=false}) {
   const dispatch = useDispatch();
   // return the actual state values (no fallback to a new array)
   const multiSelected = useSelector((s) => s.map.multiSelectedFeatures);
@@ -148,9 +137,12 @@ function BufferTool({
     [dispatch]
   );
 
-  useEffect(() => {
-    clearDataOnClose && open && clearAllBuffers();
-  }, [clearDataOnClose, open]);
+
+  useEffect(()=>{
+    return ()=>{
+      clearDataOnClose && clearAllBuffers();
+    }
+  }, [clearDataOnClose])
 
   return (
     <>

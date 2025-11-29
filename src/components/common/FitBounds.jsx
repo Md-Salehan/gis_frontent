@@ -1,5 +1,6 @@
 import { memo, useEffect } from "react";
 import { useMap } from "react-leaflet";
+import L from "leaflet"; // <-- added import
 
 
 // FitBounds component (keeps as side-effect)

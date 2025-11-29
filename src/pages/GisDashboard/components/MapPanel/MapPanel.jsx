@@ -19,7 +19,6 @@ import {
   PrintControl,
 } from "../../../../components";
 import SelectedFeaturesLayer from "../../../../components/map/SelectedFeaturesLayer";
-import BufferTool from "../../../../components/map/BufferTool";
 
 const MapPanel = memo(() => {
   // read layers & viewport from redux
@@ -116,7 +115,7 @@ const MapPanel = memo(() => {
   const mapSettings = useMemo(
     () => ({
       center: viewport?.center || [28.7041, 77.1025],
-      zoom: viewport?.zoom || 20,
+      zoom: viewport?.zoom || 8,
       style: { width: "100%", height: "100%" },
       zoomControl: false,
     }),

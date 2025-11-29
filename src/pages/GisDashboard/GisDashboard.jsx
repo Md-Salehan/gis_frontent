@@ -199,7 +199,7 @@ const GisDashboard = memo(() => {
             style={{
               width: "100%",
               height: "100%",
-              padding: 24,
+              // padding: 24,
               minHeight: 360,
               background: colorBgContainer,
               borderRadius: borderRadiusLG,

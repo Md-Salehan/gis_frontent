@@ -12,18 +12,25 @@ import { useMap } from "react-leaflet";
 // Constants
 const DEBUG = process.env.NODE_ENV === "development";
 const MAP_FIT_OPTIONS = {
-  padding: [50, 50],
+  padding: [10, 10],
   maxZoom: 16,
   duration: 0.7,
 };
 
-function AttributeTable({ csvDownloader = true, clearDataOnTabChange = true }) {
+function AttributeTable({
+  open = false,
+  csvDownloader = true,
+  clearDataOnTabChange = true,
+  clearDataOnClose = true,
+  defaultSelectAll = false,
+}) {
   const dispatch = useDispatch();
   const map = useMap();
 
   const [activeTab, setActiveTab] = useState(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState({});
   const [multiSelected, setMultiSelected] = useState({});
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
 
@@ -317,6 +324,30 @@ function AttributeTable({ csvDownloader = true, clearDataOnTabChange = true }) {
     );
   }, [geoJsonLayers]);
 
+  // ============================================
+  // Auto-select all rows when defaultSelectAll is enabled and tab changes
+  // ============================================
+  useEffect(() => {
+    if (!defaultSelectAll || !activeTab || !hasInitialized) {
+      return;
+    }
+
+    const layerData = geoJsonLayers[activeTab];
+    if (!layerData?.geoJsonData?.features) {
+      return;
+    }
+
+    const features = layerData.geoJsonData.features;
+    const allRowKeys = features.map((_, idx) => `${activeTab}-${idx}`);
+
+    // Update multiSelected to include all rows in active tab
+    setMultiSelected((prev) => {
+      const updated = { ...prev };
+      updated[activeTab] = new Set(allRowKeys);
+      return updated;
+    });
+  }, [activeTab, defaultSelectAll, geoJsonLayers, hasInitialized]);
+
   const tabs = useMemo(() => {
     return layerEntries.map(([layerId, layerData]) => {
       const label = layerData?.metaData?.layer?.layer_nm || layerId;
@@ -417,6 +448,8 @@ function AttributeTable({ csvDownloader = true, clearDataOnTabChange = true }) {
   useEffect(() => {
     if (!activeTab && tabs.length > 0) {
       setActiveTab(tabs[0].key);
+      // Mark as initialized after first tab is set
+      setHasInitialized(true);
     }
   }, [tabs, activeTab]);
 
@@ -433,14 +466,16 @@ function AttributeTable({ csvDownloader = true, clearDataOnTabChange = true }) {
     [dispatch, clearDataOnTabChange]
   );
 
-  useEffect(() => {
-    return () => {
-      setSelectedRowKeys({});
-      setMultiSelected({});
-      dispatch(setSelectedFeature({ feature: [], metaData: null }));
-      dispatch(setMultiSelectedFeatures([]));
-    };
+  const cleanUp = useCallback(() => {
+    setSelectedRowKeys({});
+    setMultiSelected({});
+    dispatch(setSelectedFeature({ feature: [], metaData: null }));
+    dispatch(setMultiSelectedFeatures([]));
   }, [dispatch]);
+
+  useEffect(() => {
+    clearDataOnClose && !open && cleanUp();
+  }, [clearDataOnClose, open, cleanUp]);
 
   // ============================================
   // Render

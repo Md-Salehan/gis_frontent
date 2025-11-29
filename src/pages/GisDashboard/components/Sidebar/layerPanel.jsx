@@ -40,7 +40,7 @@ const LayerCheckbox = memo(({ option, disabled }) => (
             textOverflow: "ellipsis",
           }}
         >
-          {option.label}
+          {option.label} | {option.value}
         </span>
       </Space>
 

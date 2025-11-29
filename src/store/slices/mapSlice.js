@@ -6,7 +6,7 @@ const initialState = {
   multiSelectedFeatures: [],
   viewport: {
     center: [28.7041, 77.1025],
-    zoom: 16,
+    zoom: 8,
   },
   activeBasemap: "streets",
   sidebarCollapsed: false,
