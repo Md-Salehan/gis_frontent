@@ -4,6 +4,7 @@ import { createSlice } from "@reduxjs/toolkit";
 const initialState = {
   geoJsonLayers: {}, // layerId: { geoJsonData, metaData, orderNo }
   multiSelectedFeatures: [],
+  // multiSelectedRows: {}, // tracks row keys per layer for UI sync at AttributeTable.jsx 
   viewport: {
     center: [28.7041, 77.1025],
     zoom: 8,
@@ -24,8 +25,7 @@ const initialState = {
   },
 };
 
-const restoreInitialState = 
-{...initialState};
+const restoreInitialState = { ...initialState };
 
 const mapSlice = createSlice({
   name: "map",
@@ -89,6 +89,25 @@ const mapSlice = createSlice({
     setPortalId: (state, action) => {
       state.portalId = action.payload;
     },
+    // NEW reducers
+    // setMultiSelectedRows: (state, action) => {
+    //   state.multiSelectedRows = action.payload || {};
+    // },
+    // toggleRowSelection: (state, action) => {
+    //   const { layerId, rowKey, checked } = action.payload;
+    //   if (!state.multiSelectedRows[layerId]) {
+    //     state.multiSelectedRows[layerId] = new Set();
+    //   }
+    //   const layerSet = state.multiSelectedRows[layerId];
+    //   if (checked) {
+    //     layerSet.add(rowKey);
+    //   } else {
+    //     layerSet.delete(rowKey);
+    //   }
+    // },
+    // clearMultiSelectedRows: (state) => {
+    //   state.multiSelectedRows = {};
+    // },
   },
 });
 
@@ -105,6 +124,9 @@ export const {
   setMeasureUnit,
   setMeasure,
   setPortalId,
+  setMultiSelectedRows,
+  toggleRowSelection,
+  clearMultiSelectedRows,
 } = mapSlice.actions;
 
 export default mapSlice.reducer;

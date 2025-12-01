@@ -84,7 +84,14 @@ const GisDashboard = memo(() => {
       key: "0",
       icon: React.createElement(TableProperties),
       label: "Attributes",
-      onClick: () => dispatch(toggleAttributeTable()),
+      onClick: () => {
+        // dispatch(toggleLegend(false));
+        // dispatch(togglePrintModal(false));
+        // dispatch(toggleMeasure(false));
+        dispatch(toggleBuffer({state: false}));
+        dispatch(toggleAttributeTable({state: true}));
+
+      },
     },
     {
       key: "1",
@@ -108,13 +115,24 @@ const GisDashboard = memo(() => {
       key: "4",
       icon: React.createElement(Printer),
       label: "Print",
-      onClick: () => dispatch(togglePrintModal()),
+      onClick: () => {
+        // dispatch(toggleAttributeTable(false));
+        // dispatch(toggleMeasure(false));
+        // dispatch(toggleBuffer(false));
+        dispatch(togglePrintModal());
+        
+      },
     },
     {
       key: "5",
       icon: React.createElement(Proportions),
       label: "Buffer",
-      onClick: () => dispatch(toggleBuffer()), 
+      onClick: () => {
+        dispatch(toggleAttributeTable({state: false}));
+        // dispatch(togglePrintModal(false));
+        // dispatch(toggleMeasure(false));
+        dispatch(toggleBuffer({state: true}));
+      },
     },
   ];
 

@@ -26,7 +26,7 @@ function AttributeTable({
 }) {
   const dispatch = useDispatch();
   const map = useMap();
-
+  const storeMultiSelectedFeatures = useSelector( (state) => state.map.multiSelectedFeatures || [] );
   const [activeTab, setActiveTab] = useState(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState({});
   const [multiSelected, setMultiSelected] = useState([]);
@@ -189,7 +189,7 @@ function AttributeTable({
   // Redux Sync & Auto-fit
   // ============================================
   useEffect(() => {
-    const multiFeatures = [];
+    const multiFeatures = [...storeMultiSelectedFeatures]; // Start with existing features in store
     Object.entries(multiSelected).forEach(([layerId, keySet]) => {
       const features = geoJsonLayers[layerId]?.geoJsonData?.features || [];
       const metaData = geoJsonLayers[layerId]?.metaData || {};

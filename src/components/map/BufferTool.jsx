@@ -30,12 +30,10 @@ const UNITS = [
 function BufferTool({
   clearDataOnClose = true,
   open = false,
-  combineBuffers = false,
 }) {
   const dispatch = useDispatch();
   // return the actual state values (no fallback to a new array)
   const multiSelected = useSelector((s) => s.map.multiSelectedFeatures);
-  const singleSelected = useSelector((s) => s.map.selectedFeature?.feature);
   const [distance, setDistance] = useState(100); // default 100 meters
   const [unit, setUnit] = useState("meters");
 
@@ -47,26 +45,15 @@ function BufferTool({
   const selectedFeatures = useMemo(() => {
     // normalize inputs to avoid creating new array references inside selector
     const multi = Array.isArray(multiSelected) ? multiSelected : [];
-    const singleArr = Array.isArray(singleSelected)
-      ? singleSelected
-      : singleSelected
-      ? [singleSelected]
-      : [];
+ 
 
     if (multi && multi.length > 0) {
       // multiSelected items are { layerId, feature, metaData }
       return multi.map((m) => ({ ...m }));
     }
-    if (singleArr && singleArr.length > 0) {
-      // singleSelected is an array (normalized above) of features
-      return singleArr.map((f, idx) => ({
-        layerId: `selected-${idx}`,
-        feature: f,
-        metaData: {},
-      }));
-    }
+
     return [];
-  }, [multiSelected, singleSelected]);
+  }, [multiSelected]);
 
   const hasSelection = selectedFeatures.length > 0;
 
@@ -149,7 +136,7 @@ function BufferTool({
   );
 
   useEffect(() => {
-    clearDataOnClose && open && clearAllBuffers();
+    clearDataOnClose && !open && clearAllBuffers();
   }, [clearDataOnClose, open]);
 
   return (

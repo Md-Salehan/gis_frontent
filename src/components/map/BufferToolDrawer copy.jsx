@@ -43,7 +43,7 @@ function BufferToolDrawer() {
               //   title="Buffer"
               bodyStyle={{ height: "100%", padding: 12, overflow: "auto" }}
             >
-              <BufferTool open={isOpen} clearDataOnClose={true} />
+              <BufferTool open={isOpen} clearDataOnClose={false} combineBuffers={true} />
             </Card>
           </Col>
 
@@ -60,7 +60,7 @@ function BufferToolDrawer() {
               //   title="Attributes"
               bodyStyle={{ height: "100%", padding: 12, overflow: "auto" }}
             >
-              <AttributeTable open={isOpen} csvDownloader={false} clearDataOnTabChange={true} clearDataOnClose={true} defaultSelectAll={true} />
+              <AttributeTable open={isOpen} csvDownloader={false} clearDataOnTabChange={true} clearDataOnClose={false} defaultSelectAll={false} />
             </Card>
           </Col>
         </Row>

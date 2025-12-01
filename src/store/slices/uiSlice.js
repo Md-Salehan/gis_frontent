@@ -19,8 +19,9 @@ export const uiSlice = createSlice({
   name: "ui",
   initialState,
   reducers: {
-    toggleSidebar: (state) => {
-      state.sidebarOpen = !state.sidebarOpen;
+    toggleSidebar: (state, action) => {
+      if (action.payload) state.sidebarOpen = action.payload.state;
+      else state.sidebarOpen = !state.sidebarOpen;
     },
     setModal: (state, action) => {
       state.activeModal = action.payload;
@@ -33,22 +34,27 @@ export const uiSlice = createSlice({
       state.loading[key] = value;
     },
 
-    toggleLegend: (state) => {
-      state.isLegendVisible = !state.isLegendVisible;
+    toggleLegend: (state, action) => {
+      if (action.payload) state.isLegendVisible = action.payload.state;
+      else state.isLegendVisible = !state.isLegendVisible;
     },
-    toggleAttributeTable: (state) => {
-      state.isAttributeTableOpen = !state.isAttributeTableOpen;
+    toggleAttributeTable: (state, action) => {
+      if (action.payload) state.isAttributeTableOpen = action.payload.state;
+      else state.isAttributeTableOpen = !state.isAttributeTableOpen;
     },
     // toggle measure drawer/panel
-    toggleMeasure: (state) => {
-      state.isMeasureOpen = !state.isMeasureOpen;
+    toggleMeasure: (state, action) => {
+      if (action.payload) state.isMeasureOpen = action.payload.state;
+      else state.isMeasureOpen = !state.isMeasureOpen;
     },
-    // toggle print modal 
-    togglePrintModal: (state) => {
-      state.isPrintModalOpen = !state.isPrintModalOpen;
+    // toggle print modal
+    togglePrintModal: (state, action) => {
+      if (action.payload) state.isPrintModalOpen = action.payload.state;
+      else state.isPrintModalOpen = !state.isPrintModalOpen;
     },
-    toggleBuffer: (state) => { // Add buffer toggle
-      state.isBufferOpen = !state.isBufferOpen;
+    toggleBuffer: (state, action) => {
+      if (action.payload) state.isBufferOpen = action.payload.state;
+      else state.isBufferOpen = !state.isBufferOpen;
     },
     setLoadingMessage: (state, action) => {
       state.loadingMessage = action.payload;

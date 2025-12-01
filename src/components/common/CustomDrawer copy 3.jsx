@@ -37,35 +37,6 @@ function CloseIcon() {
     </svg>
   );
 }
-function RestoreIcon() {
-  // Two overlapping squares to look like Windows "restore" icon
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <rect
-        x="9"
-        y="3"
-        width="14"
-        height="14"
-        rx="1.2"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        fill="none"
-        fillOpacity="1"
-      />
-      <rect
-        x="5"
-        y="7"
-        width="14"
-        height="14"
-        rx="1.2"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        fill="white"
-        fillOpacity="1"
-      />
-    </svg>
-  );
-}
 
 function CustomDrawer({
   title,
@@ -202,7 +173,7 @@ function CustomDrawer({
               aria-label={isMaximized ? "Restore size" : "Maximize"}
               style={{ color: "inherit", padding: 6 }}
             >
-              {isMaximized ? <RestoreIcon /> : <MaxIcon />}
+              <MaxIcon />
             </Button>
           </Tooltip>
         )}

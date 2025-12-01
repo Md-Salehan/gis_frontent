@@ -5,6 +5,8 @@ import { useSelector, useDispatch } from "react-redux";
 import {
   setSelectedFeature,
   setMultiSelectedFeatures,
+  setMultiSelectedRows,
+  clearMultiSelectedRows,
 } from "../../store/slices/mapSlice";
 import L from "leaflet";
 import { useMap } from "react-leaflet";
@@ -26,13 +28,15 @@ function AttributeTable({
 }) {
   const dispatch = useDispatch();
   const map = useMap();
-
   const [activeTab, setActiveTab] = useState(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState({});
-  const [multiSelected, setMultiSelected] = useState([]);
   const [hasInitialized, setHasInitialized] = useState(false);
 
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
+  // Read multiSelected from Redux instead of local state
+  const multiSelectedRedux = useSelector(
+    (state) => state.map.multiSelectedRows
+  );
 
   // ============================================
   // Utility: Parse row key to feature index
@@ -115,7 +119,6 @@ function AttributeTable({
           }
         }
 
-        // Update selected row keys
         setSelectedRowKeys({
           [layerId]: [record.key],
         });
@@ -124,17 +127,24 @@ function AttributeTable({
     [dispatch, geoJsonLayers, map]
   );
 
-  const toggleMultiSelect = useCallback((layerId, rowKey, checked) => {
-    setMultiSelected((prev) => {
-      const layerSet = new Set(prev[layerId] ? Array.from(prev[layerId]) : []);
-      if (checked) {
-        layerSet.add(rowKey);
-      } else {
-        layerSet.delete(rowKey);
-      }
-      return { ...prev, [layerId]: layerSet };
-    });
-  }, []);
+  const toggleMultiSelect = useCallback(
+    (layerId, rowKey, checked) => {
+      // Update Redux state
+      dispatch(
+        setMultiSelectedRows({
+          ...multiSelectedRedux,
+          [layerId]: new Set(
+            checked
+              ? [...Array.from(multiSelectedRedux[layerId] || []), rowKey]
+              : Array.from(multiSelectedRedux[layerId] || []).filter(
+                  (k) => k !== rowKey
+                )
+          ),
+        })
+      );
+    },
+    [dispatch, multiSelectedRedux]
+  );
 
   // ============================================
   // Map Bounds Fitting
@@ -145,14 +155,14 @@ function AttributeTable({
       return;
     }
 
-    if (!multiSelected || Object.keys(multiSelected).length === 0) {
+    if (!multiSelectedRedux || Object.keys(multiSelectedRedux).length === 0) {
       return;
     }
 
     try {
       let combinedBounds = null;
 
-      Object.entries(multiSelected).forEach(([layerId, keySet]) => {
+      Object.entries(multiSelectedRedux).forEach(([layerId, keySet]) => {
         const features = geoJsonLayers[layerId]?.geoJsonData?.features || [];
         Array.from(keySet || []).forEach((rowKey) => {
           const idx = parseRowKeyToIndex(rowKey);
@@ -183,14 +193,14 @@ function AttributeTable({
     } catch (error) {
       console.error("Error fitting to multi-selected bounds:", error);
     }
-  }, [map, multiSelected, geoJsonLayers, parseRowKeyToIndex]);
+  }, [map, multiSelectedRedux, geoJsonLayers, parseRowKeyToIndex]);
 
   // ============================================
   // Redux Sync & Auto-fit
   // ============================================
   useEffect(() => {
     const multiFeatures = [];
-    Object.entries(multiSelected).forEach(([layerId, keySet]) => {
+    Object.entries(multiSelectedRedux).forEach(([layerId, keySet]) => {
       const features = geoJsonLayers[layerId]?.geoJsonData?.features || [];
       const metaData = geoJsonLayers[layerId]?.metaData || {};
       Array.from(keySet || []).forEach((rowKey) => {
@@ -210,7 +220,7 @@ function AttributeTable({
       fitToMultiSelectedBounds();
     }
   }, [
-    multiSelected,
+    multiSelectedRedux,
     geoJsonLayers,
     dispatch,
     fitToMultiSelectedBounds,
@@ -222,7 +232,7 @@ function AttributeTable({
   // ============================================
   const exportSelectedToCSV = useCallback(() => {
     const selected = [];
-    Object.entries(multiSelected).forEach(([layerId, keySet]) => {
+    Object.entries(multiSelectedRedux).forEach(([layerId, keySet]) => {
       Array.from(keySet || []).forEach((rowKey) => {
         const feature = getFeatureByRowKey(layerId, rowKey);
         if (feature) {
@@ -298,21 +308,21 @@ function AttributeTable({
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-  }, [multiSelected, getFeatureByRowKey]);
+  }, [multiSelectedRedux, getFeatureByRowKey]);
 
   // ============================================
   // Styling
   // ============================================
   const getRowBackgroundColor = useCallback(
     (record, layerId) => {
-      const isMultiSelected = multiSelected[layerId]?.has(record.key);
+      const isMultiSelected = multiSelectedRedux[layerId]?.has(record.key);
       const isSingleSelected = selectedRowKeys[layerId]?.includes(record.key);
 
       if (isSingleSelected) return "#ffece6ff";
       if (isMultiSelected) return "#fff7cc";
       return "white";
     },
-    [multiSelected, selectedRowKeys]
+    [multiSelectedRedux, selectedRowKeys]
   );
 
   // ============================================
@@ -340,19 +350,25 @@ function AttributeTable({
     const features = layerData.geoJsonData.features;
     const allRowKeys = features.map((_, idx) => `${activeTab}-${idx}`);
 
-    // Update multiSelected to include all rows in active tab
-    setMultiSelected((prev) => {
-      const updated = { ...prev };
-      updated[activeTab] = new Set(allRowKeys);
-      return updated;
-    });
-  }, [activeTab, defaultSelectAll, geoJsonLayers, hasInitialized]);
+    dispatch(
+      setMultiSelectedRows({
+        ...multiSelectedRedux,
+        [activeTab]: new Set(allRowKeys),
+      })
+    );
+  }, [
+    activeTab,
+    defaultSelectAll,
+    geoJsonLayers,
+    hasInitialized,
+    dispatch,
+    multiSelectedRedux,
+  ]);
 
   const tabs = useMemo(() => {
     return layerEntries.map(([layerId, layerData]) => {
       const label = layerData?.metaData?.layer?.layer_nm || layerId;
 
-      // ✅ NEW: Action column with view button instead of radio
       const actionColumn = {
         title: "Find",
         key: `${layerId}-action`,
@@ -387,7 +403,7 @@ function AttributeTable({
         width: 80,
         fixed: "left",
         render: (text, record) => {
-          const checked = multiSelected[layerId]?.has(record.key) || false;
+          const checked = multiSelectedRedux[layerId]?.has(record.key) || false;
           return (
             <Checkbox
               checked={checked}
@@ -403,7 +419,6 @@ function AttributeTable({
         layerData?.geoJsonData?.features[0]?.properties
       );
 
-      // ✅ UPDATED: Replaced rowSelection with custom columns
       const columns = [actionColumn, selectColumn, ...propertyColumns];
 
       const children =
@@ -437,7 +452,7 @@ function AttributeTable({
     getColumns,
     getTableData,
     handleViewFeature,
-    multiSelected,
+    multiSelectedRedux,
     toggleMultiSelect,
     getRowBackgroundColor,
   ]);
@@ -448,7 +463,6 @@ function AttributeTable({
   useEffect(() => {
     if (!activeTab && tabs.length > 0) {
       setActiveTab(tabs[0].key);
-      // Mark as initialized after first tab is set
       setHasInitialized(true);
     }
   }, [tabs, activeTab]);
@@ -458,7 +472,7 @@ function AttributeTable({
       setActiveTab(activeKey);
       if (clearDataOnTabChange) {
         setSelectedRowKeys({});
-        setMultiSelected({});
+        dispatch(clearMultiSelectedRows());
         dispatch(setSelectedFeature({ feature: [], metaData: null }));
         dispatch(setMultiSelectedFeatures([]));
       }
@@ -468,7 +482,7 @@ function AttributeTable({
 
   const cleanUp = useCallback(() => {
     setSelectedRowKeys({});
-    setMultiSelected({});
+    dispatch(clearMultiSelectedRows());
     dispatch(setSelectedFeature({ feature: [], metaData: null }));
     dispatch(setMultiSelectedFeatures([]));
   }, [dispatch]);
