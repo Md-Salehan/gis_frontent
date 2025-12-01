@@ -26,7 +26,7 @@ function AttributeTableDrawer() {
       height="40vh"
       mask={false}
       minimized={true}
-      maximized={true}
+      // maximized={true}
     >
       {<AttributeTable open={isAttributeTableOpen} csvDownloader={true} clearDataOnTabChange={true} clearDataOnClose={false} defaultSelectAll={false} />}
     </CustomDrawer>

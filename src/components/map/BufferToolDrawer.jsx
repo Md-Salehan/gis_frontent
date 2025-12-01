@@ -27,6 +27,8 @@ function BufferToolDrawer() {
           // keep created buffers (user can clear), but no state reset required
         }
       }}
+      // minimized={true}
+      maximized={true}
     >
       {(
         <Row gutter={12} style={{ height: "100%" }}>
