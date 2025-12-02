@@ -8,7 +8,6 @@ import BaseMapSwitcher from "../../../../components/common/BaseMapSwitcher";
 import GeomanControl from "../../../../components/common/GeomanControl";
 import FitBounds from "../../../../components/common/FitBounds";
 import {
-  AttributeTable,
   AttributeTableDrawer,
   BufferGeoJsonLayer,
   BufferToolDrawer,
@@ -156,11 +155,9 @@ const MapPanel = memo(() => {
         <GeomanControl />
         <MiniMapControl />
         <Legend visible={isLegendVisible} />
-        {/* <AttributeTable /> */}
         <AttributeTableDrawer />
         <MeasureControl />
         <PrintControl />
-        {/* <BufferTool /> */}
         <BufferToolDrawer />
       </MapContainer>
     </div>

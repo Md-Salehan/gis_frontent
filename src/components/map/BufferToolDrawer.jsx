@@ -10,14 +10,14 @@ import { Row, Col, Card, Divider } from "antd";
 
 function BufferToolDrawer() {
   const dispatch = useDispatch();
-  const isOpen = useSelector((s) => s.ui.isBufferOpen);
+  const isBufferToolOpen = useSelector((s) => s.ui.isBufferOpen);
 
   return (
     <CustomDrawer
       title="Buffer Tool"
       placement="bottom"
       onClose={() => dispatch(toggleBuffer())}
-      open={isOpen}
+      open={isBufferToolOpen}
       height={"45vh"}
       // render inline so children keep react-leaflet context (useMap) when placed inside drawer
       getContainer={false}
@@ -27,10 +27,10 @@ function BufferToolDrawer() {
           // keep created buffers (user can clear), but no state reset required
         }
       }}
-      // minimized={true}
+      minimized={true}
       maximized={true}
     >
-      {(
+      {
         <Row gutter={12} style={{ height: "100%" }}>
           <Col
             xs={24}
@@ -45,7 +45,7 @@ function BufferToolDrawer() {
               //   title="Buffer"
               bodyStyle={{ height: "100%", padding: 12, overflow: "auto" }}
             >
-              <BufferTool open={isOpen} clearDataOnClose={true} />
+              { <BufferTool open={isBufferToolOpen} clearDataOnClose={true} />}
             </Card>
           </Col>
 
@@ -62,11 +62,18 @@ function BufferToolDrawer() {
               //   title="Attributes"
               bodyStyle={{ height: "100%", padding: 12, overflow: "auto" }}
             >
-              <AttributeTable open={isOpen} csvDownloader={false} clearDataOnTabChange={true} clearDataOnClose={true} defaultSelectAll={true} />
+              {isBufferToolOpen && (
+                <AttributeTable
+                  csvDownloader={false}
+                  clearDataOnTabChange={true}
+                  clearDataOnClose={true}
+                  defaultSelectAll={true}
+                />
+              )}
             </Card>
           </Col>
         </Row>
-      )}
+      }
     </CustomDrawer>
   );
 }

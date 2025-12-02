@@ -19,6 +19,7 @@ const MAP_FIT_OPTIONS = {
 };
 
 function AttributeTable({
+  open = false,
   csvDownloader = true,
   clearDataOnTabChange = true,
   clearDataOnClose = true,
@@ -202,6 +203,7 @@ function AttributeTable({
       });
     });
 
+    DEBUG && console.log("multiFeatures:", multiFeatures);
 
     dispatch(setMultiSelectedFeatures(multiFeatures));
 
@@ -327,7 +329,14 @@ function AttributeTable({
   // Auto-select all rows when defaultSelectAll is enabled and tab changes
   // ============================================
   useEffect(() => {
-    if (!defaultSelectAll || !activeTab || !hasInitialized) {
+    console.log("xxr Auto-selecting",{
+      defaultSelectAll: defaultSelectAll,
+      activeTab: activeTab,
+      hasInitialized: hasInitialized
+    },
+       !defaultSelectAll , !activeTab , !hasInitialized);
+
+    if (!defaultSelectAll || !activeTab || !hasInitialized || !open) {
       return;
     }
     const layerData = geoJsonLayers[activeTab];
@@ -344,7 +353,10 @@ function AttributeTable({
       updated[activeTab] = new Set(allRowKeys);
       return updated;
     });
-  }, [activeTab, defaultSelectAll, geoJsonLayers, hasInitialized]);
+  }, [activeTab, defaultSelectAll, geoJsonLayers, hasInitialized, open]);
+
+
+
 
   const tabs = useMemo(() => {
     return layerEntries.map(([layerId, layerData]) => {
@@ -446,8 +458,9 @@ function AttributeTable({
   useEffect(() => {
     if (!activeTab && tabs.length > 0) {
       setActiveTab(tabs[0].key);
+      
     }
-    if (activeTab && !hasInitialized) {
+    if(activeTab && !hasInitialized){
       setHasInitialized(true);
     }
   }, [tabs, activeTab]);
@@ -467,17 +480,22 @@ function AttributeTable({
   );
 
   const cleanUp = useCallback(() => {
+    console.log("xxr cleanup at Attr");
+
     setSelectedRowKeys({});
     setMultiSelected({});
+    setHasInitialized(false);
+    setActiveTab(null);
+    dispatch(resetBuffer());
     dispatch(setSelectedFeature({ feature: [], metaData: null }));
     dispatch(setMultiSelectedFeatures([]));
   }, [dispatch]);
 
   useEffect(() => {
-    return () => {
-      clearDataOnClose && cleanUp();
-    };
-  }, [clearDataOnClose, cleanUp]);
+    console.log("xxr useEffect at Attr", clearDataOnClose, !open);
+
+    clearDataOnClose && !open && cleanUp();
+  }, [clearDataOnClose, open, cleanUp]);
 
   // ============================================
   // Render

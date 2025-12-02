@@ -34,13 +34,15 @@ function BufferTool({
   const dispatch = useDispatch();
   // return the actual state values (no fallback to a new array)
   const multiSelected = useSelector((s) => s.map.multiSelectedFeatures);
-  const bufferOrder = useSelector((s) => s.map.bufferOrder) || [];
+  const bufferOrder = useSelector((s) => s.map.bufferOrder);
   const [distance, setDistance] = useState(100); // default 100 meters
   const [unit, setUnit] = useState("meters");
 
 
   // Use state so UI updates when buffers are created/removed
   const [createdIds, setCreatedIds] = useState([]);
+  const createdIdsRef = useRef(createdIds);
+  createdIdsRef.current = createdIds;
 
   const selectedFeatures = useMemo(() => {
     // normalize inputs to avoid creating new array references inside selector
@@ -92,7 +94,7 @@ function BufferTool({
           layerId: id,
           geoJsonData: fc,
           metaData: {
-            layer: { layer_nm: `Buffer ${createdIds.length + 1}` },
+            layer: { layer_nm: `Buffer ${createdIdsRef.current.length + 1}` },
             style: {
               // use recognizable geometry type so GeoJsonLayerWrapper can style as polygon
               geom_typ: "polygon",
@@ -114,10 +116,10 @@ function BufferTool({
       console.error("Buffer error:", err);
       message.error("Error creating buffer");
     }
-  }, [dispatch, hasSelection, distance, unit, selectedFeatures, createdIds.length]);
+  }, [dispatch, hasSelection, distance, unit, selectedFeatures]);
 
   const clearAllBuffers = useCallback(() => {
-    const ids = [...createdIds];
+    const ids = [...createdIdsRef.current];
     ids.forEach((id) => {
       dispatch(setBufferLayer({ layerId: id, isActive: false }));
     });
@@ -136,15 +138,12 @@ function BufferTool({
   );
 
   //Lifecycle
-  // clear createdIds if bufferOrder is empty (on tab change or external clear action call resetBuffers)
   useEffect(() => {
     if (bufferOrder.length === 0) setCreatedIds([]);;
   }, [bufferOrder]);
   useEffect(() => {
-    return () => {
-      clearDataOnClose && clearAllBuffers();
-    };
-  }, [clearDataOnClose]);
+    clearDataOnClose && !open && clearAllBuffers();
+  }, [clearDataOnClose, open]);
 
   return (
     <>

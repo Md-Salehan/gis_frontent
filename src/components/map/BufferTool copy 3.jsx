@@ -1,11 +1,4 @@
-import React, {
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Button,
   InputNumber,
@@ -27,31 +20,21 @@ const UNITS = [
   { value: "feet", label: "Feet" },
 ];
 
-function BufferTool({
-  clearDataOnClose = true,
-  open = false,
-}) {
+function BufferTool({ clearDataOnClose = true}) {
   const dispatch = useDispatch();
-  // return the actual state values (no fallback to a new array)
+
   const multiSelected = useSelector((s) => s.map.multiSelectedFeatures);
-  const bufferOrder = useSelector((s) => s.map.bufferOrder) || [];
+  const bufferOrder = useSelector((s) => s.map.bufferOrder || []);
+  // Use bufferLayers if needed in future: const bufferLayers = useSelector((s) => s.map.bufferLayers);
+
   const [distance, setDistance] = useState(100); // default 100 meters
   const [unit, setUnit] = useState("meters");
 
-
-  // Use state so UI updates when buffers are created/removed
-  const [createdIds, setCreatedIds] = useState([]);
-
   const selectedFeatures = useMemo(() => {
-    // normalize inputs to avoid creating new array references inside selector
     const multi = Array.isArray(multiSelected) ? multiSelected : [];
- 
-
-    if (multi && multi.length > 0) {
-      // multiSelected items are { layerId, feature, metaData }
+    if (multi.length > 0) {
       return multi.map((m) => ({ ...m }));
     }
-
     return [];
   }, [multiSelected]);
 
@@ -72,7 +55,6 @@ function BufferTool({
       selectedFeatures.forEach((sel) => {
         const feat = sel.feature;
         if (!feat || !feat.geometry) return;
-        // turf expects a GeoJSON feature; wrap if necessary
         const input = feat.type === "Feature" ? feat : turf.feature(feat);
         const buf = turf.buffer(input, Number(distance), { units: unit });
         if (buf && buf.geometry) bufferedFeatures.push(buf);
@@ -86,15 +68,16 @@ function BufferTool({
       const fc = turf.featureCollection(bufferedFeatures);
       const id = `buffer-${distance}${unit}-${Date.now()}`;
 
-      // Add layer via setBufferLayer (keeps buffers separate and ordered)
+      // Use bufferOrder length to create a readable layer name
+      const layerLabel = `Buffer ${bufferOrder.length + 1}`;
+
       dispatch(
         setBufferLayer({
           layerId: id,
           geoJsonData: fc,
           metaData: {
-            layer: { layer_nm: `Buffer ${createdIds.length + 1}` },
+            layer: { layer_nm: layerLabel },
             style: {
-              // use recognizable geometry type so GeoJsonLayerWrapper can style as polygon
               geom_typ: "polygon",
               stroke_color: "#ff0000",
               fill_color: "#ff0000",
@@ -106,45 +89,45 @@ function BufferTool({
         })
       );
 
-      // update local state so UI re-renders
-      setCreatedIds((prev) => [...prev, id]);
-
       message.success("Buffer created");
     } catch (err) {
       console.error("Buffer error:", err);
       message.error("Error creating buffer");
     }
-  }, [dispatch, hasSelection, distance, unit, selectedFeatures, createdIds.length]);
+  }, [
+    dispatch,
+    hasSelection,
+    distance,
+    unit,
+    selectedFeatures,
+    bufferOrder.length,
+  ]);
 
   const clearAllBuffers = useCallback(() => {
-    const ids = [...createdIds];
+    const ids = Array.isArray(bufferOrder) ? [...bufferOrder] : [];
     ids.forEach((id) => {
       dispatch(setBufferLayer({ layerId: id, isActive: false }));
     });
-    setCreatedIds([]);
     message.success("Cleared buffers");
-  }, [dispatch]);
+  }, [dispatch, bufferOrder]);
 
   const removeBuffer = useCallback(
     (id) => {
       if (!id) return;
       dispatch(setBufferLayer({ layerId: id, isActive: false }));
-      setCreatedIds((prev) => prev.filter((x) => x !== id));
       message.success("Buffer removed");
     },
     [dispatch]
   );
 
-  //Lifecycle
-  // clear createdIds if bufferOrder is empty (on tab change or external clear action call resetBuffers)
-  useEffect(() => {
-    if (bufferOrder.length === 0) setCreatedIds([]);;
-  }, [bufferOrder]);
+  // When drawer is closed and clearDataOnClose is true, clear buffers
   useEffect(() => {
     return () => {
-      clearDataOnClose && clearAllBuffers();
+      if (clearDataOnClose) {
+        clearAllBuffers();
+      }
     };
-  }, [clearDataOnClose]);
+  }, [clearDataOnClose, clearAllBuffers]);
 
   return (
     <>
@@ -195,7 +178,7 @@ function BufferTool({
             size="small"
             bordered
             style={{ marginTop: 8, maxHeight: 240, overflow: "auto" }}
-            dataSource={[...createdIds].reverse()}
+            dataSource={[...(bufferOrder || [])].reverse()}
             locale={{ emptyText: "No buffers created" }}
             renderItem={(item) => (
               <List.Item

@@ -11,7 +11,7 @@ import {
   PANE_ZINDEX,
 } from "../../constants";
 
-const SelectedFeaturesLayer = memo(() => {
+const SelectedFeaturesLayer = () => {
   const selectedFeature = useSelector(
     (state) => state.map.selectedFeature.feature
   );
@@ -102,7 +102,7 @@ const SelectedFeaturesLayer = memo(() => {
       )}
     </>
   );
-});
+};
 
 SelectedFeaturesLayer.displayName = "SelectedFeaturesLayer";
-export default SelectedFeaturesLayer;
+export default memo(SelectedFeaturesLayer);
