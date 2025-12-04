@@ -28,7 +28,7 @@ function BufferToolDrawer() {
         }
       }}
       minimized={true}
-      maximized={true}
+      // maximized={true}
     >
       {
         <Row gutter={12} style={{ height: "100%" }}>
@@ -45,7 +45,7 @@ function BufferToolDrawer() {
               //   title="Buffer"
               bodyStyle={{ height: "100%", padding: 12, overflow: "auto" }}
             >
-              { <BufferTool open={isBufferToolOpen} clearDataOnClose={true} />}
+              {isBufferToolOpen && <BufferTool open={isBufferToolOpen} clearDataOnClose={true} />}
             </Card>
           </Col>
 

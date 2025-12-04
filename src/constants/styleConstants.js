@@ -5,6 +5,8 @@ export const DEFAULT_STYLES = {
   opacity: 1,
   fillOpacity: 1,
   fillColor: "none",
+  markerFillColor: "#000000",
+  radius: 3,
 };
 
 // Selected feature highlighting styles

@@ -4,33 +4,12 @@ import { DEFAULT_STYLES } from "../../constants";
 function LeyerIcon({ iconInfo }) {
   let geom_typ = iconInfo?.geom_typ;
   let iconType = "unknown-layer-icon";
-  console.log(iconInfo, "xxrxx");
-
+  console.log(iconInfo, "xxr");
+  
   let style = {
     backgroundColor: iconInfo?.fill_color || DEFAULT_STYLES.fillColor,
     borderColor: iconInfo?.stroke_color || DEFAULT_STYLES.color,
   };
-
-  // If an image URL is provided, render that
-  const imgUrl = iconInfo?.marker_img_url;
-  if (imgUrl) {
-    console.log("xxrxx Rendering image icon:", imgUrl);
-    
-    const markerSize = iconInfo?.marker_size || 16;
-    return (
-      <div className="layer-icon" style={{}}>
-        <img
-          src={imgUrl}
-          alt="marker"
-          style={{
-            width: `${markerSize}px`,
-            height: `${markerSize}px`,
-            objectFit: "contain",
-          }}
-        />
-      </div>
-    );
-  }
 
   // If a Font Awesome icon name is provided, render that instead
   const faName = iconInfo?.marker_fa_icon_name;
@@ -68,7 +47,7 @@ function LeyerIcon({ iconInfo }) {
   }
 
   console.log(style, "xxr2");
-
+  
   return <div className={iconType} style={style}></div>;
 }
 

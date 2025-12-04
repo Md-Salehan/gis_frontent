@@ -17,7 +17,7 @@ import {
 } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import * as turf from "@turf/turf";
-import { resetBuffer, setBufferLayer } from "../../store/slices/mapSlice";
+import { setBufferLayer } from "../../store/slices/mapSlice";
 
 const { Text } = Typography;
 const UNITS = [
@@ -27,7 +27,10 @@ const UNITS = [
   { value: "feet", label: "Feet" },
 ];
 
-function BufferTool({ clearDataOnClose = true, open = false }) {
+function BufferTool({
+  clearDataOnClose = true,
+  open = false,
+}) {
   const dispatch = useDispatch();
   // return the actual state values (no fallback to a new array)
   const multiSelected = useSelector((s) => s.map.multiSelectedFeatures);
@@ -35,12 +38,14 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
   const [distance, setDistance] = useState(100); // default 100 meters
   const [unit, setUnit] = useState("meters");
 
+
   // Use state so UI updates when buffers are created/removed
   const [createdIds, setCreatedIds] = useState([]);
 
   const selectedFeatures = useMemo(() => {
     // normalize inputs to avoid creating new array references inside selector
     const multi = Array.isArray(multiSelected) ? multiSelected : [];
+ 
 
     if (multi && multi.length > 0) {
       // multiSelected items are { layerId, feature, metaData }
@@ -67,6 +72,7 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
       selectedFeatures.forEach((sel) => {
         const feat = sel.feature;
         if (!feat || !feat.geometry) return;
+        // turf expects a GeoJSON feature; wrap if necessary
         const input = feat.type === "Feature" ? feat : turf.feature(feat);
         const buf = turf.buffer(input, Number(distance), { units: unit });
         if (buf && buf.geometry) bufferedFeatures.push(buf);
@@ -80,13 +86,15 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
       const fc = turf.featureCollection(bufferedFeatures);
       const id = `buffer-${distance}${unit}-${Date.now()}`;
 
+      // Add layer via setBufferLayer (keeps buffers separate and ordered)
       dispatch(
         setBufferLayer({
           layerId: id,
           geoJsonData: fc,
           metaData: {
-            layer: { layer_nm: `Buffer ${Date.now()}` },
+            layer: { layer_nm: `Buffer ${createdIds.length + 1}` },
             style: {
+              // use recognizable geometry type so GeoJsonLayerWrapper can style as polygon
               geom_typ: "polygon",
               stroke_color: "#ff0000",
               fill_color: "#ff0000",
@@ -98,19 +106,26 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
         })
       );
 
+      // update local state so UI re-renders
       setCreatedIds((prev) => [...prev, id]);
+
       message.success("Buffer created");
     } catch (err) {
       console.error("Buffer error:", err);
       message.error("Error creating buffer");
     }
-  }, [dispatch, hasSelection, distance, unit, selectedFeatures]);
+  }, [dispatch, hasSelection, distance, unit, selectedFeatures, createdIds.length]);
 
   const clearAllBuffers = useCallback(() => {
+    console.log("clearAllBuffers called");
+    
+    const ids = [...createdIds];
+    ids.forEach((id) => {
+      dispatch(setBufferLayer({ layerId: id, isActive: false }));
+    });
     setCreatedIds([]);
-    dispatch(resetBuffer());
     message.success("Cleared buffers");
-  }, [dispatch]);
+  }, [dispatch, createdIds]);
 
   const removeBuffer = useCallback(
     (id) => {
@@ -124,9 +139,9 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
 
   //Lifecycle
   // clear createdIds if bufferOrder is empty (on tab change or external clear action call resetBuffers)
-  useEffect(() => {
-    if (bufferOrder.length === 0) setCreatedIds([]);;
-  }, [bufferOrder]);
+  // useEffect(() => {
+  //   if (bufferOrder.length === 0) setCreatedIds([]);;
+  // }, [bufferOrder]);
   useEffect(() => {
     return () => {
       clearDataOnClose && clearAllBuffers();

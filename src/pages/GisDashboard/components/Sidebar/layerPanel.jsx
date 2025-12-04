@@ -40,7 +40,8 @@ const LayerCheckbox = memo(({ option, disabled }) => (
             textOverflow: "ellipsis",
           }}
         >
-          {option.label} | {option.value}
+          {option.label} 
+          {/* | {option.value} */}
         </span>
       </Space>
 
@@ -95,6 +96,7 @@ const LayerPanel = memo(({ layers = [] }) => {
           marker_fa_icon_name: item.geomStyle_mst.marker_fa_icon_name,
           marker_color: item.geomStyle_mst.marker_color,
           marker_size: item.geomStyle_mst.marker_size,
+          marker_img_url: item.geomStyle_mst.marker_img_url,
         },
         orderNo: idx.toString(),
       })) || []

@@ -1,4 +1,11 @@
-import React, { useState, useMemo, useCallback, useEffect, memo } from "react";
+import React, {
+  useState,
+  useMemo,
+  useCallback,
+  useEffect,
+  memo,
+  useRef,
+} from "react";
 import { Table, Tabs, Checkbox, Button, message, Space, Tooltip } from "antd";
 import { DownloadOutlined, SearchOutlined } from "@ant-design/icons";
 import { useSelector, useDispatch } from "react-redux";
@@ -87,12 +94,16 @@ function AttributeTable({
   // ============================================
   // Selection Handlers
   // ============================================
+  const prevSelectedFeatureId = useRef("");
   const handleViewFeature = useCallback(
     (record, layerId) => {
       const selectedFeature =
         geoJsonLayers[layerId]?.geoJsonData.features[record.featureIndex];
 
-      if (selectedFeature) {
+      if (
+        selectedFeature &&
+        layerId + record.featureIndex !== prevSelectedFeatureId.current
+      ) {
         dispatch(
           setSelectedFeature({
             feature: [selectedFeature],
@@ -119,6 +130,18 @@ function AttributeTable({
         setSelectedRowKeys({
           [layerId]: [record.key],
         });
+
+        prevSelectedFeatureId.current = layerId + record.featureIndex;
+      } else {
+        // Deselect if the same feature is clicked again
+        dispatch(
+          setSelectedFeature({
+            feature: [],
+            metaData: null,
+          })
+        );
+        setSelectedRowKeys({});
+        prevSelectedFeatureId.current = "";
       }
     },
     [dispatch, geoJsonLayers, map]
@@ -201,7 +224,6 @@ function AttributeTable({
         }
       });
     });
-
 
     dispatch(setMultiSelectedFeatures(multiFeatures));
 

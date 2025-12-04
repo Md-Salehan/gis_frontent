@@ -41,10 +41,9 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
         };
       case GEOMETRY_TYPES.POINT: // Point
         return {
-          radius: props.marker_size || 8,
-          color:
-            props.marker_color || props.stroke_color || DEFAULT_STYLES.color,
-          fillColor: props.fill_color || DEFAULT_STYLES.fillColor,
+          radius: props.marker_size || DEFAULT_STYLES.radius,
+          color: props.stroke_color || DEFAULT_STYLES.color,
+          fillColor: props.fill_color || DEFAULT_STYLES.markerFillColor,
           fillOpacity: props.fill_opacity || DEFAULT_STYLES.fillOpacity,
           weight: props.stroke_width || DEFAULT_STYLES.weight,
         };
@@ -124,8 +123,20 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
     (feature, latlng) => {
       const props = metaData?.style || {};
       const iconName = props.marker_fa_icon_name;
+      const iconImg = props.marker_img_url;
       const markerSize = Number(props.marker_size) || 18; // px
       const markerColor = props.marker_color || "#2c3e50";
+
+      if(iconImg){
+        console.log("xxrx");
+        
+        const icon = L.icon({
+          iconUrl: iconImg,
+          iconSize: [markerSize, markerSize],
+          iconAnchor: [markerSize / 2, markerSize / 2],
+        });
+        return L.marker(latlng, { icon });
+      }
 
       if (iconName) {
         // Build inline-styled FA icon so color/size are dynamic
