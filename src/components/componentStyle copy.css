@@ -210,52 +210,8 @@
 
 
 
-/* PrintControl.jsx  //////////////////////////////////////////////////////////////////////////////////////// */
-/* Print Modal Styles */
-.print-modal-wrapper {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
 
-.print-panel-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #262626;
-  margin-bottom: 16px;
-  margin-top: 0;
-}
 
-.print-settings-panel {
-  border-right: 1px solid #f0f0f0;
-  padding-right: 16px;
-}
 
-.print-settings-panel::-webkit-scrollbar {
-  width: 6px;
-}
 
-.print-settings-panel::-webkit-scrollbar-track {
-  background: transparent;
-}
 
-.print-settings-panel::-webkit-scrollbar-thumb {
-  background: #d9d9d9;
-  border-radius: 3px;
-}
-
-.print-settings-panel::-webkit-scrollbar-thumb:hover {
-  background: #bfbfbf;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .print-settings-panel {
-    border-right: none;
-    border-bottom: 1px solid #f0f0f0;
-    margin-bottom: 16px;
-    padding-right: 0;
-    padding-bottom: 16px;
-  }
-}
