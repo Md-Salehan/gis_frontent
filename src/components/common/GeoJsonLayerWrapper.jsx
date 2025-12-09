@@ -13,6 +13,9 @@ import {
 } from "../../constants";
 import LabelLayer from "./LabelLayer";
 
+
+const canvasRenderer = L.canvas({ padding: 0.5 });
+
 const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
   const dispatch = useDispatch();
   const viewport = useSelector((state) => state.map.viewport);
@@ -128,7 +131,6 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
       const markerColor = props.marker_color || "#2c3e50";
 
       if(iconImg){
-        console.log("xxrx");
         
         const icon = L.icon({
           iconUrl: iconImg,
@@ -164,6 +166,7 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
         pointToLayer={pointToLayer}
         onEachFeature={onEachFeature}
         pane={pane}
+        renderer={canvasRenderer}
       />
       {/* Label layer renders labels (centroid) for active layers using metadata styles */}
       <LabelLayer

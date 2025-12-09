@@ -4,7 +4,7 @@ export const DEFAULT_STYLES = {
   weight: 1,
   opacity: 1,
   fillOpacity: 1,
-  fillColor: "none",
+  fillColor: "transparent",
   markerFillColor: "#000000",
   radius: 3,
 };

@@ -8,6 +8,7 @@ import { getGeomFullForm } from "../../utils";
 
 const Legend = ({ visible }) => {
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
+  const portal_id = useSelector((state) => state.map.portalId);
   const [getLegend, { isLoading }] = useGetLegendMutation();
   const [legendItems, setLegendItems] = useState(null);
   const [error, setError] = useState(null);
@@ -24,8 +25,9 @@ const Legend = ({ visible }) => {
       }
       try {
         const payload = {
+          portal_id: portal_id,
           layer_ids: layerIds,
-          options: { include_bbox: true, include_sld: true },
+          // options: { include_bbox: true, include_sld: true },
         };
         const res = await getLegend(payload).unwrap();
         if (mounted) {
@@ -95,7 +97,7 @@ const Legend = ({ visible }) => {
         legendItems &&
         legendItems.map((item) => (
           <div key={item.layerId} style={{ marginBottom: "12px" }}>
-            <h4 style={{ margin: "4px 0" }}>{item.name}</h4>
+            <h4 style={{ margin: "4px 0" }}>{item.layer_nm}</h4>
             {/* <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>
               {item.description}
             </div> */}
@@ -125,7 +127,7 @@ const Legend = ({ visible }) => {
                   <div>
                     {/* <div style={{ fontSize: 13 }}>{s.label || s.value}</div> */}
                     <div style={{ fontSize: 11, color: "#888" }}>
-                      • Layer Id: {item.layerId}
+                      • Layer Id: {item.layer_id}
                     </div>
                     <div style={{ fontSize: 11, color: "#888" }}>
                       • {getGeomFullForm(s.geom_type) || ""}
