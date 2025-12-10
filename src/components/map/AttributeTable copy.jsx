@@ -160,47 +160,6 @@ function AttributeTable({
   }, []);
 
   // ============================================
-  // Select All / Unselect All Handler
-  // ============================================
-  const handleSelectAllChange = useCallback(
-    (layerId, checked) => {
-      const layerData = geoJsonLayers[layerId];
-      if (!layerData?.geoJsonData?.features) return;
-
-      const allRowKeys = layerData.geoJsonData.features.map(
-        (_, idx) => `${layerId}-${idx}`
-      );
-
-      setMultiSelected((prev) => {
-        const updated = { ...prev };
-        if (checked) {
-          updated[layerId] = new Set(allRowKeys);
-        } else {
-          updated[layerId] = new Set();
-        }
-        return updated;
-      });
-    },
-    [geoJsonLayers]
-  );
-
-  // ============================================
-  // Determine Select All Checkbox State
-  // ============================================
-  const getSelectAllState = useCallback(
-    (layerId) => {
-      const layerData = geoJsonLayers[layerId];
-      const features = layerData?.geoJsonData?.features || [];
-      const selectedCount = multiSelected[layerId]?.size || 0;
-
-      if (selectedCount === 0) return false; // Unchecked
-      if (selectedCount === features.length) return true; // Checked
-      return "indeterminate"; // Indeterminate (partial selection)
-    },
-    [geoJsonLayers, multiSelected]
-  );
-
-  // ============================================
   // Map Bounds Fitting
   // ============================================
   const fitToMultiSelectedBounds = useCallback(() => {
@@ -413,7 +372,7 @@ function AttributeTable({
     return layerEntries.map(([layerId, layerData]) => {
       const label = layerData?.metaData?.layer?.layer_nm || layerId;
 
-      // ✅ Action column with view button
+      // ✅ NEW: Action column with view button instead of radio
       const actionColumn = {
         title: "Find",
         key: `${layerId}-action`,
@@ -442,17 +401,8 @@ function AttributeTable({
         },
       };
 
-      // ✅ UPDATED: Select column with Select All header
       const selectColumn = {
-        title: (
-          <Tooltip title="Select all / Unselect all rows in this tab">
-            <Checkbox
-              checked={getSelectAllState(layerId) === true}
-              indeterminate={getSelectAllState(layerId) === "indeterminate"}
-              onChange={(e) => handleSelectAllChange(layerId, e.target.checked)}
-            >Select</Checkbox>
-          </Tooltip>
-        ),
+        title: "Select",
         key: `${layerId}-select`,
         width: 80,
         fixed: "left",
@@ -473,8 +423,8 @@ function AttributeTable({
         layerData?.geoJsonData?.features[0]?.properties
       );
 
-      // ✅ Columns with updated select column
-      const columns = [selectColumn, actionColumn, ...propertyColumns];
+      // ✅ UPDATED: Replaced rowSelection with custom columns
+      const columns = [actionColumn, selectColumn, ...propertyColumns];
 
       const children =
         activeTab === layerId ? (
@@ -510,8 +460,6 @@ function AttributeTable({
     multiSelected,
     toggleMultiSelect,
     getRowBackgroundColor,
-    getSelectAllState,
-    handleSelectAllChange,
   ]);
 
   // ============================================
