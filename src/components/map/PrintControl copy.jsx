@@ -1,7 +1,17 @@
 import React, { useState } from "react";
-import { Modal, Form, Select, Button, Space, message, Input } from "antd";
+import {
+  Modal,
+  Form,
+  Select,
+  Button,
+  Space,
+  message,
+  Input,
+  Checkbox,
+} from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { togglePrintModal } from "../../store/slices/uiSlice";
+import { toggleLegend } from "../../store/slices/uiSlice";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { useMap } from "react-leaflet";
@@ -12,6 +22,7 @@ const PrintControl = () => {
   const dispatch = useDispatch();
   const map = useMap();
   const isOpen = useSelector((state) => state.ui.isPrintModalOpen);
+  const isLegendVisible = useSelector((state) => state.ui.isLegendVisible);
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
 
@@ -61,9 +72,21 @@ const PrintControl = () => {
     try {
       setLoading(true);
 
+      // Store initial legend visibility state
+      const wasLegendVisible = isLegendVisible;
+
+      // Show/hide legend based on form value
+      if (values.includeLegend && !isLegendVisible) {
+        dispatch(toggleLegend({ state: true }));
+        await new Promise((resolve) => setTimeout(resolve, 300)); // Wait for legend to render
+      } else if (!values.includeLegend && isLegendVisible) {
+        dispatch(toggleLegend({ state: false }));
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+
       // Force a re-render and wait for map to stabilize
       map.invalidateSize();
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Wait for tiles to load
       await waitForTilesLoading();
@@ -72,7 +95,7 @@ const PrintControl = () => {
       await waitForVectorLayers();
 
       // Additional delay to ensure complete rendering
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       const mapElement = document.querySelector(".leaflet-container");
       if (!mapElement) throw new Error("Map element not found");
@@ -83,7 +106,7 @@ const PrintControl = () => {
         mapVisibility: mapElement.style.visibility || "",
         mapDisplay: mapElement.style.display || "",
         mapOpacity: mapElement.style.opacity || "",
-        mapBackground: mapElement.style.background || ""
+        mapBackground: mapElement.style.background || "",
       };
 
       // Hide controls temporarily
@@ -91,13 +114,15 @@ const PrintControl = () => {
       controls.forEach((control) => {
         originalStyles.controls.push({
           element: control,
-          display: control.style.display || ""
+          display: control.style.display || "",
         });
         control.style.display = "none";
       });
 
       // Store and modify vector layer styles
-      const vectorLayers = mapElement.querySelectorAll(".leaflet-interactive, .leaflet-layer, path");
+      const vectorLayers = mapElement.querySelectorAll(
+        ".leaflet-interactive, .leaflet-layer, path"
+      );
       const vectorLayerStyles = [];
       vectorLayers.forEach((layer) => {
         vectorLayerStyles.push({
@@ -106,14 +131,16 @@ const PrintControl = () => {
           opacity: layer.style.opacity || "",
           display: layer.style.display || "",
           fillOpacity: layer.style.fillOpacity || "",
-          strokeOpacity: layer.style.strokeOpacity || ""
+          strokeOpacity: layer.style.strokeOpacity || "",
         });
-        
+
         layer.style.visibility = "visible";
         layer.style.opacity = "1";
         layer.style.display = "block";
-        if (layer.style.fillOpacity !== undefined) layer.style.fillOpacity = "1";
-        if (layer.style.strokeOpacity !== undefined) layer.style.strokeOpacity = "1";
+        if (layer.style.fillOpacity !== undefined)
+          layer.style.fillOpacity = "1";
+        if (layer.style.strokeOpacity !== undefined)
+          layer.style.strokeOpacity = "1";
       });
 
       // Store and modify canvas layer styles
@@ -124,9 +151,9 @@ const PrintControl = () => {
           element: canvas,
           visibility: canvas.style.visibility || "",
           opacity: canvas.style.opacity || "",
-          display: canvas.style.display || ""
+          display: canvas.style.display || "",
         });
-        
+
         canvas.style.visibility = "visible";
         canvas.style.opacity = "1";
         canvas.style.display = "block";
@@ -140,9 +167,9 @@ const PrintControl = () => {
           element: tile,
           visibility: tile.style.visibility || "",
           opacity: tile.style.opacity || "",
-          display: tile.style.display || ""
+          display: tile.style.display || "",
         });
-        
+
         tile.style.visibility = "visible";
         tile.style.opacity = "1";
         tile.style.display = "block";
@@ -180,7 +207,8 @@ const PrintControl = () => {
             clonedMap.style.background = "#ffffff";
 
             // Hide controls in cloned document
-            const clonedControls = clonedMap.querySelectorAll(".leaflet-control");
+            const clonedControls =
+              clonedMap.querySelectorAll(".leaflet-control");
             clonedControls.forEach((control) => {
               control.style.display = "none";
             });
@@ -194,13 +222,17 @@ const PrintControl = () => {
             });
 
             // Ensure vector layers are visible in clone
-            const clonedVectorLayers = clonedMap.querySelectorAll(".leaflet-interactive, .leaflet-layer, path");
+            const clonedVectorLayers = clonedMap.querySelectorAll(
+              ".leaflet-interactive, .leaflet-layer, path"
+            );
             clonedVectorLayers.forEach((layer) => {
               layer.style.visibility = "visible";
               layer.style.opacity = "1";
               layer.style.display = "block";
-              if (layer.style.fillOpacity !== undefined) layer.style.fillOpacity = "1";
-              if (layer.style.strokeOpacity !== undefined) layer.style.strokeOpacity = "1";
+              if (layer.style.fillOpacity !== undefined)
+                layer.style.fillOpacity = "1";
+              if (layer.style.strokeOpacity !== undefined)
+                layer.style.strokeOpacity = "1";
             });
 
             // Ensure canvas layers are visible in clone
@@ -232,32 +264,54 @@ const PrintControl = () => {
 
       // Restore vector layer styles
       vectorLayerStyles.forEach((style) => {
-        if (style.visibility !== undefined) style.element.style.visibility = style.visibility;
-        if (style.opacity !== undefined) style.element.style.opacity = style.opacity;
-        if (style.display !== undefined) style.element.style.display = style.display;
-        if (style.fillOpacity !== undefined) style.element.style.fillOpacity = style.fillOpacity;
-        if (style.strokeOpacity !== undefined) style.element.style.strokeOpacity = style.strokeOpacity;
+        if (style.visibility !== undefined)
+          style.element.style.visibility = style.visibility;
+        if (style.opacity !== undefined)
+          style.element.style.opacity = style.opacity;
+        if (style.display !== undefined)
+          style.element.style.display = style.display;
+        if (style.fillOpacity !== undefined)
+          style.element.style.fillOpacity = style.fillOpacity;
+        if (style.strokeOpacity !== undefined)
+          style.element.style.strokeOpacity = style.strokeOpacity;
       });
 
       // Restore canvas layer styles
       canvasLayerStyles.forEach((style) => {
-        if (style.visibility !== undefined) style.element.style.visibility = style.visibility;
-        if (style.opacity !== undefined) style.element.style.opacity = style.opacity;
-        if (style.display !== undefined) style.element.style.display = style.display;
+        if (style.visibility !== undefined)
+          style.element.style.visibility = style.visibility;
+        if (style.opacity !== undefined)
+          style.element.style.opacity = style.opacity;
+        if (style.display !== undefined)
+          style.element.style.display = style.display;
       });
 
       // Restore tile styles
       tileStyles.forEach((style) => {
-        if (style.visibility !== undefined) style.element.style.visibility = style.visibility;
-        if (style.opacity !== undefined) style.element.style.opacity = style.opacity;
-        if (style.display !== undefined) style.element.style.display = style.display;
+        if (style.visibility !== undefined)
+          style.element.style.visibility = style.visibility;
+        if (style.opacity !== undefined)
+          style.element.style.opacity = style.opacity;
+        if (style.display !== undefined)
+          style.element.style.display = style.display;
       });
 
       // Restore map container styles
-      if (originalStyles.mapVisibility !== undefined) mapElement.style.visibility = originalStyles.mapVisibility;
-      if (originalStyles.mapDisplay !== undefined) mapElement.style.display = originalStyles.mapDisplay;
-      if (originalStyles.mapOpacity !== undefined) mapElement.style.opacity = originalStyles.mapOpacity;
-      if (originalStyles.mapBackground !== undefined) mapElement.style.background = originalStyles.mapBackground;
+      if (originalStyles.mapVisibility !== undefined)
+        mapElement.style.visibility = originalStyles.mapVisibility;
+      if (originalStyles.mapDisplay !== undefined)
+        mapElement.style.display = originalStyles.mapDisplay;
+      if (originalStyles.mapOpacity !== undefined)
+        mapElement.style.opacity = originalStyles.mapOpacity;
+      if (originalStyles.mapBackground !== undefined)
+        mapElement.style.background = originalStyles.mapBackground;
+
+      // Restore legend visibility to original state
+      // If the print action changed the legend (based on the form's includeLegend),
+      // restore it to the original visibility
+      if (values && wasLegendVisible !== Boolean(values.includeLegend)) {
+        dispatch(toggleLegend({ state: wasLegendVisible }));
+      }
 
       // Check if canvas has content
       if (canvas.width === 0 || canvas.height === 0) {
@@ -265,7 +319,7 @@ const PrintControl = () => {
       }
 
       // Create PDF
-      const { format, orientation, title } = values;
+      const { format, orientation, title, footerText } = values;
       const pdf = new jsPDF({
         orientation: orientation,
         unit: "mm",
@@ -283,11 +337,12 @@ const PrintControl = () => {
       const pageHeight = pdf.internal.pageSize.getHeight();
       const marginTop = title ? 25 : 10;
       const marginSides = 10;
+      const marginBottom = footerText ? 20 : 5; // Extra space for footer
 
       // Calculate image dimensions
       const imageAspectRatio = canvas.width / canvas.height;
       const availableWidth = pageWidth - marginSides * 2;
-      const availableHeight = pageHeight - marginTop - marginSides;
+      const availableHeight = pageHeight - marginTop - marginBottom;
 
       let imgWidth = availableWidth;
       let imgHeight = imgWidth / imageAspectRatio;
@@ -302,14 +357,13 @@ const PrintControl = () => {
 
       // Add map image with higher quality
       const imgData = canvas.toDataURL("image/jpeg", 0.9);
-      pdf.addImage(
-        imgData,
-        "JPEG",
-        xOffset,
-        marginTop,
-        imgWidth,
-        imgHeight
-      );
+      pdf.addImage(imgData, "JPEG", xOffset, marginTop, imgWidth, imgHeight);
+
+      // Add custom footer text
+      if (footerText) {
+        pdf.setFontSize(10);
+        pdf.text(footerText, marginSides, pageHeight - 12);
+      }
 
       // Add timestamp
       const timestamp = new Date().toLocaleString();
@@ -345,6 +399,8 @@ const PrintControl = () => {
           format: "a4",
           orientation: "landscape",
           title: "",
+          footerText: "",
+          includeLegend: false,
         }}
       >
         <Form.Item name="title" label="Map Title">
@@ -372,6 +428,17 @@ const PrintControl = () => {
             <Option value="landscape">Landscape</Option>
             <Option value="portrait">Portrait</Option>
           </Select>
+        </Form.Item>
+
+        <Form.Item name="footerText" label="Footer Text">
+          <Input.TextArea
+            placeholder="Enter custom footer text (optional)"
+            rows={2}
+          />
+        </Form.Item>
+
+        <Form.Item name="includeLegend" valuePropName="checked">
+          <Checkbox>Include Legend in Print</Checkbox>
         </Form.Item>
 
         <Form.Item>

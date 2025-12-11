@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useRef, useCallback } from "react";
 import {
   Modal,
   Form,
@@ -7,449 +7,430 @@ import {
   Space,
   message,
   Input,
-  Checkbox,
+  Switch,
+  Divider,
+  Spin,
+  Row,
+  Col,
 } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { togglePrintModal } from "../../store/slices/uiSlice";
-import { toggleLegend } from "../../store/slices/uiSlice";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import { useMap } from "react-leaflet";
+import PrintPreviewMap from "./PrintPreviewMap";
 
 const { Option } = Select;
 
 const PrintControl = () => {
   const dispatch = useDispatch();
-  const map = useMap();
   const isOpen = useSelector((state) => state.ui.isPrintModalOpen);
-  const isLegendVisible = useSelector((state) => state.ui.isLegendVisible);
+  const viewport = useSelector((state) => state.map.viewport);
+  const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
+  const bufferLayers = useSelector((state) => state.map.bufferLayers);
+
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
+  const previewMapRef = useRef(null);
+  const previewContainerRef = useRef(null);
 
-  const waitForTilesLoading = () => {
-    return new Promise((resolve) => {
-      const container = document.querySelector(".leaflet-container");
-      if (!container) {
-        resolve();
-        return;
-      }
+  // Form state for live preview updates
+  const [formValues, setFormValues] = useState({
+    format: "a4",
+    orientation: "landscape",
+    title: "",
+    showFooter: true,
+    showLegend: false,
+  });
 
-      const tilesLoading = container.querySelectorAll(
-        ".leaflet-tile-loading"
-      ).length;
-
-      if (tilesLoading === 0) {
-        resolve();
-        return;
-      }
-
-      const checkTiles = setInterval(() => {
-        const remainingTiles = container.querySelectorAll(
-          ".leaflet-tile-loading"
-        ).length;
-        if (remainingTiles === 0) {
-          clearInterval(checkTiles);
-          resolve();
-        }
-      }, 250);
-
-      // Timeout after 10 seconds
-      setTimeout(() => {
-        clearInterval(checkTiles);
-        resolve();
-      }, 10000);
-    });
+  const handleFormChange = (changedValues, allValues) => {
+    setFormValues(allValues);
   };
 
-  const waitForVectorLayers = () => {
-    return new Promise((resolve) => {
-      // Wait for any vector layer animations or rendering
-      setTimeout(resolve, 500);
-    });
-  };
+  // Calculate preview dimensions based on format and orientation
+  const previewDimensions = useMemo(() => {
+    const formatDimensions = {
+      a4: { width: 210, height: 297 }, // mm
+      a3: { width: 297, height: 420 },
+      letter: { width: 215.9, height: 279.4 },
+    };
 
-  const handlePrint = async (values) => {
+    let dims = formatDimensions[formValues.format] || formatDimensions.a4;
+
+    if (formValues.orientation === "portrait") {
+      // Swap if portrait
+      if (dims.width > dims.height) {
+        [dims.width, dims.height] = [dims.height, dims.width];
+      }
+    } else {
+      // Ensure landscape orientation
+      if (dims.width < dims.height) {
+        [dims.width, dims.height] = [dims.height, dims.width];
+      }
+    }
+
+    // Scale to fit preview (1mm ≈ 3.78px at 96dpi, use 2.5 for smaller preview)
+    const scale = 2.5;
+    return {
+      widthPx: dims.width * scale,
+      heightPx: dims.height * scale,
+      aspectRatio: dims.width / dims.height,
+    };
+  }, [formValues.format, formValues.orientation]);
+
+  const handleExportPDF = async (values) => {
     try {
       setLoading(true);
 
-      // Store initial legend visibility state
-      const wasLegendVisible = isLegendVisible;
+      // Get the actual map container from the preview
+      const mapElement =
+        previewContainerRef.current?.querySelector(".leaflet-container");
 
-      // Show/hide legend based on form value
-      if (values.includeLegend && !isLegendVisible) {
-        dispatch(toggleLegend({ state: true }));
-        await new Promise((resolve) => setTimeout(resolve, 300)); // Wait for legend to render
-      } else if (!values.includeLegend && isLegendVisible) {
-        dispatch(toggleLegend({ state: false }));
-        await new Promise((resolve) => setTimeout(resolve, 300));
+      if (!mapElement) {
+        message.error("Map preview not found");
+        return;
       }
 
-      // Force a re-render and wait for map to stabilize
-      map.invalidateSize();
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Wait for map tiles to load
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      // Wait for tiles to load
-      await waitForTilesLoading();
-
-      // Wait for vector layers to render
-      await waitForVectorLayers();
-
-      // Additional delay to ensure complete rendering
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      const mapElement = document.querySelector(".leaflet-container");
-      if (!mapElement) throw new Error("Map element not found");
-
-      // Store original styles - ONLY store what we modify
-      const originalStyles = {
-        controls: [],
-        mapVisibility: mapElement.style.visibility || "",
-        mapDisplay: mapElement.style.display || "",
-        mapOpacity: mapElement.style.opacity || "",
-        mapBackground: mapElement.style.background || "",
-      };
-
-      // Hide controls temporarily
-      const controls = mapElement.querySelectorAll(".leaflet-control");
-      controls.forEach((control) => {
-        originalStyles.controls.push({
-          element: control,
-          display: control.style.display || "",
-        });
-        control.style.display = "none";
-      });
-
-      // Store and modify vector layer styles
-      const vectorLayers = mapElement.querySelectorAll(
-        ".leaflet-interactive, .leaflet-layer, path"
-      );
-      const vectorLayerStyles = [];
-      vectorLayers.forEach((layer) => {
-        vectorLayerStyles.push({
-          element: layer,
-          visibility: layer.style.visibility || "",
-          opacity: layer.style.opacity || "",
-          display: layer.style.display || "",
-          fillOpacity: layer.style.fillOpacity || "",
-          strokeOpacity: layer.style.strokeOpacity || "",
-        });
-
-        layer.style.visibility = "visible";
-        layer.style.opacity = "1";
-        layer.style.display = "block";
-        if (layer.style.fillOpacity !== undefined)
-          layer.style.fillOpacity = "1";
-        if (layer.style.strokeOpacity !== undefined)
-          layer.style.strokeOpacity = "1";
-      });
-
-      // Store and modify canvas layer styles
-      const canvasLayers = mapElement.querySelectorAll("canvas");
-      const canvasLayerStyles = [];
-      canvasLayers.forEach((canvas) => {
-        canvasLayerStyles.push({
-          element: canvas,
-          visibility: canvas.style.visibility || "",
-          opacity: canvas.style.opacity || "",
-          display: canvas.style.display || "",
-        });
-
-        canvas.style.visibility = "visible";
-        canvas.style.opacity = "1";
-        canvas.style.display = "block";
-      });
-
-      // Store and modify tile styles
-      const tiles = mapElement.querySelectorAll(".leaflet-tile");
-      const tileStyles = [];
-      tiles.forEach((tile) => {
-        tileStyles.push({
-          element: tile,
-          visibility: tile.style.visibility || "",
-          opacity: tile.style.opacity || "",
-          display: tile.style.display || "",
-        });
-
-        tile.style.visibility = "visible";
-        tile.style.opacity = "1";
-        tile.style.display = "block";
-      });
-
-      // Ensure map container is fully visible
-      mapElement.style.visibility = "visible";
-      mapElement.style.display = "block";
-      mapElement.style.opacity = "1";
-      mapElement.style.background = "#ffffff";
-
-      // Add a small delay to ensure styles are applied before capture
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Capture the map with improved settings for vector layers
+      // Capture map canvas with high quality
       const canvas = await html2canvas(mapElement, {
-        useCORS: true,
-        allowTaint: false,
         backgroundColor: "#ffffff",
         scale: 2,
+        useCORS: true,
         logging: false,
-        imageTimeout: 20000,
-        removeContainer: true,
-        ignoreElements: (element) => {
-          // Don't ignore any elements - capture everything
-          return false;
-        },
-        onclone: (clonedDoc, element) => {
-          const clonedMap = clonedDoc.querySelector(".leaflet-container");
-          if (clonedMap) {
-            // Ensure cloned map is fully visible
-            clonedMap.style.visibility = "visible";
-            clonedMap.style.display = "block";
-            clonedMap.style.opacity = "1";
-            clonedMap.style.background = "#ffffff";
-
-            // Hide controls in cloned document
-            const clonedControls =
-              clonedMap.querySelectorAll(".leaflet-control");
-            clonedControls.forEach((control) => {
-              control.style.display = "none";
-            });
-
-            // Ensure tiles are visible in clone
-            const clonedTiles = clonedMap.querySelectorAll(".leaflet-tile");
-            clonedTiles.forEach((tile) => {
-              tile.style.visibility = "visible";
-              tile.style.opacity = "1";
-              tile.style.display = "block";
-            });
-
-            // Ensure vector layers are visible in clone
-            const clonedVectorLayers = clonedMap.querySelectorAll(
-              ".leaflet-interactive, .leaflet-layer, path"
-            );
-            clonedVectorLayers.forEach((layer) => {
-              layer.style.visibility = "visible";
-              layer.style.opacity = "1";
-              layer.style.display = "block";
-              if (layer.style.fillOpacity !== undefined)
-                layer.style.fillOpacity = "1";
-              if (layer.style.strokeOpacity !== undefined)
-                layer.style.strokeOpacity = "1";
-            });
-
-            // Ensure canvas layers are visible in clone
-            const clonedCanvasLayers = clonedMap.querySelectorAll("canvas");
-            clonedCanvasLayers.forEach((canvas) => {
-              canvas.style.visibility = "visible";
-              canvas.style.opacity = "1";
-              canvas.style.display = "block";
-            });
-
-            // Force a redraw of SVG elements
-            const svgElements = clonedMap.querySelectorAll("svg");
-            svgElements.forEach((svg) => {
-              // This forces SVG re-render
-              svg.style.transform = "translateZ(0)";
-            });
-          }
-        },
+        allowTaint: true,
+        windowHeight: mapElement.scrollHeight,
+        windowWidth: mapElement.scrollWidth,
       });
 
-      // Restore original styles PROPERLY - only restore if value exists
-      controls.forEach((control, index) => {
-        if (originalStyles.controls[index].display !== undefined) {
-          control.style.display = originalStyles.controls[index].display;
-        } else {
-          control.style.display = "";
-        }
-      });
+      const orientation = values.orientation;
 
-      // Restore vector layer styles
-      vectorLayerStyles.forEach((style) => {
-        if (style.visibility !== undefined)
-          style.element.style.visibility = style.visibility;
-        if (style.opacity !== undefined)
-          style.element.style.opacity = style.opacity;
-        if (style.display !== undefined)
-          style.element.style.display = style.display;
-        if (style.fillOpacity !== undefined)
-          style.element.style.fillOpacity = style.fillOpacity;
-        if (style.strokeOpacity !== undefined)
-          style.element.style.strokeOpacity = style.strokeOpacity;
-      });
-
-      // Restore canvas layer styles
-      canvasLayerStyles.forEach((style) => {
-        if (style.visibility !== undefined)
-          style.element.style.visibility = style.visibility;
-        if (style.opacity !== undefined)
-          style.element.style.opacity = style.opacity;
-        if (style.display !== undefined)
-          style.element.style.display = style.display;
-      });
-
-      // Restore tile styles
-      tileStyles.forEach((style) => {
-        if (style.visibility !== undefined)
-          style.element.style.visibility = style.visibility;
-        if (style.opacity !== undefined)
-          style.element.style.opacity = style.opacity;
-        if (style.display !== undefined)
-          style.element.style.display = style.display;
-      });
-
-      // Restore map container styles
-      if (originalStyles.mapVisibility !== undefined)
-        mapElement.style.visibility = originalStyles.mapVisibility;
-      if (originalStyles.mapDisplay !== undefined)
-        mapElement.style.display = originalStyles.mapDisplay;
-      if (originalStyles.mapOpacity !== undefined)
-        mapElement.style.opacity = originalStyles.mapOpacity;
-      if (originalStyles.mapBackground !== undefined)
-        mapElement.style.background = originalStyles.mapBackground;
-
-      // Restore legend visibility to original state
-      // If the print action changed the legend (based on the form's includeLegend),
-      // restore it to the original visibility
-      if (values && wasLegendVisible !== Boolean(values.includeLegend)) {
-        dispatch(toggleLegend({ state: wasLegendVisible }));
-      }
-
-      // Check if canvas has content
-      if (canvas.width === 0 || canvas.height === 0) {
-        throw new Error("Canvas is empty");
-      }
-
-      // Create PDF
-      const { format, orientation, title, footerText } = values;
+      // Create PDF with correct dimensions
       const pdf = new jsPDF({
-        orientation: orientation,
+        orientation,
         unit: "mm",
-        format: format,
+        format: values.format.toUpperCase(),
       });
 
-      // Add title
-      if (title) {
-        pdf.setFontSize(16);
-        pdf.text(title, 14, 15);
-      }
-
-      // Calculate dimensions
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const marginTop = title ? 25 : 10;
-      const marginSides = 10;
-      const marginBottom = footerText ? 20 : 5; // Extra space for footer
 
-      // Calculate image dimensions
-      const imageAspectRatio = canvas.width / canvas.height;
-      const availableWidth = pageWidth - marginSides * 2;
-      const availableHeight = pageHeight - marginTop - marginBottom;
+      let yPosition = 10;
 
-      let imgWidth = availableWidth;
-      let imgHeight = imgWidth / imageAspectRatio;
-
-      if (imgHeight > availableHeight) {
-        imgHeight = availableHeight;
-        imgWidth = imgHeight * imageAspectRatio;
+      // Add title if provided
+      if (values.title) {
+        pdf.setFontSize(16);
+        pdf.setFont(undefined, "bold");
+        pdf.text(values.title, pageWidth / 2, yPosition, { align: "center" });
+        yPosition += 12;
+        pdf.setFont(undefined, "normal");
       }
 
-      // Center the image
-      const xOffset = (pageWidth - imgWidth) / 2;
+      yPosition += 5;
 
-      // Add map image with higher quality
-      const imgData = canvas.toDataURL("image/jpeg", 0.9);
-      pdf.addImage(imgData, "JPEG", xOffset, marginTop, imgWidth, imgHeight);
+      // Calculate image dimensions to fit page
+      const maxImgWidth = pageWidth - 20;
+      const maxImgHeight =
+        pageHeight - yPosition - (values.showFooter ? 15 : 10);
 
-      // Add custom footer text
-      if (footerText) {
-        pdf.setFontSize(10);
-        pdf.text(footerText, marginSides, pageHeight - 12);
+      const imgAspectRatio = canvas.width / canvas.height;
+      let imgWidth = maxImgWidth;
+      let imgHeight = imgWidth / imgAspectRatio;
+
+      if (imgHeight > maxImgHeight) {
+        imgHeight = maxImgHeight;
+        imgWidth = imgHeight * imgAspectRatio;
       }
 
-      // Add timestamp
-      const timestamp = new Date().toLocaleString();
-      pdf.setFontSize(8);
-      pdf.text(`Generated: ${timestamp}`, marginSides, pageHeight - 5);
+      const xPosition = (pageWidth - imgWidth) / 2;
+
+      // Add map image to PDF
+      const mapImgData = canvas.toDataURL("image/png");
+      pdf.addImage(
+        mapImgData,
+        "PNG",
+        xPosition,
+        yPosition,
+        imgWidth,
+        imgHeight
+      );
+
+      // Add footer if enabled
+      if (values.showFooter) {
+        pdf.setFontSize(8);
+        pdf.setTextColor(128, 128, 128);
+        const footerText = `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`;
+        pdf.text(footerText, pageWidth / 2, pageHeight - 8, {
+          align: "center",
+        });
+        pdf.setTextColor(0, 0, 0);
+      }
+
+      // Generate filename
+      const fileName = values.title
+        ? `${values.title.replace(/\s+/g, "_")}.pdf`
+        : `map_export_${Date.now()}.pdf`;
 
       // Save PDF
-      pdf.save(title ? `${title}.pdf` : "map-export.pdf");
+      pdf.save(fileName);
 
       message.success("Map exported successfully!");
       dispatch(togglePrintModal());
+      form.resetFields();
     } catch (error) {
-      console.error("Print error:", error);
-      message.error("Failed to export map: " + error.message);
+      console.error("Export error:", error);
+      message.error("Failed to export map. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleCancel = () => {
+    dispatch(togglePrintModal());
+    form.resetFields();
+    setFormValues({
+      format: "a4",
+      orientation: "landscape",
+      title: "",
+      showFooter: true,
+      showLegend: false,
+    });
+  };
+
   return (
     <Modal
-      title="Export Map"
+      title="Export Map to PDF"
       open={isOpen}
-      onCancel={() => dispatch(togglePrintModal())}
+      onCancel={handleCancel}
       footer={null}
-      width={400}
+      width="95vw"
+      style={{ maxWidth: "1600px" }}
+      bodyStyle={{
+        padding: "24px",
+        maxHeight: "85vh",
+        overflow: "hidden",
+      }}
+      centered
+      destroyOnClose
     >
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={handlePrint}
-        initialValues={{
-          format: "a4",
-          orientation: "landscape",
-          title: "",
-          footerText: "",
-          includeLegend: false,
-        }}
-      >
-        <Form.Item name="title" label="Map Title">
-          <Input placeholder="Enter map title (optional)" />
-        </Form.Item>
+      <div className="print-modal-wrapper">
+        <Row gutter={24} style={{ height: "100%", margin: 0 }}>
+          {/* Left Panel - Settings */}
+          <Col
+            xs={24}
+            sm={24}
+            md={8}
+            style={{
+              height: "600px",
+              overflowY: "auto",
+              paddingRight: "12px",
+            }}
+            className="print-settings-panel"
+          >
+            <h3 className="print-panel-title">Print Settings</h3>
 
-        <Form.Item
-          name="format"
-          label="Paper Size"
-          rules={[{ required: true }]}
-        >
-          <Select>
-            <Option value="a4">A4</Option>
-            <Option value="a3">A3</Option>
-            <Option value="letter">Letter</Option>
-          </Select>
-        </Form.Item>
+            <Form
+              form={form}
+              layout="vertical"
+              onFinish={handleExportPDF}
+              onValuesChange={handleFormChange}
+              initialValues={{
+                format: "a4",
+                orientation: "landscape",
+                title: "",
+                showFooter: true,
+                showLegend: false,
+              }}
+            >
+              {/* Map Title */}
+              <Form.Item
+                name="title"
+                label="Map Title"
+                tooltip="Optional title to display on the PDF"
+              >
+                <Input
+                  placeholder="Enter map title (optional)"
+                  maxLength={60}
+                  allowClear
+                  size="large"
+                />
+              </Form.Item>
 
-        <Form.Item
-          name="orientation"
-          label="Orientation"
-          rules={[{ required: true }]}
-        >
-          <Select>
-            <Option value="landscape">Landscape</Option>
-            <Option value="portrait">Portrait</Option>
-          </Select>
-        </Form.Item>
+              <Divider style={{ margin: "16px 0" }} />
 
-        <Form.Item name="footerText" label="Footer Text">
-          <Input.TextArea
-            placeholder="Enter custom footer text (optional)"
-            rows={2}
-          />
-        </Form.Item>
+              {/* Paper Format */}
+              <Form.Item
+                name="format"
+                label="Paper Size"
+                rules={[
+                  { required: true, message: "Please select paper size" },
+                ]}
+              >
+                <Select size="large">
+                  <Option value="a4">A4 (210 × 297 mm)</Option>
+                  <Option value="a3">A3 (297 × 420 mm)</Option>
+                  <Option value="letter">Letter (8.5 × 11 in)</Option>
+                </Select>
+              </Form.Item>
 
-        <Form.Item name="includeLegend" valuePropName="checked">
-          <Checkbox>Include Legend in Print</Checkbox>
-        </Form.Item>
+              {/* Orientation */}
+              <Form.Item
+                name="orientation"
+                label="Orientation"
+                rules={[
+                  { required: true, message: "Please select orientation" },
+                ]}
+              >
+                <Select size="large">
+                  <Option value="landscape">Landscape</Option>
+                  <Option value="portrait">Portrait</Option>
+                </Select>
+              </Form.Item>
 
-        <Form.Item>
-          <Space>
-            <Button type="primary" htmlType="submit" loading={loading}>
-              Export PDF
-            </Button>
-            <Button onClick={() => dispatch(togglePrintModal())}>Cancel</Button>
-          </Space>
-        </Form.Item>
-      </Form>
+              <Divider style={{ margin: "16px 0" }} />
+
+              {/* Footer Toggle */}
+              <Form.Item
+                name="showFooter"
+                label="Include Footer"
+                valuePropName="checked"
+              >
+                <Switch />
+              </Form.Item>
+
+              {/* Legend Toggle */}
+              <Form.Item
+                name="showLegend"
+                label="Include Legend"
+                valuePropName="checked"
+              >
+                <Switch />
+              </Form.Item>
+
+              <Divider style={{ margin: "16px 0" }} />
+
+              {/* Action Buttons */}
+              <Form.Item>
+                <Space direction="vertical" style={{ width: "100%" }}>
+                  <Button
+                    type="primary"
+                    htmlType="submit"
+                    loading={loading}
+                    block
+                    size="large"
+                    disabled={loading}
+                  >
+                    {loading ? "Exporting..." : "Export PDF"}
+                  </Button>
+                  <Button
+                    onClick={handleCancel}
+                    block
+                    size="large"
+                    disabled={loading}
+                  >
+                    Cancel
+                  </Button>
+                </Space>
+              </Form.Item>
+            </Form>
+          </Col>
+
+          {/* Right Panel - Preview */}
+          <Col
+            xs={24}
+            sm={24}
+            md={16}
+            style={{
+              height: "600px",
+              display: "flex",
+              flexDirection: "column",
+              backgroundColor: "#f5f5f5",
+              borderRadius: "8px",
+              padding: "16px",
+            }}
+          >
+            <h3 className="print-panel-title">Preview</h3>
+
+            {/* Preview Container */}
+            <div
+              style={{
+                flex: 1,
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "flex-start",
+                overflow: "auto",
+                backgroundColor: "#e8e8e8",
+                borderRadius: "4px",
+                padding: "20px",
+              }}
+            >
+              <Spin spinning={loading} tip="Rendering preview...">
+                <div
+                  ref={previewContainerRef}
+                  style={{
+                    width: `${previewDimensions.widthPx}px`,
+                    height: `${previewDimensions.heightPx}px`,
+                    backgroundColor: "white",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                    borderRadius: "2px",
+                    overflow: "hidden",
+                    position: "relative",
+                  }}
+                >
+                  {/* Title in Preview */}
+                  {formValues.title && (
+                    <div
+                      style={{
+                        padding: "10px",
+                        textAlign: "center",
+                        borderBottom: "1px solid #eee",
+                        fontSize: "14px",
+                        fontWeight: "bold",
+                        backgroundColor: "#fafafa",
+                      }}
+                    >
+                      {formValues.title}
+                    </div>
+                  )}
+
+                  {/* Live Map Preview */}
+                  <div
+                    style={{
+                      width: "100%",
+                      height: formValues.title ? "calc(100% - 40px)" : "100%",
+                      position: "relative",
+                    }}
+                  >
+                    <PrintPreviewMap
+                      ref={previewMapRef}
+                      geoJsonLayers={geoJsonLayers}
+                      bufferLayers={bufferLayers}
+                      viewport={viewport}
+                      showLegend={formValues.showLegend}
+                    />
+                  </div>
+                </div>
+              </Spin>
+            </div>
+
+            {/* Preview Info */}
+            <div
+              style={{
+                marginTop: "12px",
+                fontSize: "12px",
+                color: "#666",
+                textAlign: "center",
+              }}
+            >
+              {formValues.orientation === "landscape"
+                ? "📄 Landscape"
+                : "📋 Portrait"}{" "}
+              | {formValues.format.toUpperCase()} | Preview (not to scale)
+            </div>
+          </Col>
+        </Row>
+      </div>
     </Modal>
   );
 };
