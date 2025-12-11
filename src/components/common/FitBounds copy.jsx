@@ -1,7 +1,9 @@
 import { memo, useEffect } from "react";
 import { useMap } from "react-leaflet";
-import L from "leaflet";
+import L from "leaflet"; // <-- added import
 
+
+// FitBounds component (keeps as side-effect)
 const FitBounds = memo(({ geoJsonLayers }) => {
   const map = useMap();
 
@@ -18,12 +20,9 @@ const FitBounds = memo(({ geoJsonLayers }) => {
         if (entries.length === 0) return;
 
         let combinedBounds = null;
-        const geoJsonInstances = [];
-
         for (const [, data] of entries) {
           try {
             const tmp = L.geoJSON(data?.geoJsonData);
-            geoJsonInstances.push(tmp); // Store for cleanup
             const b = tmp.getBounds();
             if (b && b.isValid && b.isValid()) {
               if (!combinedBounds) combinedBounds = b;
@@ -49,23 +48,12 @@ const FitBounds = memo(({ geoJsonLayers }) => {
             map.fitBounds(combinedBounds, { padding: [10, 10], maxZoom: 16 });
           }
         }
-
-        // Cleanup geoJSON instances
-        geoJsonInstances.forEach((instance) => {
-          try {
-            instance.clearLayers();
-          } catch (e) {
-            // Ignore cleanup errors
-          }
-        });
       } catch (err) {
         // ignore
       }
     }, 100);
 
-    return () => {
-      clearTimeout(timeoutId);
-    };
+    return () => clearTimeout(timeoutId);
   }, [map, geoJsonLayers]);
 
   return null;
