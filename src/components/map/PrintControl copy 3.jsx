@@ -38,7 +38,6 @@ const PrintControl = () => {
     format: "a4",
     orientation: "landscape",
     title: "",
-    footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
     showFooter: true,
     showLegend: false,
   });
@@ -161,7 +160,8 @@ const PrintControl = () => {
       if (values.showFooter) {
         pdf.setFontSize(8);
         pdf.setTextColor(128, 128, 128);
-        pdf.text(values.footerText, pageWidth / 2, pageHeight - 8, {
+        const footerText = `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`;
+        pdf.text(footerText, pageWidth / 2, pageHeight - 8, {
           align: "center",
         });
         pdf.setTextColor(0, 0, 0);
@@ -193,7 +193,6 @@ const PrintControl = () => {
       format: "a4",
       orientation: "landscape",
       title: "",
-      footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
       showFooter: true,
       showLegend: false,
     });
@@ -240,7 +239,6 @@ const PrintControl = () => {
                 format: "a4",
                 orientation: "landscape",
                 title: "",
-                footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
                 showFooter: true,
                 showLegend: false,
               }}
@@ -291,20 +289,6 @@ const PrintControl = () => {
               </Form.Item>
 
               <Divider style={{ margin: "16px 0" }} />
-
-              {/* Footer Text */}
-              <Form.Item
-                name="footerText"
-                label="Footer Text"
-                tooltip="Customize footer text to display on the PDF"
-              >
-                <Input.TextArea
-                  rows={2}
-                  placeholder="Enter footer text"
-                  maxLength={200}
-                  showCount
-                />
-              </Form.Item>
 
               {/* Footer Toggle */}
               <Form.Item
@@ -414,40 +398,18 @@ const PrintControl = () => {
                   <div
                     style={{
                       width: "100%",
-                      height: formValues.title
-                        ? formValues.showFooter && formValues.footerText
-                          ? "calc(100% - 80px)"
-                          : "calc(100% - 40px)"
-                        : formValues.showFooter && formValues.footerText
-                        ? "calc(100% - 40px)"
-                        : "100%",
+                      height: formValues.title ? "calc(100% - 40px)" : "100%",
                       position: "relative",
                     }}
                   >
                     <PrintPreviewMap
                       ref={previewMapRef}
                       geoJsonLayers={geoJsonLayers}
-                      bufferLayers={bufferLayers}
+                      bufferLayers={bufferLayers} // Add this line
                       viewport={viewport}
                       showLegend={formValues.showLegend}
                     />
                   </div>
-
-                  {/* Footer in Preview */}
-                  {formValues.showFooter && formValues.footerText && (
-                    <div
-                      style={{
-                        padding: "8px",
-                        textAlign: "center",
-                        borderTop: "1px solid #eee",
-                        fontSize: "10px",
-                        color: "#888",
-                        backgroundColor: "#fafafa",
-                      }}
-                    >
-                      {formValues.footerText}
-                    </div>
-                  )}
                 </div>
               </Spin>
             </div>

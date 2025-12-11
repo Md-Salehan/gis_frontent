@@ -1,5 +1,10 @@
 import React, { forwardRef, useMemo } from "react";
-import { MapContainer, TileLayer, ZoomControl } from "react-leaflet";
+import {
+  MapContainer,
+  ScaleControl,
+  TileLayer,
+  ZoomControl,
+} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import {
   GeoJsonLayerWrapper,
@@ -11,10 +16,7 @@ import { PANE_ZINDEX } from "../../constants";
 import FitBounds from "../common/FitBounds";
 
 const PrintPreviewMap = forwardRef(
-  (
-    { geoJsonLayers, bufferLayers, viewport, showLegend },
-    ref
-  ) => {
+  ({ geoJsonLayers, bufferLayers, viewport, showLegend }, ref) => {
     // Sort layers by order (same logic as MapPanel)
     const sortedLayers = useMemo(() => {
       return Object.entries(geoJsonLayers || {})
@@ -51,10 +53,11 @@ const PrintPreviewMap = forwardRef(
     const bufferPanes = useMemo(() => {
       const overlayBase = PANE_ZINDEX.OVERLAY_BASE;
       const fallback = Math.max(201, overlayBase - 1000);
-      const bufferBase = typeof PANE_ZINDEX.BUFFER_BASE === "number"
-        ? PANE_ZINDEX.BUFFER_BASE
-        : fallback;
-      
+      const bufferBase =
+        typeof PANE_ZINDEX.BUFFER_BASE === "number"
+          ? PANE_ZINDEX.BUFFER_BASE
+          : fallback;
+
       return sortedBufferLayers.map((l, idx) => ({
         name: `pane-buffer-${l.layerId}`,
         zIndex: bufferBase + idx,
@@ -92,12 +95,12 @@ const PrintPreviewMap = forwardRef(
         center: viewport?.center || [28.7041, 77.1025],
         zoom: viewport?.zoom || 8,
         style: { width: "100%", height: "100%" },
-        zoomControl: true,
-        doubleClickZoom: true,
-        dragging: true,
-        keyboard: true,
-        scrollWheelZoom: true,
-        touchZoom: true,
+        zoomControl: false,
+        doubleClickZoom: false,
+        dragging: false,
+        keyboard: false,
+        scrollWheelZoom: false,
+        touchZoom: false,
       }),
       [viewport]
     );
@@ -106,9 +109,15 @@ const PrintPreviewMap = forwardRef(
       <MapContainer {...mapSettings} ref={ref}>
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; OpenStreetMap contributors'
+          attribution="&copy; OpenStreetMap contributors"
         />
-
+        <ScaleControl
+          position="bottomright"
+          imperial={true}
+          metric={true}
+          maxWidth={200}
+          updateWhenIdle={true}
+        />
         <FitBounds geoJsonLayers={geoJsonLayers} />
 
         {/* Create buffer panes first */}

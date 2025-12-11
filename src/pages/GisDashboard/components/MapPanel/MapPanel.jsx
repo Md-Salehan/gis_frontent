@@ -1,5 +1,10 @@
 import React, { memo, useMemo } from "react";
-import { MapContainer, TileLayer, ZoomControl } from "react-leaflet";
+import {
+  MapContainer,
+  ScaleControl,
+  TileLayer,
+  ZoomControl,
+} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { useSelector } from "react-redux";
 import { PANE_ZINDEX } from "../../../../constants";
@@ -124,7 +129,14 @@ const MapPanel = memo(() => {
   return (
     <div className="map-panel">
       <MapContainer {...mapSettings}>
-        <ZoomControl position="bottomright" />
+        <ZoomControl position="topleft" />
+        <ScaleControl
+          position="bottomright"
+          imperial={true}
+          metric={true}
+          maxWidth={200}
+          updateWhenIdle={true}
+        />
 
         <BaseMapSwitcher />
 
