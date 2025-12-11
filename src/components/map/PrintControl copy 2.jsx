@@ -405,7 +405,7 @@ const PrintControl = () => {
                     <PrintPreviewMap
                       ref={previewMapRef}
                       geoJsonLayers={geoJsonLayers}
-                      bufferLayers={bufferLayers} // Add this line
+                      bufferLayers={bufferLayers}
                       viewport={viewport}
                       showLegend={formValues.showLegend}
                     />

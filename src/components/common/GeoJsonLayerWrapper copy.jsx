@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { memo, useCallback } from "react";
 import { GeoJSON } from "react-leaflet";
 import { useDispatch, useSelector } from "react-redux";
@@ -14,15 +14,11 @@ import {
 import LabelLayer from "./LabelLayer";
 
 
-
+const canvasRenderer = L.canvas({ padding: 0.5 });
 
 const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
   const dispatch = useDispatch();
   const viewport = useSelector((state) => state.map.viewport);
-
-  const canvasRenderer = useMemo(() => {
-    return L.canvas({ padding: 0.5 });
-  }, []);
 
   // Memoize style function
   const style = useCallback((feature) => {
