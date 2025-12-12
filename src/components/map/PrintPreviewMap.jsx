@@ -17,7 +17,7 @@ import { PANE_ZINDEX } from "../../constants";
 import FitBounds from "../common/FitBounds";
 
 // Add a component to handle map updates when container size changes
-const MapResizer = ({ orientation, format }) => {
+const MapResizer = ({ orientation, format, scaleValue }) => {
   const map = useMap();
   
   useEffect(() => {
@@ -33,13 +33,62 @@ const MapResizer = ({ orientation, format }) => {
     }, 100);
     
     return () => clearTimeout(timer);
-  }, [map, orientation, format]); // Re-run when orientation or format changes
+  }, [map, orientation, format, scaleValue]); // Re-run when orientation or format changes
+  
+  return null;
+};
+
+// Component to handle scale-based zoom adjustment
+const ScaleController = ({ scaleValue, mapCenter }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (!scaleValue || !mapCenter) return;
+    
+    try {
+      // Parse scale value (e.g., "1:5000" or "5000")
+      let scaleNumber;
+      if (scaleValue.includes(':')) {
+        const parts = scaleValue.split(':');
+        scaleNumber = parseFloat(parts[1] || parts[0]);
+      } else {
+        scaleNumber = parseFloat(scaleValue);
+      }
+      
+      if (isNaN(scaleNumber) || scaleNumber <= 0) return;
+      
+      // Convert scale to zoom level approximation
+      // This is an approximation as exact scale depends on latitude and screen DPI
+      // Typical scale to zoom relationship for OSM tiles:
+      // At zoom 0: 1:500 million (approx)
+      // Each zoom level doubles the scale
+      
+      // Base scale at zoom 0 (varies by latitude)
+      const baseScaleAtEquator = 500000000; // Approximate 1:500M at equator, zoom 0
+      const targetScale = scaleNumber;
+      
+      // Calculate approximate zoom level
+      // scale = baseScale / (2^zoom)
+      // zoom = log2(baseScale / targetScale)
+      const zoomLevel = Math.log2(baseScaleAtEquator / targetScale);
+      
+      // Clamp zoom level to reasonable bounds
+      const clampedZoom = Math.max(0, Math.min(20, Math.round(zoomLevel * 10) / 10));
+      
+      // Set map view with the calculated zoom
+      if (mapCenter && mapCenter.length === 2) {
+        map.setView(mapCenter, clampedZoom);
+      }
+    } catch (error) {
+      console.error("Error setting map scale:", error);
+    }
+  }, [map, scaleValue, mapCenter]);
   
   return null;
 };
 
 const PrintPreviewMap = forwardRef(
-  ({ geoJsonLayers, bufferLayers, viewport, showLegend, orientation, format }, ref) => {
+  ({ geoJsonLayers, bufferLayers, viewport, showLegend, orientation, format, scaleValue }, ref) => {
     // Sort layers by order (same logic as MapPanel)
     const sortedLayers = useMemo(() => {
       return Object.entries(geoJsonLayers || {})
@@ -120,7 +169,7 @@ const PrintPreviewMap = forwardRef(
         style: { width: "100%", height: "100%" },
         zoomControl: false,
         doubleClickZoom: false,
-        dragging: false,
+        dragging: true,
         keyboard: false,
         scrollWheelZoom: false,
         touchZoom: false,
@@ -135,7 +184,13 @@ const PrintPreviewMap = forwardRef(
     return (
       <MapContainer {...mapSettings} ref={ref}>
         {/* Add MapResizer to handle dimension changes */}
-        <MapResizer orientation={orientation} format={format} />
+        <MapResizer orientation={orientation} format={format} scaleValue={scaleValue} />
+        
+        {/* Add ScaleController to adjust zoom based on scale */}
+        <ScaleController 
+          scaleValue={scaleValue} 
+          mapCenter={viewport?.center || [28.7041, 77.1025]} 
+        />
         
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -145,7 +200,7 @@ const PrintPreviewMap = forwardRef(
           updateWhenZooming={false}
         />
         <ScaleControl
-          position="bottomright"
+          position="bottomleft"
           imperial={true}
           metric={true}
           maxWidth={200}

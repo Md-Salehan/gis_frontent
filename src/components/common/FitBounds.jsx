@@ -1,8 +1,11 @@
 import { memo, useEffect } from "react";
 import { useMap } from "react-leaflet";
 import L from "leaflet";
+import { useDispatch } from "react-redux";
+import { updateViewport } from "../../store/slices/mapSlice";
 
 const FitBounds = memo(({ geoJsonLayers }) => {
+  const dispatch = useDispatch();
   const map = useMap();
 
   useEffect(() => {
@@ -40,12 +43,22 @@ const FitBounds = memo(({ geoJsonLayers }) => {
           combinedBounds.isValid()
         ) {
           try {
+            const center = combinedBounds.getCenter();
+
+            dispatch(
+              updateViewport({
+                center: [center.lat, center.lng],
+                // zoom: Math.min(16, viewport.zoom || 13),
+              })
+            );
             map.fitBounds(combinedBounds, {
               padding: [10, 10],
               maxZoom: 16,
               animate: false,
             });
-          } catch {
+          } catch (e) {
+            console.log(e, "error in fitbounds");
+
             map.fitBounds(combinedBounds, { padding: [10, 10], maxZoom: 16 });
           }
         }

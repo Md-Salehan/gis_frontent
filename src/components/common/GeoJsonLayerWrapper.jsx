@@ -106,6 +106,8 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
       layer.on("click", (e) => {
         try {
           const bounds = layer.getBounds?.();
+          console.log(bounds, "bounds");
+          
           if (bounds?.isValid()) {
             const center = bounds.getCenter();
             dispatch(

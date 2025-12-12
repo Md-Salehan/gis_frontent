@@ -48,25 +48,25 @@ const BufferGeoJsonLayer = memo(({ layerId, geoJsonData, metaData, pane }) => {
         e.target.setStyle(style(feature));
       });
 
-      layer.on("click", (e) => {
-        try {
-          const bounds = layer.getBounds?.();
-          if (bounds?.isValid()) {
-            const center = bounds.getCenter();
-            dispatch(
-              updateViewport({
-                center: [center.lat, center.lng],
-                zoom: Math.min(16, viewport.zoom || 13),
-              })
-            );
-          } else if (feature.geometry?.coordinates) {
-            const [lng, lat] = feature.geometry.coordinates;
-            dispatch(updateViewport({ center: [lat, lng] }));
-          }
-        } catch (err) {
-          // ignore
-        }
-      });
+      // layer.on("click", (e) => {
+      //   try {
+      //     const bounds = layer.getBounds?.();
+      //     if (bounds?.isValid()) {
+      //       const center = bounds.getCenter();
+      //       dispatch(
+      //         updateViewport({
+      //           center: [center.lat, center.lng],
+      //           zoom: Math.min(16, viewport.zoom || 13),
+      //         })
+      //       );
+      //     } else if (feature.geometry?.coordinates) {
+      //       const [lng, lat] = feature.geometry.coordinates;
+      //       dispatch(updateViewport({ center: [lat, lng] }));
+      //     }
+      //   } catch (err) {
+      //     // ignore
+      //   }
+      // });
     },
     [dispatch, style, viewport.zoom]
   );

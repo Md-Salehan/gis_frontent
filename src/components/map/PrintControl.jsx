@@ -12,6 +12,7 @@ import {
   Spin,
   Row,
   Col,
+  InputNumber,
 } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { togglePrintModal } from "../../store/slices/uiSlice";
@@ -40,6 +41,7 @@ const PrintControl = () => {
     title: "",
     footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
     showLegend: false,
+    mapScale: "",
   });
 
   const handleResetForm = () => {
@@ -50,12 +52,83 @@ const PrintControl = () => {
       title: "",
       footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
       showLegend: false,
+      mapScale: "",
     });
   };
 
   const handleFormChange = (changedValues, allValues) => {
     setFormValues(allValues);
   };
+
+  // Validate scale input
+  const validateScale = (_, value) => {
+    if (!value || value.trim() === "") {
+      return Promise.resolve();
+    }
+    
+    // Accept formats: "1:5000", "5000", "1:25,000", "25000"
+    const cleanedValue = value.replace(/,/g, '');
+    const regex = /^(?:1:)?(\d+)$/;
+    
+    if (!regex.test(cleanedValue)) {
+      return Promise.reject(new Error('Please enter a valid scale (e.g., "1:5000" or "5000")'));
+    }
+    
+    const match = cleanedValue.match(regex);
+    const scaleNumber = parseInt(match[1], 10);
+    
+    if (isNaN(scaleNumber) || scaleNumber < 100 || scaleNumber > 10000000) {
+      return Promise.reject(new Error('Scale must be between 1:100 and 1:10,000,000'));
+    }
+    
+    return Promise.resolve();
+  };
+
+  // Format scale for display
+  const formatScaleValue = (value) => {
+    if (!value) return "";
+    
+    // If it's already in "1:xxxx" format, return as is
+    if (value.includes(':')) {
+      return value;
+    }
+    
+    // Otherwise, format as "1:xxxx"
+    const numValue = parseInt(value.replace(/,/g, ''), 10);
+    if (!isNaN(numValue)) {
+      return `1:${numValue.toLocaleString()}`;
+    }
+    
+    return value;
+  };
+
+  // Parse scale value for the map component
+  const parseScaleValue = (value) => {
+    if (!value || value.trim() === "") return null;
+    
+    const cleanedValue = value.replace(/,/g, '');
+    const regex = /^(?:1:)?(\d+)$/;
+    const match = cleanedValue.match(regex);
+    
+    if (match) {
+      return match[1]; // Return just the number part
+    }
+    
+    return null;
+  };
+
+  // Common scale presets
+  const scalePresets = [
+    { label: "1:500", value: "500" },
+    { label: "1:1,000", value: "1000" },
+    { label: "1:2,500", value: "2500" },
+    { label: "1:5,000", value: "5000" },
+    { label: "1:10,000", value: "10000" },
+    { label: "1:25,000", value: "25000" },
+    { label: "1:50,000", value: "50000" },
+    { label: "1:100,000", value: "100000" },
+    { label: "1:250,000", value: "250000" },
+  ];
 
   // Calculate preview dimensions based on format and orientation
   const previewDimensions = useMemo(() => {
@@ -136,6 +209,14 @@ const PrintControl = () => {
         pdf.text(values.title, pageWidth / 2, yPosition, { align: "center" });
         yPosition += 5; // Space after title
         pdf.setFont(undefined, "normal");
+      }
+
+      // Add scale if provided
+      if (values.mapScale) {
+        pdf.setFontSize(10);
+        const formattedScale = formatScaleValue(values.mapScale);
+        pdf.text(`Scale: ${formattedScale}`, pageWidth - 20, yPosition, { align: "right" });
+        yPosition += 4;
       }
 
       // Calculate image dimensions to fit page
@@ -242,6 +323,7 @@ const PrintControl = () => {
                 title: "",
                 footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
                 showLegend: false,
+                mapScale: "",
               }}
             >
               {/* Map Title */}
@@ -255,6 +337,42 @@ const PrintControl = () => {
                   maxLength={60}
                   allowClear
                   size="large"
+                />
+              </Form.Item>
+
+              <Divider style={{ margin: "16px 0" }} />
+
+              {/* Map Scale */}
+              <Form.Item
+                name="mapScale"
+                label="Map Scale"
+                tooltip="Enter map scale (e.g., '1:5000' or '5000'). The map will adjust to this scale in the preview."
+                rules={[
+                  { validator: validateScale }
+                ]}
+              >
+                <Input
+                  placeholder="e.g., 1:5000 or 5000"
+                  size="large"
+                  addonBefore="1:"
+                  suffix={
+                    <Select
+                      size="small"
+                      placeholder="Presets"
+                      style={{ width: 120 }}
+                      onChange={(value) => {
+                        form.setFieldsValue({ mapScale: value });
+                        setFormValues({...formValues, mapScale: value});
+                      }}
+                      dropdownMatchSelectWidth={false}
+                    >
+                      {scalePresets.map(preset => (
+                        <Option key={preset.value} value={preset.value}>
+                          {preset.label}
+                        </Option>
+                      ))}
+                    </Select>
+                  }
                 />
               </Form.Item>
 
@@ -400,6 +518,26 @@ const PrintControl = () => {
                     </div>
                   )}
 
+                  {/* Scale display in preview */}
+                  {formValues.mapScale && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: formValues.title ? "50px" : "10px",
+                        right: "10px",
+                        padding: "4px 8px",
+                        backgroundColor: "rgba(255, 255, 255, 0.9)",
+                        borderRadius: "4px",
+                        fontSize: "12px",
+                        fontWeight: "bold",
+                        zIndex: 1000,
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                      }}
+                    >
+                      Scale: {formatScaleValue(formValues.mapScale)}
+                    </div>
+                  )}
+
                   {/* Live Map Preview */}
                   <div
                     style={{
@@ -422,6 +560,7 @@ const PrintControl = () => {
                       showLegend={formValues.showLegend}
                       orientation={formValues.orientation}
                       format={formValues.format}
+                      scaleValue={parseScaleValue(formValues.mapScale)}
                     />
                   </div>
 
@@ -456,7 +595,9 @@ const PrintControl = () => {
               {formValues.orientation === "landscape"
                 ? "📄 Landscape"
                 : "📋 Portrait"}{" "}
-              | {formValues.format.toUpperCase()} | Preview (not to scale)
+              | {formValues.format.toUpperCase()} | 
+              {formValues.mapScale ? ` Scale: ${formatScaleValue(formValues.mapScale)} | ` : " "}
+              Preview (not to scale)
             </div>
           </Col>
         </Row>
