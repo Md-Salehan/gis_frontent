@@ -1,10 +1,9 @@
-import React, { forwardRef, memo, useMemo, useEffect, useCallback } from "react";
+import React, { forwardRef, memo, useMemo } from "react";
 import {
   MapContainer,
   ScaleControl,
   TileLayer,
   ZoomControl,
-  useMap,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import {
@@ -16,30 +15,8 @@ import {
 import { PANE_ZINDEX } from "../../constants";
 import FitBounds from "../common/FitBounds";
 
-// Add a component to handle map updates when container size changes
-const MapResizer = ({ orientation, format }) => {
-  const map = useMap();
-  
-  useEffect(() => {
-    // Use setTimeout to ensure DOM has updated
-    const timer = setTimeout(() => {
-      map.invalidateSize();
-      // Also trigger a re-render of tiles
-      map.eachLayer((layer) => {
-        if (layer.redraw) {
-          layer.redraw();
-        }
-      });
-    }, 100);
-    
-    return () => clearTimeout(timer);
-  }, [map, orientation, format]); // Re-run when orientation or format changes
-  
-  return null;
-};
-
 const PrintPreviewMap = forwardRef(
-  ({ geoJsonLayers, bufferLayers, viewport, showLegend, orientation, format }, ref) => {
+  ({ geoJsonLayers, bufferLayers, viewport, showLegend }, ref) => {
     // Sort layers by order (same logic as MapPanel)
     const sortedLayers = useMemo(() => {
       return Object.entries(geoJsonLayers || {})
@@ -124,25 +101,15 @@ const PrintPreviewMap = forwardRef(
         keyboard: false,
         scrollWheelZoom: false,
         touchZoom: false,
-        // Add these props to help with re-rendering
-        whenReady: () => {
-          // This callback ensures map is initialized properly
-        },
       }),
       [viewport]
     );
 
     return (
       <MapContainer {...mapSettings} ref={ref}>
-        {/* Add MapResizer to handle dimension changes */}
-        <MapResizer orientation={orientation} format={format} />
-        
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution="&copy; OpenStreetMap contributors"
-          // Add updateWhenIdle to help with re-rendering
-          updateWhenIdle={false}
-          updateWhenZooming={false}
         />
         <ScaleControl
           position="bottomright"

@@ -42,7 +42,7 @@ const PrintControl = () => {
     showLegend: false,
   });
 
-  const handleResetForm = () => {
+  const handleResetForm = () => {  
     form.resetFields();
     setFormValues({
       format: "a4",
@@ -51,7 +51,7 @@ const PrintControl = () => {
       footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
       showLegend: false,
     });
-  };
+  }
 
   const handleFormChange = (changedValues, allValues) => {
     setFormValues(allValues);
@@ -197,6 +197,7 @@ const PrintControl = () => {
   const handleCancel = () => {
     handleResetForm();
     dispatch(togglePrintModal());
+    
   };
 
   return (
@@ -304,6 +305,8 @@ const PrintControl = () => {
                   showCount
                 />
               </Form.Item>
+
+              
 
               {/* Legend Toggle */}
               <Form.Item
@@ -420,8 +423,6 @@ const PrintControl = () => {
                       bufferLayers={bufferLayers}
                       viewport={viewport}
                       showLegend={formValues.showLegend}
-                      orientation={formValues.orientation}
-                      format={formValues.format}
                     />
                   </div>
 
