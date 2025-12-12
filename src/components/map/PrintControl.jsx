@@ -39,9 +39,19 @@ const PrintControl = () => {
     orientation: "landscape",
     title: "",
     footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
-    showFooter: true,
     showLegend: false,
   });
+
+  const handleResetForm = () => {  
+    form.resetFields();
+    setFormValues({
+      format: "a4",
+      orientation: "landscape",
+      title: "",
+      footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
+      showLegend: false,
+    });
+  }
 
   const handleFormChange = (changedValues, allValues) => {
     setFormValues(allValues);
@@ -97,7 +107,7 @@ const PrintControl = () => {
       // Capture map canvas with high quality
       const canvas = await html2canvas(mapElement, {
         backgroundColor: "#ffffff",
-        scale: 2,
+        scale: 2, // Increase scale for better resolution
         useCORS: true,
         logging: false,
         allowTaint: true,
@@ -124,16 +134,14 @@ const PrintControl = () => {
         pdf.setFontSize(16);
         pdf.setFont(undefined, "bold");
         pdf.text(values.title, pageWidth / 2, yPosition, { align: "center" });
-        yPosition += 12;
+        yPosition += 5; // Space after title
         pdf.setFont(undefined, "normal");
       }
 
-      yPosition += 5;
-
       // Calculate image dimensions to fit page
-      const maxImgWidth = pageWidth - 20;
+      const maxImgWidth = pageWidth - 10;
       const maxImgHeight =
-        pageHeight - yPosition - (values.showFooter ? 15 : 10);
+        pageHeight - yPosition - (values.footerText ? 15 : 10);
 
       const imgAspectRatio = canvas.width / canvas.height;
       let imgWidth = maxImgWidth;
@@ -158,7 +166,7 @@ const PrintControl = () => {
       );
 
       // Add footer if enabled
-      if (values.showFooter) {
+      if (values.footerText) {
         pdf.setFontSize(8);
         pdf.setTextColor(128, 128, 128);
         pdf.text(values.footerText, pageWidth / 2, pageHeight - 8, {
@@ -177,7 +185,7 @@ const PrintControl = () => {
 
       message.success("Map exported successfully!");
       dispatch(togglePrintModal());
-      form.resetFields();
+      handleResetForm();
     } catch (error) {
       console.error("Export error:", error);
       message.error("Failed to export map. Please try again.");
@@ -187,16 +195,9 @@ const PrintControl = () => {
   };
 
   const handleCancel = () => {
+    handleResetForm();
     dispatch(togglePrintModal());
-    form.resetFields();
-    setFormValues({
-      format: "a4",
-      orientation: "landscape",
-      title: "",
-      footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
-      showFooter: true,
-      showLegend: false,
-    });
+    
   };
 
   return (
@@ -241,7 +242,6 @@ const PrintControl = () => {
                 orientation: "landscape",
                 title: "",
                 footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
-                showFooter: true,
                 showLegend: false,
               }}
             >
@@ -306,14 +306,7 @@ const PrintControl = () => {
                 />
               </Form.Item>
 
-              {/* Footer Toggle */}
-              <Form.Item
-                name="showFooter"
-                label="Include Footer"
-                valuePropName="checked"
-              >
-                <Switch />
-              </Form.Item>
+              
 
               {/* Legend Toggle */}
               <Form.Item
@@ -415,10 +408,10 @@ const PrintControl = () => {
                     style={{
                       width: "100%",
                       height: formValues.title
-                        ? formValues.showFooter && formValues.footerText
+                        ? formValues.footerText
                           ? "calc(100% - 80px)"
                           : "calc(100% - 40px)"
-                        : formValues.showFooter && formValues.footerText
+                        : formValues.footerText
                         ? "calc(100% - 40px)"
                         : "100%",
                       position: "relative",
@@ -434,7 +427,7 @@ const PrintControl = () => {
                   </div>
 
                   {/* Footer in Preview */}
-                  {formValues.showFooter && formValues.footerText && (
+                  {formValues.footerText && (
                     <div
                       style={{
                         padding: "8px",

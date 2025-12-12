@@ -1,4 +1,4 @@
-import React, { forwardRef, useMemo } from "react";
+import React, { forwardRef, memo, useMemo } from "react";
 import {
   MapContainer,
   ScaleControl,
@@ -136,4 +136,4 @@ const PrintPreviewMap = forwardRef(
 );
 
 PrintPreviewMap.displayName = "PrintPreviewMap";
-export default PrintPreviewMap;
+export default memo(PrintPreviewMap);
