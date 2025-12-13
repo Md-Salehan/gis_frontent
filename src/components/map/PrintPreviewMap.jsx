@@ -12,9 +12,11 @@ import {
   PaneCreator,
   Legend,
   BufferGeoJsonLayer,
+  BaseMapTileLayer,
 } from "../../components";
 import { PANE_ZINDEX } from "../../constants";
 import FitBounds from "../common/FitBounds";
+import Base from "antd/es/typography/Base";
 
 // Add a component to handle map updates when container size changes
 const MapResizer = ({ orientation, format, scaleValue }) => {
@@ -183,6 +185,7 @@ const PrintPreviewMap = forwardRef(
 
     return (
       <MapContainer {...mapSettings} ref={ref}>
+        <BaseMapTileLayer />
         {/* Add MapResizer to handle dimension changes */}
         <MapResizer orientation={orientation} format={format} scaleValue={scaleValue} />
         
@@ -192,13 +195,13 @@ const PrintPreviewMap = forwardRef(
           mapCenter={viewport?.center || [28.7041, 77.1025]} 
         />
         
-        <TileLayer
+        {/* <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution="&copy; OpenStreetMap contributors"
           // Add updateWhenIdle to help with re-rendering
           updateWhenIdle={false}
           updateWhenZooming={false}
-        />
+        /> */}
         <ScaleControl
           position="bottomleft"
           imperial={true}

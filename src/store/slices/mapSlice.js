@@ -8,7 +8,7 @@ const initialState = {
     center: [28.7041, 77.1025],
     zoom: 8,
   },
-  activeBasemap: "streets",
+  activeBasemap: "openstreetmap",
   sidebarCollapsed: false,
   selectedFeature: {
     metaData: null,

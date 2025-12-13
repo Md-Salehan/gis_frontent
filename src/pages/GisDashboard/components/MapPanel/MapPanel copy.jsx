@@ -14,7 +14,6 @@ import GeomanControl from "../../../../components/common/GeomanControl";
 import FitBounds from "../../../../components/common/FitBounds";
 import {
   AttributeTableDrawer,
-  BaseMapSwitcherControl,
   BufferGeoJsonLayer,
   BufferToolDrawer,
   GeoJsonLayerWrapper,
@@ -139,7 +138,7 @@ const MapPanel = memo(() => {
           updateWhenIdle={true}
         />
 
-        <BaseMapSwitcherControl />
+        <BaseMapSwitcher />
 
         <FitBounds geoJsonLayers={geoJsonLayers} />
 

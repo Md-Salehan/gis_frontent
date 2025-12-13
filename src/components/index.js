@@ -9,7 +9,8 @@ export { default as BufferGeoJsonLayer } from './common/BufferGeoJsonLayer';
 
 
 
-
+export { default as BaseMapSwitcherControl } from './map/BaseMapSwitcherControl';
+export { default as BaseMapTileLayer } from './map/BaseMapTileLayer';
 export { default as AttributeTable } from './map/AttributeTable';
 export { default as MeasureControl } from './map/MeasureControl';
 export { default as PrintControl } from './map/PrintControl';
