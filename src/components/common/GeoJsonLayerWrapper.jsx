@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { memo, useCallback } from "react";
-import { GeoJSON } from "react-leaflet";
+import { GeoJSON, useMap } from "react-leaflet";
 import { useDispatch, useSelector } from "react-redux";
 import { updateViewport } from "../../store/slices/mapSlice";
 import L from "leaflet";
@@ -19,10 +19,15 @@ import LabelLayer from "./LabelLayer";
 const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
   const dispatch = useDispatch();
   const viewport = useSelector((state) => state.map.viewport);
+  const map = useMap();
 
   const canvasRenderer = useMemo(() => {
-    return L.canvas({ padding: 0.5 });
-  }, []);
+  const key = `__canvas_renderer_for_${pane}`;
+  if (!map[key]) {
+    map[key] = L.canvas({ padding: 0.5, pane });
+  }
+  return map[key];
+}, [map, pane]);
 
   // Memoize style function
   const style = useCallback((feature) => {
@@ -103,27 +108,27 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
       });
 
       // click -> save selected feature and center map viewport on it
-      layer.on("click", (e) => {
-        try {
-          const bounds = layer.getBounds?.();
-          console.log(bounds, "bounds");
+      // layer.on("click", (e) => {
+      //   try {
+      //     const bounds = layer.getBounds?.();
+      //     console.log(bounds, "bounds");
           
-          if (bounds?.isValid()) {
-            const center = bounds.getCenter();
-            dispatch(
-              updateViewport({
-                center: [center.lat, center.lng],
-                zoom: Math.min(16, viewport.zoom || 13),
-              })
-            );
-          } else if (feature.geometry?.coordinates) {
-            const [lng, lat] = feature.geometry.coordinates;
-            dispatch(updateViewport({ center: [lat, lng] }));
-          }
-        } catch (err) {
-          // ignore
-        }
-      });
+      //     if (bounds?.isValid()) {
+      //       const center = bounds.getCenter();
+      //       dispatch(
+      //         updateViewport({
+      //           center: [center.lat, center.lng],
+      //           zoom: Math.min(16, viewport.zoom || 13),
+      //         })
+      //       );
+      //     } else if (feature.geometry?.coordinates) {
+      //       const [lng, lat] = feature.geometry.coordinates;
+      //       dispatch(updateViewport({ center: [lat, lng] }));
+      //     }
+      //   } catch (err) {
+      //     // ignore
+      //   }
+      // });
     },
     [dispatch, style, viewport.zoom]
   );

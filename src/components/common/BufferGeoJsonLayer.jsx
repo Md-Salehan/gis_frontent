@@ -1,5 +1,5 @@
-import React, { memo, useCallback } from "react";
-import { GeoJSON } from "react-leaflet";
+import React, { memo, useCallback, useMemo } from "react";
+import { GeoJSON, useMap } from "react-leaflet";
 import L from "leaflet";
 import { useDispatch, useSelector } from "react-redux";
 import { bindTooltip } from "../../utils";
@@ -17,6 +17,15 @@ const RED_STYLE = {
 const BufferGeoJsonLayer = memo(({ layerId, geoJsonData, metaData, pane }) => {
   const dispatch = useDispatch();
   const viewport = useSelector((s) => s.map.viewport);
+  const map = useMap();
+
+  const canvasRenderer = useMemo(() => {
+    const key = `__canvas_renderer_for_${pane}`;
+    if (!map[key]) {
+      map[key] = L.canvas({ padding: 0.5, pane });
+    }
+    return map[key];
+  }, [map, pane]);
 
   const style = useCallback(() => {
     return RED_STYLE;
@@ -90,6 +99,7 @@ const BufferGeoJsonLayer = memo(({ layerId, geoJsonData, metaData, pane }) => {
       pointToLayer={pointToLayer}
       onEachFeature={onEachFeature}
       pane={pane}
+      renderer={canvasRenderer}
     />
   );
 });
