@@ -65,55 +65,59 @@ const PrintControl = () => {
     if (!value || value.trim() === "") {
       return Promise.resolve();
     }
-    
+
     // Accept formats: "1:5000", "5000", "1:25,000", "25000"
-    const cleanedValue = value.replace(/,/g, '');
+    const cleanedValue = value.replace(/,/g, "");
     const regex = /^(?:1:)?(\d+)$/;
-    
+
     if (!regex.test(cleanedValue)) {
-      return Promise.reject(new Error('Please enter a valid scale (e.g., "1:5000" or "5000")'));
+      return Promise.reject(
+        new Error('Please enter a valid scale (e.g., "1:5000" or "5000")')
+      );
     }
-    
+
     const match = cleanedValue.match(regex);
     const scaleNumber = parseInt(match[1], 10);
-    
+
     if (isNaN(scaleNumber) || scaleNumber < 100 || scaleNumber > 10000000) {
-      return Promise.reject(new Error('Scale must be between 1:100 and 1:10,000,000'));
+      return Promise.reject(
+        new Error("Scale must be between 1:100 and 1:10,000,000")
+      );
     }
-    
+
     return Promise.resolve();
   };
 
   // Format scale for display
   const formatScaleValue = (value) => {
     if (!value) return "";
-    
+
     // If it's already in "1:xxxx" format, return as is
-    if (value.includes(':')) {
+    if (value.includes(":")) {
       return value;
     }
-    
+
     // Otherwise, format as "1:xxxx"
-    const numValue = parseInt(value.replace(/,/g, ''), 10);
+    const numValue = parseInt(value.replace(/,/g, ""), 10);
     if (!isNaN(numValue)) {
       return `1:${numValue.toLocaleString()}`;
     }
-    
+
     return value;
   };
 
   // Parse scale value for the map component
   const parseScaleValue = (value) => {
     if (!value || value.trim() === "") return null;
-    
-    const cleanedValue = value.replace(/,/g, '');
+
+    const cleanedValue = value.replace(/,/g, "");
     const regex = /^(?:1:)?(\d+)$/;
     const match = cleanedValue.match(regex);
-    
+
     if (match) {
       return match[1]; // Return just the number part
     }
-    
+
     return null;
   };
 
@@ -133,8 +137,11 @@ const PrintControl = () => {
   // Calculate preview dimensions based on format and orientation
   const previewDimensions = useMemo(() => {
     const formatDimensions = {
-      a4: { width: 210, height: 297 }, // mm
+      a0: { width: 841, height: 1189 }, // mm
+      a1: { width: 594, height: 841 },
+      a2: { width: 420, height: 594 },
       a3: { width: 297, height: 420 },
+      a4: { width: 210, height: 297 }, // mm
       letter: { width: 215.9, height: 279.4 },
     };
 
@@ -153,10 +160,24 @@ const PrintControl = () => {
     }
 
     // Scale to fit preview (1mm ≈ 3.78px at 96dpi, use 2.5 for smaller preview)
-    const scale = 2.5;
+    const mmToPxScale = 2.5;
+    let widthPx = dims.width * mmToPxScale;
+    let heightPx = dims.height * mmToPxScale;
+
+    // Clamp preview size to avoid extremely large previews for A0/A1
+    const maxPreviewWidth = 1200; // px
+    const maxPreviewHeight = 900; // px
+    const clampScale = Math.min(
+      1,
+      maxPreviewWidth / widthPx,
+      maxPreviewHeight / heightPx
+    );
+    widthPx = Math.round(widthPx * clampScale);
+    heightPx = Math.round(heightPx * clampScale);
+
     return {
-      widthPx: dims.width * scale,
-      heightPx: dims.height * scale,
+      widthPx,
+      heightPx,
       aspectRatio: dims.width / dims.height,
     };
   }, [formValues.format, formValues.orientation]);
@@ -215,7 +236,9 @@ const PrintControl = () => {
       if (values.mapScale) {
         pdf.setFontSize(10);
         const formattedScale = formatScaleValue(values.mapScale);
-        pdf.text(`Scale: ${formattedScale}`, pageWidth - 20, yPosition, { align: "right" });
+        pdf.text(`Scale: ${formattedScale}`, pageWidth - 20, yPosition, {
+          align: "right",
+        });
         yPosition += 4;
       }
 
@@ -347,9 +370,7 @@ const PrintControl = () => {
                 name="mapScale"
                 label="Map Scale"
                 tooltip="Enter map scale (e.g., '1:5000' or '5000'). The map will adjust to this scale in the preview."
-                rules={[
-                  { validator: validateScale }
-                ]}
+                rules={[{ validator: validateScale }]}
               >
                 <Input
                   placeholder="e.g., 1:5000 or 5000"
@@ -362,11 +383,11 @@ const PrintControl = () => {
                       style={{ width: 120 }}
                       onChange={(value) => {
                         form.setFieldsValue({ mapScale: value });
-                        setFormValues({...formValues, mapScale: value});
+                        setFormValues({ ...formValues, mapScale: value });
                       }}
                       dropdownMatchSelectWidth={false}
                     >
-                      {scalePresets.map(preset => (
+                      {scalePresets.map((preset) => (
                         <Option key={preset.value} value={preset.value}>
                           {preset.label}
                         </Option>
@@ -387,8 +408,11 @@ const PrintControl = () => {
                 ]}
               >
                 <Select size="large">
-                  <Option value="a4">A4 (210 × 297 mm)</Option>
+                  <Option value="a0">A0 (841 × 1189 mm)</Option>
+                  <Option value="a1">A1 (594 × 841 mm)</Option>
+                  <Option value="a2">A2 (420 × 594 mm)</Option>
                   <Option value="a3">A3 (297 × 420 mm)</Option>
+                  <Option value="a4">A4 (210 × 297 mm)</Option>
                   <Option value="letter">Letter (8.5 × 11 in)</Option>
                 </Select>
               </Form.Item>
@@ -595,8 +619,10 @@ const PrintControl = () => {
               {formValues.orientation === "landscape"
                 ? "📄 Landscape"
                 : "📋 Portrait"}{" "}
-              | {formValues.format.toUpperCase()} | 
-              {formValues.mapScale ? ` Scale: ${formatScaleValue(formValues.mapScale)} | ` : " "}
+              | {formValues.format.toUpperCase()} |
+              {formValues.mapScale
+                ? ` Scale: ${formatScaleValue(formValues.mapScale)} | `
+                : " "}
               Preview (not to scale)
             </div>
           </Col>
