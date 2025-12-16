@@ -19,7 +19,6 @@ import { togglePrintModal } from "../../store/slices/uiSlice";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import PrintPreviewMap from "./PrintPreviewMap";
-import useDebounced from "../../hooks/useDebounced";
 
 const { Option } = Select;
 
@@ -46,8 +45,6 @@ const PrintControl = () => {
     showLegend: false,
     mapScale: "",
   });
-
-  const debouncedMapScale = useDebounced(formValues.mapScale, presetValue ? 0 : 300); // 300ms debounce ( If a preset is selected we want immediate update; otherwise debounce typing)
 
   const handleResetForm = () => {
     form.resetFields();
@@ -564,7 +561,7 @@ const PrintControl = () => {
                   )}
 
                   {/* Scale display in preview */}
-                  {debouncedMapScale && (
+                  {formValues.mapScale && (
                     <div
                       style={{
                         position: "absolute",
@@ -579,7 +576,7 @@ const PrintControl = () => {
                         boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
                       }}
                     >
-                      Scale: {formatScaleValue(debouncedMapScale)}
+                      Scale: {formatScaleValue(formValues.mapScale)}
                     </div>
                   )}
 
@@ -605,7 +602,7 @@ const PrintControl = () => {
                       showLegend={formValues.showLegend}
                       orientation={formValues.orientation}
                       format={formValues.format}
-                      scaleValue={parseScaleValue(debouncedMapScale)} 
+                      scaleValue={parseScaleValue(formValues.mapScale)}
                     />
                   </div>
 
@@ -641,8 +638,8 @@ const PrintControl = () => {
                 ? "📄 Landscape"
                 : "📋 Portrait"}{" "}
               | {formValues.format.toUpperCase()} |
-              {debouncedMapScale
-                ? ` Scale: ${formatScaleValue(debouncedMapScale)} | `
+              {formValues.mapScale
+                ? ` Scale: ${formatScaleValue(formValues.mapScale)} | `
                 : " "}
               Preview (not to scale)
             </div>
