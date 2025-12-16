@@ -34,7 +34,7 @@ const PrintControl = () => {
   const [form] = Form.useForm();
   const previewMapRef = useRef(null);
   const previewContainerRef = useRef(null);
-  // track which preset (if any) is selected; default to 1:250,000
+  // track which preset (if any) is selected; clearing this will show the placeholder
   const [presetValue, setPresetValue] = useState(undefined);
 
   // Form state for live preview updates
@@ -44,13 +44,10 @@ const PrintControl = () => {
     title: "",
     footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
     showLegend: false,
-    mapScale: "250000",
+    mapScale: "",
   });
 
-  const debouncedMapScale = useDebounced(
-    formValues.mapScale,
-    presetValue ? 0 : 300
-  ); // 300ms debounce ( If a preset is selected we want immediate update; otherwise debounce typing)
+  const debouncedMapScale = useDebounced(formValues.mapScale, presetValue ? 0 : 300); // 300ms debounce ( If a preset is selected we want immediate update; otherwise debounce typing)
 
   const handleResetForm = () => {
     form.resetFields();
@@ -60,10 +57,8 @@ const PrintControl = () => {
       title: "",
       footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
       showLegend: false,
-      mapScale: "250000",
+      mapScale: "",
     });
-    // Restore preset selection
-    setPresetValue(undefined);
   };
 
   const handleFormChange = (changedValues, allValues) => {
@@ -356,7 +351,7 @@ const PrintControl = () => {
                 title: "",
                 footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
                 showLegend: false,
-                mapScale: "250000",
+                mapScale: "",
               }}
             >
               {/* Map Title */}
@@ -553,7 +548,7 @@ const PrintControl = () => {
                   }}
                 >
                   {/* Title in Preview */}
-                  {
+                  {(
                     <div
                       style={{
                         height: "40px",
@@ -568,7 +563,7 @@ const PrintControl = () => {
                     >
                       {formValues.title}
                     </div>
-                  }
+                  )}
 
                   {/* Scale display in preview */}
                   {debouncedMapScale && (
@@ -595,7 +590,7 @@ const PrintControl = () => {
                     style={{
                       width: "calc(100% - 20px)",
                       height: "calc(100% - 80px)",
-                      margin: "0 auto",
+                      margin: '0 auto',
                       position: "relative",
                     }}
                   >
@@ -607,12 +602,12 @@ const PrintControl = () => {
                       showLegend={formValues.showLegend}
                       orientation={formValues.orientation}
                       format={formValues.format}
-                      scaleValue={parseScaleValue(debouncedMapScale)}
+                      scaleValue={parseScaleValue(debouncedMapScale)} 
                     />
                   </div>
 
                   {/* Footer in Preview */}
-                  {
+                  {(
                     <div
                       style={{
                         height: "40px",
@@ -627,7 +622,7 @@ const PrintControl = () => {
                     >
                       {formValues.footerText}
                     </div>
-                  }
+                  )}
                 </div>
               </Spin>
             </div>
