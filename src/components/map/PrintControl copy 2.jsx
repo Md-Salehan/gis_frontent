@@ -33,8 +33,6 @@ const PrintControl = () => {
   const [form] = Form.useForm();
   const previewMapRef = useRef(null);
   const previewContainerRef = useRef(null);
-  // track which preset (if any) is selected; clearing this will show the placeholder
-  const [presetValue, setPresetValue] = useState(undefined);
 
   // Form state for live preview updates
   const [formValues, setFormValues] = useState({
@@ -183,6 +181,7 @@ const PrintControl = () => {
       aspectRatio: dims.width / dims.height,
     };
   }, [formValues.format, formValues.orientation]);
+
 
   const handleExportPDF = async (values) => {
     try {
@@ -378,21 +377,14 @@ const PrintControl = () => {
                   placeholder="e.g., 1:5000 or 5000"
                   size="large"
                   addonBefore="1:"
-                  // If user edits the main input manually, clear any selected preset so
-                  // the Select returns to its placeholder state.
-                  onChange={() => {
-                    if (presetValue) setPresetValue(undefined);
-                  }}
                   suffix={
                     <Select
                       size="small"
                       placeholder="Presets"
                       style={{ width: 120 }}
-                      value={presetValue}
                       onChange={(value) => {
                         form.setFieldsValue({ mapScale: value });
                         setFormValues({ ...formValues, mapScale: value });
-                        setPresetValue(value);
                       }}
                       // Prevent clicks on the Select from bubbling up to the Input/modal
                       // which can cause the dropdown to open and immediately close.
