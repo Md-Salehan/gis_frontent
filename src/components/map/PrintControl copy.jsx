@@ -34,7 +34,7 @@ const PrintControl = () => {
   const [form] = Form.useForm();
   const previewMapRef = useRef(null);
   const previewContainerRef = useRef(null);
-  // track which preset (if any) is selected; clearing this will show the placeholder
+  // track which preset (if any) is selected; default to 1:250,000
   const [presetValue, setPresetValue] = useState(undefined);
 
   // Form state for live preview updates
@@ -44,10 +44,13 @@ const PrintControl = () => {
     title: "",
     footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
     showLegend: false,
-    mapScale: "",
+    mapScale: "250000",
   });
 
-  const debouncedMapScale = useDebounced(formValues.mapScale, presetValue ? 0 : 300); // 300ms debounce ( If a preset is selected we want immediate update; otherwise debounce typing)
+  const debouncedMapScale = useDebounced(
+    formValues.mapScale,
+    presetValue ? 0 : 300
+  ); // 300ms debounce ( If a preset is selected we want immediate update; otherwise debounce typing)
 
   const handleResetForm = () => {
     form.resetFields();
@@ -57,8 +60,10 @@ const PrintControl = () => {
       title: "",
       footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
       showLegend: false,
-      mapScale: "",
+      mapScale: "250000",
     });
+    // Restore preset selection
+    setPresetValue(undefined);
   };
 
   const handleFormChange = (changedValues, allValues) => {
@@ -202,18 +207,32 @@ const PrintControl = () => {
 
       // Wait for map tiles to load
       await new Promise((resolve) => setTimeout(resolve, 2000));
+      
+      let userScale = 3; // Default scale factor
+      // Adjust scale for very large formats to improve quality
+      if (values.format === "a0" || values.format === "a1") {
+        userScale = 3;
+      }
 
       // Capture map canvas with high quality
       const canvas = await html2canvas(mapElement, {
         backgroundColor: "#ffffff",
-        scale: 2, // Increase scale for better resolution
+        scale: userScale, // Increase scale for better resolution
         useCORS: true,
         logging: false,
         allowTaint: true,
         windowHeight: mapElement.scrollHeight,
         windowWidth: mapElement.scrollWidth,
       });
-
+      // console.log(
+      //   "html2canvas requested scale",
+      //   userScale,
+      //   "html2canvas devicePixelRatio",
+      //   window.devicePixelRatio
+      // );
+      // console.log("html2canvas canvas px", canvas.width, canvas.height);
+      // console.log("html2canvas dataURL length", canvas.toDataURL("image/png").length);
+      
       const orientation = values.orientation;
 
       // Create PDF with correct dimensions
@@ -351,7 +370,7 @@ const PrintControl = () => {
                 title: "",
                 footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
                 showLegend: false,
-                mapScale: "",
+                mapScale: "250000",
               }}
             >
               {/* Map Title */}
@@ -548,7 +567,7 @@ const PrintControl = () => {
                   }}
                 >
                   {/* Title in Preview */}
-                  {(
+                  {
                     <div
                       style={{
                         height: "40px",
@@ -563,7 +582,7 @@ const PrintControl = () => {
                     >
                       {formValues.title}
                     </div>
-                  )}
+                  }
 
                   {/* Scale display in preview */}
                   {debouncedMapScale && (
@@ -590,7 +609,7 @@ const PrintControl = () => {
                     style={{
                       width: "calc(100% - 20px)",
                       height: "calc(100% - 80px)",
-                      margin: '0 auto',
+                      margin: "0 auto",
                       position: "relative",
                     }}
                   >
@@ -602,12 +621,12 @@ const PrintControl = () => {
                       showLegend={formValues.showLegend}
                       orientation={formValues.orientation}
                       format={formValues.format}
-                      scaleValue={parseScaleValue(debouncedMapScale)} 
+                      scaleValue={parseScaleValue(debouncedMapScale)}
                     />
                   </div>
 
                   {/* Footer in Preview */}
-                  {(
+                  {
                     <div
                       style={{
                         height: "40px",
@@ -622,7 +641,7 @@ const PrintControl = () => {
                     >
                       {formValues.footerText}
                     </div>
-                  )}
+                  }
                 </div>
               </Spin>
             </div>

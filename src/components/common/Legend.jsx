@@ -97,7 +97,7 @@ const Legend = ({ visible }) => {
         legendItems &&
         legendItems.map((item) => (
           <div key={item.layerId} style={{ marginBottom: "12px" }}>
-            <h4 style={{ margin: "4px 0" }}>{item.layer_nm}</h4>
+            {/* <h4 style={{ margin: "4px 0" }}>{item.name}</h4> */}
             {/* <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>
               {item.description}
             </div> */}
@@ -126,11 +126,14 @@ const Legend = ({ visible }) => {
                   <LeyerIcon iconInfo={{ ...s.style, geom_typ: s.geom_type }} />
                   <div>
                     {/* <div style={{ fontSize: 13 }}>{s.label || s.value}</div> */}
-                    <div style={{ fontSize: 11, color: "#888" }}>
-                      • Layer Id: {item.layer_id}
+                    {/* <div style={{ fontSize: 11, color: "#888" }}>
+                      • Layer Id: {s.value}
                     </div>
                     <div style={{ fontSize: 11, color: "#888" }}>
                       • {getGeomFullForm(s.geom_type) || ""}
+                    </div> */}
+                    <div style={{ fontSize: 11, color: "#888" }}>
+                      {item.name || ""}
                     </div>
                   </div>
                 </div>

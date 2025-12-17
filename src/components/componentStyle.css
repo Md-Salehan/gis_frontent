@@ -259,3 +259,100 @@
     padding-bottom: 16px;
   }
 }
+
+
+
+
+
+
+
+
+
+/* Add this to your project's CSS files */
+.leaflet-container.print-mode {
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
+
+.leaflet-tile.print-tile {
+  image-rendering: optimizeQuality;
+  filter: none !important;
+}
+
+.print-tile-layer {
+  filter: none !important;
+}
+
+.print-marker-icon,
+.print-marker {
+  filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.3));
+}
+
+.leaflet-control-scale.print-scale {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border: 2px solid #333 !important;
+  font-weight: bold !important;
+}
+
+.leaflet-tooltip.print-tooltip {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid #333 !important;
+  color: #000 !important;
+  font-weight: 500 !important;
+}
+
+.label-text {
+  font-weight: 600 !important;
+  text-shadow: 1px 1px 2px white;
+}
+
+/* High-res print styles */
+@media print {
+  .leaflet-container {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  
+  .leaflet-control {
+    display: none !important;
+  }
+}
+
+
+/* Add this file to your project's CSS files */
+.leaflet-container.print-mode {
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
+
+.leaflet-tile.print-tile {
+  image-rendering: optimizeQuality;
+  filter: none !important;
+}
+
+.print-tile-layer {
+  filter: none !important;
+}
+
+.print-marker-icon,
+.print-marker {
+  filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.3));
+}
+
+.leaflet-control-scale.print-scale {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border: 2px solid #333 !important;
+  font-weight: bold !important;
+}
+
+.leaflet-tooltip.print-tooltip {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid #333 !important;
+  color: #000 !important;
+  font-weight: 500 !important;
+}
+
+.label-text {
+  font-weight: 600 !important;
+  text-shadow: 1px 1px 2px white;
+}

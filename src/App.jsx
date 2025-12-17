@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import { Routes, Route } from "react-router-dom";
+
 const Auth = lazy(() => import("./pages/auth/Auth"));
 const GisPortal = lazy(() => import("./pages/GisPortal/GisPortal"));
 // const GisDashboard = lazy(() => import("./pages/GisDashboard_/GisDashboard"));
