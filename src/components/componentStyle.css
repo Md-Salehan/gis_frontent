@@ -268,91 +268,74 @@
 
 
 
-/* Add this to your project's CSS files */
-.leaflet-container.print-mode {
-  image-rendering: crisp-edges;
-  image-rendering: pixelated;
+
+
+
+
+
+
+/* High-quality canvas rendering for export */
+.print-mode canvas {
+  image-rendering: crisp-edges !important;
+  image-rendering: pixelated !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-.leaflet-tile.print-tile {
+/* Prevent blurry tile interpolation */
+.leaflet-tile {
+  image-rendering: optimizeQuality !important;
+  filter: none !important;
+}
+
+/* When capturing, ensure tiles are crisp */
+.leaflet-tile-container img {
+  image-rendering: auto !important;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* Add at the end of componentStyle.css */
+
+/* Print Quality Fixes */
+.leaflet-container canvas {
+  image-rendering: crisp-edges !important;
+  image-rendering: pixelated !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.leaflet-tile {
+  filter: none !important;
   image-rendering: optimizeQuality;
-  filter: none !important;
 }
 
-.print-tile-layer {
-  filter: none !important;
+/* When in print preview mode */
+.print-mode .leaflet-tile-container img {
+  image-rendering: auto !important;
 }
 
-.print-marker-icon,
-.print-marker {
-  filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.3));
-}
-
-.leaflet-control-scale.print-scale {
-  background-color: rgba(255, 255, 255, 0.9) !important;
-  border: 2px solid #333 !important;
-  font-weight: bold !important;
-}
-
-.leaflet-tooltip.print-tooltip {
-  background-color: rgba(255, 255, 255, 0.95) !important;
-  border: 1px solid #333 !important;
-  color: #000 !important;
-  font-weight: 500 !important;
-}
-
-.label-text {
-  font-weight: 600 !important;
-  text-shadow: 1px 1px 2px white;
-}
-
-/* High-res print styles */
-@media print {
-  .leaflet-container {
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
-  }
-  
-  .leaflet-control {
-    display: none !important;
-  }
+/* Ensure tiles are fully loaded */
+.leaflet-tile-loaded {
+  opacity: 1 !important;
+  transition: none !important;
 }
 
 
-/* Add this file to your project's CSS files */
-.leaflet-container.print-mode {
-  image-rendering: crisp-edges;
-  image-rendering: pixelated;
-}
 
-.leaflet-tile.print-tile {
-  image-rendering: optimizeQuality;
-  filter: none !important;
-}
 
-.print-tile-layer {
-  filter: none !important;
-}
 
-.print-marker-icon,
-.print-marker {
-  filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.3));
-}
 
-.leaflet-control-scale.print-scale {
-  background-color: rgba(255, 255, 255, 0.9) !important;
-  border: 2px solid #333 !important;
-  font-weight: bold !important;
-}
 
-.leaflet-tooltip.print-tooltip {
-  background-color: rgba(255, 255, 255, 0.95) !important;
-  border: 1px solid #333 !important;
-  color: #000 !important;
-  font-weight: 500 !important;
-}
-
-.label-text {
-  font-weight: 600 !important;
-  text-shadow: 1px 1px 2px white;
-}

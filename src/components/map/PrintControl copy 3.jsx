@@ -12,7 +12,8 @@ import {
   Spin,
   Row,
   Col,
-  InputNumber,
+  Alert,
+  Progress,
 } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { togglePrintModal } from "../../store/slices/uiSlice";
@@ -31,13 +32,14 @@ const PrintControl = () => {
   const bufferLayers = useSelector((state) => state.map.bufferLayers);
 
   const [loading, setLoading] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [exportStage, setExportStage] = useState("");
   const [form] = Form.useForm();
   const previewMapRef = useRef(null);
   const previewContainerRef = useRef(null);
-  // track which preset (if any) is selected; default to 1:250,000
   const [presetValue, setPresetValue] = useState(undefined);
+  const [memoryWarning, setMemoryWarning] = useState(false);
 
-  // Form state for live preview updates
   const [formValues, setFormValues] = useState({
     format: "a4",
     orientation: "landscape",
@@ -45,12 +47,40 @@ const PrintControl = () => {
     footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
     showLegend: false,
     mapScale: "250000",
+    resolution: "high",
   });
 
   const debouncedMapScale = useDebounced(
     formValues.mapScale,
     presetValue ? 0 : 300
-  ); // 300ms debounce ( If a preset is selected we want immediate update; otherwise debounce typing)
+  );
+
+  // Calculate optimal scale based on format and resolution
+  // Calculate optimal scale based on format and resolution
+  const getOptimalScale = useCallback((format, resolution) => {
+    const resolutionScale = {
+      standard: 1.5,
+      high: 2,
+      ultra: 3,
+    };
+
+    const formatMultiplier = {
+      a0: 1.0,
+      a1: 1.0,
+      a2: 1.0,
+      a3: 1.0,
+      a4: 1.0,
+      letter: 1.0,
+    };
+
+    const baseScale = resolutionScale[resolution] || 2;
+    const multiplier = formatMultiplier[format] || 1.0;
+    const calculatedScale = baseScale * multiplier;
+
+    // Cap to avoid memory issues, but ensure minimum quality
+    // Lower scale for better performance
+    return Math.min(Math.max(calculatedScale, 1), 3);
+  }, []);
 
   const handleResetForm = () => {
     form.resetFields();
@@ -61,14 +91,72 @@ const PrintControl = () => {
       footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
       showLegend: false,
       mapScale: "250000",
+      resolution: "high",
     });
-    // Restore preset selection
     setPresetValue(undefined);
+    setMemoryWarning(false);
+    setExportProgress(0);
+    setExportStage("");
   };
 
   const handleFormChange = (changedValues, allValues) => {
+    // Warn about memory for ultra resolution on large formats
+    if (
+      changedValues.resolution === "ultra" &&
+      (allValues.format === "a0" || allValues.format === "a1")
+    ) {
+      setMemoryWarning(true);
+    } else if (memoryWarning) {
+      setMemoryWarning(false);
+    }
+
     setFormValues(allValues);
   };
+
+  // Wait for map tiles to load completely
+  // Wait for map tiles to load completely
+  const waitForTilesToLoad = useCallback((mapElement) => {
+    return new Promise((resolve, reject) => {
+      if (!mapElement) {
+        resolve(); // Just resolve if no element found
+        return;
+      }
+
+      let attempts = 0;
+      const maxAttempts = 40; // 8 seconds at 200ms intervals
+
+      const checkTiles = () => {
+        attempts++;
+        const tileImages = mapElement.querySelectorAll("img.leaflet-tile");
+        const totalTiles = tileImages.length;
+
+        if (totalTiles === 0 && attempts < 5) {
+          // If no tiles after a few attempts, might be a small map
+          setTimeout(checkTiles, 200);
+          return;
+        }
+
+        const loadedTiles = Array.from(tileImages).filter(
+          (img) => img.complete && img.naturalHeight > 0
+        ).length;
+
+        const progress =
+          totalTiles > 0 ? Math.round((loadedTiles / totalTiles) * 100) : 100;
+        setExportProgress(progress);
+        setExportStage(`Loading tiles (${progress}%)`);
+
+        if (loadedTiles >= totalTiles * 0.85 || attempts >= maxAttempts) {
+          console.log(`Tile loading: ${loadedTiles}/${totalTiles} loaded`);
+          resolve();
+        } else {
+          setTimeout(checkTiles, 200);
+        }
+      };
+
+      // Start checking
+      setTimeout(checkTiles, 300);
+    });
+  }, []);
 
   // Validate scale input
   const validateScale = (_, value) => {
@@ -76,7 +164,6 @@ const PrintControl = () => {
       return Promise.resolve();
     }
 
-    // Accept formats: "1:5000", "5000", "1:25,000", "25000"
     const cleanedValue = value.replace(/,/g, "");
     const regex = /^(?:1:)?(\d+)$/;
 
@@ -102,12 +189,10 @@ const PrintControl = () => {
   const formatScaleValue = (value) => {
     if (!value) return "";
 
-    // If it's already in "1:xxxx" format, return as is
     if (value.includes(":")) {
       return value;
     }
 
-    // Otherwise, format as "1:xxxx"
     const numValue = parseInt(value.replace(/,/g, ""), 10);
     if (!isNaN(numValue)) {
       return `1:${numValue.toLocaleString()}`;
@@ -125,7 +210,9 @@ const PrintControl = () => {
     const match = cleanedValue.match(regex);
 
     if (match) {
-      return match[1]; // Return just the number part
+      // Ensure it's a valid number
+      const num = parseInt(match[1], 10);
+      return isNaN(num) ? null : num.toString();
     }
 
     return null;
@@ -147,36 +234,33 @@ const PrintControl = () => {
   // Calculate preview dimensions based on format and orientation
   const previewDimensions = useMemo(() => {
     const formatDimensions = {
-      a0: { width: 841, height: 1189 }, // mm
+      a0: { width: 841, height: 1189 },
       a1: { width: 594, height: 841 },
       a2: { width: 420, height: 594 },
       a3: { width: 297, height: 420 },
-      a4: { width: 210, height: 297 }, // mm
+      a4: { width: 210, height: 297 },
       letter: { width: 215.9, height: 279.4 },
     };
 
     let dims = formatDimensions[formValues.format] || formatDimensions.a4;
 
     if (formValues.orientation === "portrait") {
-      // Swap if portrait
       if (dims.width > dims.height) {
         [dims.width, dims.height] = [dims.height, dims.width];
       }
     } else {
-      // Ensure landscape orientation
       if (dims.width < dims.height) {
         [dims.width, dims.height] = [dims.height, dims.width];
       }
     }
 
-    // Scale to fit preview (1mm ≈ 3.78px at 96dpi, use 2.5 for smaller preview)
+    // Preview scale (smaller for UI)
     const mmToPxScale = 2.5;
     let widthPx = dims.width * mmToPxScale;
     let heightPx = dims.height * mmToPxScale;
 
-    // Clamp preview size to avoid extremely large previews for A0/A1
-    const maxPreviewWidth = 1200; // px
-    const maxPreviewHeight = 900; // px
+    const maxPreviewWidth = 1200;
+    const maxPreviewHeight = 900;
     const clampScale = Math.min(
       1,
       maxPreviewWidth / widthPx,
@@ -192,235 +276,256 @@ const PrintControl = () => {
     };
   }, [formValues.format, formValues.orientation]);
 
-  const optimizeMapForExport = (mapContainer) => {
-    if (!mapContainer) return () => {};
-
-    // 1. Get the Leaflet map instance
-    const map =
-      mapContainer._leaflet ||
-      window.L?.DomUtil.get(mapContainer)?.leaflet_map ||
-      mapContainer.__map__ ||
-      (mapContainer._leaflet_id && window.L?.DomEvent.getMap
-        ? window.L.DomEvent.getMap(mapContainer)
-        : null);
-
-    if (!map) {
-      console.warn("Could not find Leaflet map instance");
-      return () => {};
-    }
-
-    const originalZoom = map.getZoom();
-    const originalCenter = map.getCenter();
-    const originalSize = map.getSize();
-
-    // 2. Increase zoom level to fetch higher resolution tiles
-    // Each zoom level doubles the resolution
-    const scaleFactor = 2; // We'll increase zoom by 1 (2x resolution)
-    const targetZoom = Math.min(originalZoom + 1, map.getMaxZoom() || 20);
-
-    // 3. Temporarily increase container size
-    const originalWidth = mapContainer.offsetWidth;
-    const originalHeight = mapContainer.offsetHeight;
-    const sizeMultiplier = 2; // Container size multiplier
-
-    mapContainer.style.width = `${originalWidth * sizeMultiplier}px`;
-    mapContainer.style.height = `${originalHeight * sizeMultiplier}px`;
-
-    // 4. Set the map to higher zoom to force high-res tile loading
-    map.setZoom(targetZoom, { animate: false });
-
-    // 5. Force invalidate size and wait for tiles to load
-    if (map.invalidateSize) {
-      map.invalidateSize({ animate: false, pan: false });
-    }
-
-    // Force redraw of all layers
-    map.eachLayer((layer) => {
-      if (layer.redraw) {
-        layer.redraw();
-      }
-      if (layer.bringToFront) {
-        layer.bringToFront();
-      }
-    });
-
-    // 6. Return cleanup function
-    return () => {
-      // Restore container size
-      mapContainer.style.width = "";
-      mapContainer.style.height = "";
-
-      // Restore original zoom and center
-      map.setZoom(originalZoom, { animate: false });
-      map.setView(originalCenter, originalZoom, { animate: false });
-
-      // Force resize
-      if (map.invalidateSize) {
-        map.invalidateSize({ animate: false, pan: false });
-      }
-    };
-  };
-
-  const waitForTiles = (mapContainer, timeout = 5000) => {
-    return new Promise((resolve) => {
-      const startTime = Date.now();
-
-      const checkTiles = () => {
-        const tiles = mapContainer.querySelectorAll(".leaflet-tile");
-
-        if (tiles.length === 0) {
-          setTimeout(checkTiles, 200);
-          return;
-        }
-
-        const loadedTiles = Array.from(tiles).filter((tile) => {
-          const img = tile.tagName === "IMG" ? tile : tile.querySelector("img");
-          return img && img.complete && img.naturalWidth > 0;
-        });
-
-        const allLoaded = loadedTiles.length === tiles.length;
-
-        if (allLoaded || Date.now() - startTime > timeout) {
-          console.log(`Tiles loaded: ${loadedTiles.length}/${tiles.length}`);
-          resolve();
-        } else {
-          setTimeout(checkTiles, 300);
-        }
-      };
-
-      checkTiles();
-    });
-  };
-
   const handleExportPDF = async (values) => {
+    let canvas = null;
+    const progressKey = "exportProgress";
+
     try {
       setLoading(true);
+      setExportProgress(0);
+      setExportStage("Preparing export...");
 
-      // Get the actual map container from the preview
+      message.loading({
+        content: "Preparing high-resolution export...",
+        key: progressKey,
+        duration: 0,
+      });
+
+      // Wait for map to fully render
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       const mapElement =
         previewContainerRef.current?.querySelector(".leaflet-container");
-
       if (!mapElement) {
         message.error("Map preview not found");
         return;
       }
 
-      // Wait for initial tile loading
-      await waitForTiles(mapElement);
+      // Step 1: Load all tiles
+      setExportStage("Loading map tiles...");
+      try {
+        await waitForTilesToLoad(mapElement);
+      } catch (tileError) {
+        console.warn("Tile loading warning:", tileError);
+      }
 
-      // Optimize map for high-res export
-      const cleanup = optimizeMapForExport(mapElement);
+      // Step 2: Calculate optimized scale based on format
+      const formatScaleMap = {
+        a4: { standard: 2, high: 3, ultra: 4 },
+        a3: { standard: 2.5, high: 3.5, ultra: 4.5 },
+        a2: { standard: 3, high: 4, ultra: 5 },
+        a1: { standard: 3.5, high: 4.5, ultra: 5.5 },
+        a0: { standard: 4, high: 5, ultra: 6 },
+        letter: { standard: 2, high: 3, ultra: 4 },
+      };
 
-      // Wait for high-res tiles to load
-      await waitForTiles(mapElement, 3000); // Wait up to 3 seconds
+      const optimalScale =
+        formatScaleMap[values.format]?.[values.resolution] || 3;
+      console.log(
+        `Exporting at scale: ${optimalScale}x for ${values.format} (${values.resolution})`
+      );
 
-      // Use higher scale in html2canvas
-      const canvas = await html2canvas(mapElement, {
+      // Step 3: Capture high-resolution canvas
+      setExportStage("Rendering high-resolution image...");
+      setExportProgress(50);
+
+      // Get the exact map container dimensions
+      const mapContainer = mapElement.querySelector(
+        ".leaflet-pane.leaflet-map-pane"
+      );
+      const mapWidth = mapContainer?.offsetWidth || mapElement.offsetWidth;
+      const mapHeight = mapContainer?.offsetHeight || mapElement.offsetHeight;
+
+      // Calculate canvas dimensions with scale
+      const canvasWidth = Math.round(mapWidth * optimalScale);
+      const canvasHeight = Math.round(mapHeight * optimalScale);
+
+      console.log("Canvas dimensions:", {
+        canvasWidth,
+        canvasHeight,
+        mapWidth,
+        mapHeight,
+        optimalScale,
+      });
+
+      canvas = await html2canvas(mapElement, {
         backgroundColor: "#ffffff",
-        scale: 3, // Use scale 3 (was 2)
+        scale: optimalScale * (window.devicePixelRatio || 1),
         useCORS: true,
-        allowTaint: true,
         logging: false,
-        imageTimeout: 20000,
+        allowTaint: false,
+        removeContainer: false,
+        imageTimeout: 30000,
+        foreignObjectRendering: false,
+        width: canvasWidth,
+        height: canvasHeight,
+        windowWidth: canvasWidth,
+        windowHeight: canvasHeight,
+
+        // Optimize for quality
         onclone: (clonedDoc) => {
-          // Force crisp rendering in cloned version
-          const canvases = clonedDoc.querySelectorAll("canvas");
-          canvases.forEach((canvas) => {
-            canvas.style.imageRendering = "crisp-edges";
-            canvas.style.imageRendering = "pixelated";
-          });
+          // Force high quality rendering on clone
+          const clonedMap = clonedDoc.querySelector(".leaflet-container");
+          if (clonedMap) {
+            clonedMap.style.imageRendering = "crisp-edges";
+            clonedMap.style.imageRendering = "pixelated";
+          }
+        },
+
+        onprogress: (progress) => {
+          const percent = Math.round(progress * 100);
+          setExportProgress(50 + percent / 2);
+          setExportStage(`Rendering: ${percent}%`);
         },
       });
 
-      // Restore original state
-      cleanup();
+      setExportStage("Generating PDF...");
+      setExportProgress(90);
 
+      // Step 4: Create PDF with optimized image placement
       const orientation = values.orientation;
-
-      // Create PDF with correct dimensions
       const pdf = new jsPDF({
         orientation,
         unit: "mm",
         format: values.format.toUpperCase(),
+        compress: true,
       });
 
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
 
-      let yPosition = 10;
+      let yPosition = 0;
 
-      // Add title if provided
+      // Add title if provided (smaller to maximize map space)
       if (values.title) {
-        pdf.setFontSize(16);
-        pdf.setFont(undefined, "bold");
-        pdf.text(values.title, pageWidth / 2, yPosition, { align: "center" });
-        yPosition += 5; // Space after title
-        pdf.setFont(undefined, "normal");
+        pdf.setFontSize(14);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(values.title, pageWidth / 2, 10, { align: "center" });
+        yPosition = 12; // Minimal space for title
       }
 
-      // Add scale if provided
+      // Add scale if provided (positioned in top-right)
       if (values.mapScale) {
-        pdf.setFontSize(10);
+        pdf.setFontSize(9);
         const formattedScale = formatScaleValue(values.mapScale);
-        pdf.text(`Scale: ${formattedScale}`, pageWidth - 20, yPosition, {
+        pdf.text(`Scale: ${formattedScale}`, pageWidth - 15, 8, {
           align: "right",
         });
-        yPosition += 4;
       }
 
-      // Calculate image dimensions to fit page
-      const maxImgWidth = pageWidth - 10;
-      const maxImgHeight =
-        pageHeight - yPosition - (values.footerText ? 15 : 10);
+      // Calculate maximum image dimensions to fill page
+      const titleHeight = values.title ? 12 : 0;
+      const footerHeight = values.footerText ? 10 : 0;
+      const maxImgHeight = pageHeight - titleHeight - footerHeight - 5; // 5mm buffer
+      const maxImgWidth = pageWidth - 10; // 5mm margins on each side
 
       const imgAspectRatio = canvas.width / canvas.height;
+
+      // Calculate dimensions to maximize map area
       let imgWidth = maxImgWidth;
       let imgHeight = imgWidth / imgAspectRatio;
 
+      // If height exceeds available space, scale down
       if (imgHeight > maxImgHeight) {
         imgHeight = maxImgHeight;
         imgWidth = imgHeight * imgAspectRatio;
       }
 
+      // Center the image horizontally
       const xPosition = (pageWidth - imgWidth) / 2;
 
-      // Add map image to PDF
-      const mapImgData = canvas.toDataURL("image/png");
-      pdf.addImage(
-        mapImgData,
-        "PNG",
-        xPosition,
-        yPosition,
-        imgWidth,
-        imgHeight
-      );
+      // Position image right after title
+      const imgYPosition = titleHeight + 5;
 
-      // Add footer if enabled
+      // Convert canvas to high-quality PNG
+      let mapImgData;
+      try {
+        mapImgData = canvas.toDataURL("image/png", 1.0);
+      } catch (pngError) {
+        mapImgData = canvas.toDataURL("image/jpeg", 1.0);
+      }
+
+      // Add image to PDF - fill available space
+      try {
+        pdf.addImage(
+          mapImgData,
+          "PNG",
+          xPosition,
+          imgYPosition,
+          imgWidth,
+          imgHeight,
+          undefined,
+          "FAST"
+        );
+      } catch (addImageError) {
+        console.error("Error adding image to PDF:", addImageError);
+        pdf.addImage(
+          mapImgData,
+          "PNG",
+          xPosition,
+          imgYPosition,
+          imgWidth,
+          imgHeight
+        );
+      }
+
+      // Add footer at bottom
       if (values.footerText) {
         pdf.setFontSize(8);
         pdf.setTextColor(128, 128, 128);
-        pdf.text(values.footerText, pageWidth / 2, pageHeight - 8, {
+        pdf.text(values.footerText, pageWidth / 2, pageHeight - 5, {
           align: "center",
         });
-        pdf.setTextColor(0, 0, 0);
       }
 
       // Generate filename
       const fileName = values.title
-        ? `${values.title.replace(/\s+/g, "_")}.pdf`
+        ? `${values.title.replace(/[^\w\s]/gi, "_")}_export.pdf`
         : `map_export_${Date.now()}.pdf`;
+
+      // Clean up canvas to free memory
+      if (canvas) {
+        try {
+          canvas.width = 0;
+          canvas.height = 0;
+          canvas = null;
+        } catch (cleanupError) {
+          console.warn("Canvas cleanup error:", cleanupError);
+        }
+      }
 
       // Save PDF
       pdf.save(fileName);
 
-      message.success("Map exported successfully!");
+      message.success({
+        content: `Map exported successfully! (${values.resolution} quality)`,
+        key: progressKey,
+        duration: 3,
+      });
+
       dispatch(togglePrintModal());
       handleResetForm();
     } catch (error) {
       console.error("Export error:", error);
-      message.error("Failed to export map. Please try again.");
+      message.error({
+        content: `Export failed: ${error.message || "Unknown error"}`,
+        key: progressKey,
+        duration: 5,
+      });
+
+      // Clean up on error
+      if (canvas) {
+        try {
+          canvas.width = 0;
+          canvas.height = 0;
+        } catch (cleanupError) {
+          console.warn("Canvas cleanup error on failure:", cleanupError);
+        }
+      }
     } finally {
       setLoading(false);
+      setExportProgress(0);
+      setExportStage("");
     }
   };
 
@@ -437,15 +542,29 @@ const PrintControl = () => {
       footer={null}
       width="95vw"
       style={{ maxWidth: "1600px" }}
-      bodyStyle={{
-        padding: "24px",
-        maxHeight: "85vh",
-        overflow: "hidden",
+      styles={{
+        body: {
+          padding: "24px",
+          maxHeight: "85vh",
+          overflow: "hidden",
+        },
       }}
       centered
       destroyOnClose
     >
       <div className="print-modal-wrapper">
+        {memoryWarning && (
+          <Alert
+            message="Memory Warning"
+            description="Ultra resolution on large formats may cause high memory usage and slower export times."
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+            closable
+            onClose={() => setMemoryWarning(false)}
+          />
+        )}
+
         <Row gutter={24} style={{ height: "100%", margin: 0 }}>
           {/* Left Panel - Settings */}
           <Col
@@ -473,6 +592,7 @@ const PrintControl = () => {
                 footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
                 showLegend: false,
                 mapScale: "250000",
+                resolution: "high",
               }}
             >
               {/* Map Title */}
@@ -502,8 +622,6 @@ const PrintControl = () => {
                   placeholder="e.g., 1:5000 or 5000"
                   size="large"
                   addonBefore="1:"
-                  // If user edits the main input manually, clear any selected preset so
-                  // the Select returns to its placeholder state.
                   onChange={() => {
                     if (presetValue) setPresetValue(undefined);
                   }}
@@ -518,16 +636,12 @@ const PrintControl = () => {
                         setFormValues({ ...formValues, mapScale: value });
                         setPresetValue(value);
                       }}
-                      // Prevent clicks on the Select from bubbling up to the Input/modal
-                      // which can cause the dropdown to open and immediately close.
                       onMouseDown={(e) => e.stopPropagation()}
                       onClick={(e) => e.stopPropagation()}
-                      // Ensure dropdown attaches inside the select's parent container
-                      // (avoids some edge cases with modals/portals)
                       getPopupContainer={(triggerNode) =>
                         triggerNode?.parentNode || document.body
                       }
-                      dropdownMatchSelectWidth={false}
+                      popupMatchSelectWidth={false} // CHANGED FROM dropdownMatchSelectWidth
                     >
                       {scalePresets.map((preset) => (
                         <Option key={preset.value} value={preset.value}>
@@ -540,6 +654,22 @@ const PrintControl = () => {
               </Form.Item>
 
               <Divider style={{ margin: "16px 0" }} />
+
+              {/* Resolution Settings */}
+              <Form.Item
+                name="resolution"
+                label="Export Quality"
+                tooltip="Higher quality = better resolution but larger file size"
+                rules={[{ required: true }]}
+              >
+                <Select size="large">
+                  <Option value="standard">Standard - Fast (2x scale)</Option>
+                  <Option value="high">High - Print Ready (4x scale)</Option>
+                  <Option value="ultra">
+                    Ultra - Maximum Quality (6x scale)
+                  </Option>
+                </Select>
+              </Form.Item>
 
               {/* Paper Format */}
               <Form.Item
@@ -600,6 +730,30 @@ const PrintControl = () => {
 
               <Divider style={{ margin: "16px 0" }} />
 
+              {/* Progress during export */}
+              {loading && (
+                <Form.Item label="Export Progress">
+                  <Progress
+                    percent={exportProgress}
+                    status="active"
+                    strokeColor={{
+                      "0%": "#108ee9",
+                      "100%": "#87d068",
+                    }}
+                  />
+                  <div
+                    style={{
+                      marginTop: 8,
+                      fontSize: 12,
+                      color: "#666",
+                      textAlign: "center",
+                    }}
+                  >
+                    {exportStage}
+                  </div>
+                </Form.Item>
+              )}
+
               {/* Action Buttons */}
               <Form.Item>
                 <Space direction="vertical" style={{ width: "100%" }}>
@@ -611,7 +765,7 @@ const PrintControl = () => {
                     size="large"
                     disabled={loading}
                   >
-                    {loading ? "Exporting..." : "Export PDF"}
+                    {loading ? "Exporting..." : "Export High-Res PDF"}
                   </Button>
                   <Button
                     onClick={handleCancel}
@@ -655,7 +809,11 @@ const PrintControl = () => {
                 padding: "20px",
               }}
             >
-              <Spin spinning={loading} tip="Rendering preview...">
+              <Spin
+                spinning={loading}
+                tip="Rendering high-res preview..."
+                size="large"
+              >
                 <div
                   ref={previewContainerRef}
                   style={{
@@ -667,9 +825,10 @@ const PrintControl = () => {
                     overflow: "hidden",
                     position: "relative",
                   }}
+                  className="print-optimized print-preview-container"
                 >
                   {/* Title in Preview */}
-                  {
+                  {formValues.title && (
                     <div
                       style={{
                         height: "40px",
@@ -684,7 +843,7 @@ const PrintControl = () => {
                     >
                       {formValues.title}
                     </div>
-                  }
+                  )}
 
                   {/* Scale display in preview */}
                   {debouncedMapScale && (
@@ -709,9 +868,10 @@ const PrintControl = () => {
                   {/* Live Map Preview */}
                   <div
                     style={{
-                      width: "calc(100% - 20px)",
-                      height: "calc(100% - 80px)",
-                      margin: "0 auto",
+                      width: "100%",
+                      height: formValues.title
+                        ? "calc(100% - 80px)"
+                        : "calc(100% - 40px)",
                       position: "relative",
                     }}
                   >
@@ -728,22 +888,20 @@ const PrintControl = () => {
                   </div>
 
                   {/* Footer in Preview */}
-                  {
-                    <div
-                      style={{
-                        height: "40px",
-                        boxSizing: "border-box",
-                        padding: "8px",
-                        textAlign: "center",
-                        borderTop: "1px solid #eee",
-                        fontSize: "10px",
-                        color: "#888",
-                        backgroundColor: "#fafafa",
-                      }}
-                    >
-                      {formValues.footerText}
-                    </div>
-                  }
+                  <div
+                    style={{
+                      height: "40px",
+                      boxSizing: "border-box",
+                      padding: "8px",
+                      textAlign: "center",
+                      borderTop: "1px solid #eee",
+                      fontSize: "10px",
+                      color: "#888",
+                      backgroundColor: "#fafafa",
+                    }}
+                  >
+                    {formValues.footerText}
+                  </div>
                 </div>
               </Spin>
             </div>
@@ -760,11 +918,11 @@ const PrintControl = () => {
               {formValues.orientation === "landscape"
                 ? "📄 Landscape"
                 : "📋 Portrait"}{" "}
-              | {formValues.format.toUpperCase()} |
+              | {formValues.format.toUpperCase()} |{" "}
               {debouncedMapScale
                 ? ` Scale: ${formatScaleValue(debouncedMapScale)} | `
-                : " "}
-              Preview (not to scale)
+                : ""}
+              {formValues.resolution.toUpperCase()} Quality
             </div>
           </Col>
         </Row>

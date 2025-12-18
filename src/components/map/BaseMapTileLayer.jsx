@@ -17,8 +17,7 @@ const BASEMAPS = {
     maxZoom: 20,
   },
   esri_satellite: {
-    url:
-      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     attribution: "Tiles &copy; Esri",
     maxZoom: 20,
   },
@@ -41,8 +40,21 @@ export default function BaseMapTileLayer(props) {
   const active = useSelector((s) => s.map?.activeBasemap) || "openstreetmap";
   // support older alias 'streets' if still present in state
   const key = active === "streets" ? "openstreetmap" : active;
-  const cfg = BASEMAPS[key] || BASEMAPS.openstreetmap;
+  const cfg = {
+    ...(BASEMAPS[key] || BASEMAPS.openstreetmap),
+    detectRetina: true,
+    // tileSize: 512, // Force larger tile size
+    // zoomOffset: -1, // Compensate for larger tiles
+  };
 
   // Pass common performance props (can be overridden by props)
-  return <TileLayer key={key} {...cfg} updateWhenIdle={false} updateWhenZooming={false} {...props} />;
+  return (
+    <TileLayer
+      key={key}
+      {...cfg}
+      updateWhenIdle={false}
+      updateWhenZooming={false}
+      {...props}
+    />
+  );
 }
