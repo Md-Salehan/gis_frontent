@@ -29,6 +29,8 @@ const PrintControl = () => {
   const viewport = useSelector((state) => state.map.viewport);
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
   const bufferLayers = useSelector((state) => state.map.bufferLayers);
+    const portal_id = useSelector((state) => state.map.portalId);
+  
 
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
@@ -192,135 +194,68 @@ const PrintControl = () => {
     };
   }, [formValues.format, formValues.orientation]);
 
-  const handleExportPDF = async (values) => {
-    try {
-      setLoading(true);
+const handleExportPDF = async (values) => {
+  try {
+    setLoading(true);
 
-      // Get the actual map container from the preview
-      const mapElement =
-        previewContainerRef.current?.querySelector(".leaflet-container");
+    const payload = {
+      title: values.title,
+      format: values.format,
+      orientation: values.orientation,
+      scale: parseScaleValue(values.mapScale),
 
-      if (!mapElement) {
-        message.error("Map preview not found");
-        return;
-      }
+      viewport: {
+        center: viewport.center,
+        zoom: viewport.zoom,
+      },
 
-      // Wait for map tiles to load
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      
-      let userScale = 3; // Default scale factor
-      // Adjust scale for very large formats to improve quality
-      if (values.format === "a0" || values.format === "a1") {
-        userScale = 3;
-      }
+      baseMap: {
+        url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      },
 
-      // Capture map canvas with high quality
-      const canvas = await html2canvas(mapElement, {
-        backgroundColor: "#ffffff",
-        scale: userScale, // Increase scale for better resolution
-        useCORS: true,
-        logging: false,
-        allowTaint: true,
-        windowHeight: mapElement.scrollHeight,
-        windowWidth: mapElement.scrollWidth,
-      });
-      // console.log(
-      //   "html2canvas requested scale",
-      //   userScale,
-      //   "html2canvas devicePixelRatio",
-      //   window.devicePixelRatio
-      // );
-      // console.log("html2canvas canvas px", canvas.width, canvas.height);
-      // console.log("html2canvas dataURL length", canvas.toDataURL("image/png").length);
-      
-      const orientation = values.orientation;
+      portalId: portal_id, 
 
-      // Create PDF with correct dimensions
-      const pdf = new jsPDF({
-        orientation,
-        unit: "mm",
-        format: values.format.toUpperCase(),
-      });
+      layers: Object.entries(geoJsonLayers).map(([layerId, l]) => ({
+        layerId,
+        geojsonUrl: `/api/layers/${layerId}/geojson/`,
+        style: l.metaData?.style || {},
+      })),
+    };
 
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
+    const res = await fetch("http://127.0.0.1:8000/api/print/map/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json",
+        authorization: `Bearer ${localStorage.getItem("token")}`
+       },
+      body: JSON.stringify(payload),
+    });
 
-      let yPosition = 10;
+    if (!res.ok) throw new Error("Print failed");
 
-      // Add title if provided
-      if (values.title) {
-        pdf.setFontSize(16);
-        pdf.setFont(undefined, "bold");
-        pdf.text(values.title, pageWidth / 2, yPosition, { align: "center" });
-        yPosition += 5; // Space after title
-        pdf.setFont(undefined, "normal");
-      }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
 
-      // Add scale if provided
-      if (values.mapScale) {
-        pdf.setFontSize(10);
-        const formattedScale = formatScaleValue(values.mapScale);
-        pdf.text(`Scale: ${formattedScale}`, pageWidth - 20, yPosition, {
-          align: "right",
-        });
-        yPosition += 4;
-      }
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = values.title
+      ? `${values.title.replace(/\s+/g, "_")}.pdf`
+      : `map_export_${Date.now()}.pdf`;
 
-      // Calculate image dimensions to fit page
-      const maxImgWidth = pageWidth - 10;
-      const maxImgHeight =
-        pageHeight - yPosition - (values.footerText ? 15 : 10);
+    a.click();
+    URL.revokeObjectURL(url);
 
-      const imgAspectRatio = canvas.width / canvas.height;
-      let imgWidth = maxImgWidth;
-      let imgHeight = imgWidth / imgAspectRatio;
+    message.success("Map exported successfully");
+    dispatch(togglePrintModal());
+    handleResetForm();
+  } catch (err) {
+    console.error(err);
+    message.error("Failed to export map");
+  } finally {
+    setLoading(false);
+  }
+};
 
-      if (imgHeight > maxImgHeight) {
-        imgHeight = maxImgHeight;
-        imgWidth = imgHeight * imgAspectRatio;
-      }
 
-      const xPosition = (pageWidth - imgWidth) / 2;
-
-      // Add map image to PDF
-      const mapImgData = canvas.toDataURL("image/png");
-      pdf.addImage(
-        mapImgData,
-        "PNG",
-        xPosition,
-        yPosition,
-        imgWidth,
-        imgHeight
-      );
-
-      // Add footer if enabled
-      if (values.footerText) {
-        pdf.setFontSize(8);
-        pdf.setTextColor(128, 128, 128);
-        pdf.text(values.footerText, pageWidth / 2, pageHeight - 8, {
-          align: "center",
-        });
-        pdf.setTextColor(0, 0, 0);
-      }
-
-      // Generate filename
-      const fileName = values.title
-        ? `${values.title.replace(/\s+/g, "_")}.pdf`
-        : `map_export_${Date.now()}.pdf`;
-
-      // Save PDF
-      pdf.save(fileName);
-
-      message.success("Map exported successfully!");
-      dispatch(togglePrintModal());
-      handleResetForm();
-    } catch (error) {
-      console.error("Export error:", error);
-      message.error("Failed to export map. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleCancel = () => {
     handleResetForm();

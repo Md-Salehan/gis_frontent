@@ -196,7 +196,7 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
         pointToLayer={pointToLayer}
         onEachFeature={onEachFeature}
         pane={pane}
-        renderer={canvasRenderer}
+        // renderer={canvasRenderer}
         interactive={!isPrintModalOpen} // Disable interactivity for print
       />
       {/* Label layer renders labels (centroid) for active layers using metadata styles */}

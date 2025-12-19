@@ -274,27 +274,6 @@
 
 
 
-/* High-quality canvas rendering for export */
-.print-mode canvas {
-  image-rendering: crisp-edges !important;
-  image-rendering: pixelated !important;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* Prevent blurry tile interpolation */
-.leaflet-tile {
-  image-rendering: optimizeQuality !important;
-  filter: none !important;
-}
-
-/* When capturing, ensure tiles are crisp */
-.leaflet-tile-container img {
-  image-rendering: auto !important;
-}
-
-
-
 
 
 
