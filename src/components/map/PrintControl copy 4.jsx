@@ -192,6 +192,106 @@ const PrintControl = () => {
     };
   }, [formValues.format, formValues.orientation]);
 
+  const optimizeMapForExport = (mapContainer) => {
+    if (!mapContainer) return () => {};
+
+    // 1. Get the Leaflet map instance
+    const map =
+      mapContainer._leaflet ||
+      window.L?.DomUtil.get(mapContainer)?.leaflet_map ||
+      mapContainer.__map__ ||
+      (mapContainer._leaflet_id && window.L?.DomEvent.getMap
+        ? window.L.DomEvent.getMap(mapContainer)
+        : null);
+
+    if (!map) {
+      console.warn("Could not find Leaflet map instance");
+      return () => {};
+    }
+
+    const originalZoom = map.getZoom();
+    const originalCenter = map.getCenter();
+    const originalSize = map.getSize();
+
+    // 2. Increase zoom level to fetch higher resolution tiles
+    // Each zoom level doubles the resolution
+    const scaleFactor = 2; // We'll increase zoom by 1 (2x resolution)
+    const targetZoom = Math.min(originalZoom + 1, map.getMaxZoom() || 20);
+
+    // 3. Temporarily increase container size
+    const originalWidth = mapContainer.offsetWidth;
+    const originalHeight = mapContainer.offsetHeight;
+    const sizeMultiplier = 2; // Container size multiplier
+
+    mapContainer.style.width = `${originalWidth * sizeMultiplier}px`;
+    mapContainer.style.height = `${originalHeight * sizeMultiplier}px`;
+
+    // 4. Set the map to higher zoom to force high-res tile loading
+    map.setZoom(targetZoom, { animate: false });
+
+    // 5. Force invalidate size and wait for tiles to load
+    if (map.invalidateSize) {
+      map.invalidateSize({ animate: false, pan: false });
+    }
+
+    // Force redraw of all layers
+    map.eachLayer((layer) => {
+      if (layer.redraw) {
+        layer.redraw();
+      }
+      if (layer.bringToFront) {
+        layer.bringToFront();
+      }
+    });
+
+    // 6. Return cleanup function
+    return () => {
+      // Restore container size
+      mapContainer.style.width = "";
+      mapContainer.style.height = "";
+
+      // Restore original zoom and center
+      map.setZoom(originalZoom, { animate: false });
+      map.setView(originalCenter, originalZoom, { animate: false });
+
+      // Force resize
+      if (map.invalidateSize) {
+        map.invalidateSize({ animate: false, pan: false });
+      }
+    };
+  };
+
+  const waitForTiles = (mapContainer, timeout = 5000) => {
+    return new Promise((resolve) => {
+      const startTime = Date.now();
+
+      const checkTiles = () => {
+        const tiles = mapContainer.querySelectorAll(".leaflet-tile");
+
+        if (tiles.length === 0) {
+          setTimeout(checkTiles, 200);
+          return;
+        }
+
+        const loadedTiles = Array.from(tiles).filter((tile) => {
+          const img = tile.tagName === "IMG" ? tile : tile.querySelector("img");
+          return img && img.complete && img.naturalWidth > 0;
+        });
+
+        const allLoaded = loadedTiles.length === tiles.length;
+
+        if (allLoaded || Date.now() - startTime > timeout) {
+          console.log(`Tiles loaded: ${loadedTiles.length}/${tiles.length}`);
+          resolve();
+        } else {
+          setTimeout(checkTiles, 300);
+        }
+      };
+
+      checkTiles();
+    });
+  };
+
   const handleExportPDF = async (values) => {
     try {
       setLoading(true);
@@ -205,34 +305,36 @@ const PrintControl = () => {
         return;
       }
 
-      // Wait for map tiles to load
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      
-      let userScale = 3; // Default scale factor
-      // Adjust scale for very large formats to improve quality
-      if (values.format === "a0" || values.format === "a1") {
-        userScale = 3;
-      }
+      // Wait for initial tile loading
+      await waitForTiles(mapElement);
 
-      // Capture map canvas with high quality
+      // Optimize map for high-res export
+      const cleanup = optimizeMapForExport(mapElement);
+
+      // Wait for high-res tiles to load
+      await waitForTiles(mapElement, 3000); // Wait up to 3 seconds
+
+      // Use higher scale in html2canvas
       const canvas = await html2canvas(mapElement, {
         backgroundColor: "#ffffff",
-        scale: userScale, // Increase scale for better resolution
+        scale: 3, // Use scale 3 (was 2)
         useCORS: true,
-        logging: false,
         allowTaint: true,
-        windowHeight: mapElement.scrollHeight,
-        windowWidth: mapElement.scrollWidth,
+        logging: false,
+        imageTimeout: 20000,
+        onclone: (clonedDoc) => {
+          // Force crisp rendering in cloned version
+          const canvases = clonedDoc.querySelectorAll("canvas");
+          canvases.forEach((canvas) => {
+            canvas.style.imageRendering = "crisp-edges";
+            canvas.style.imageRendering = "pixelated";
+          });
+        },
       });
-      // console.log(
-      //   "html2canvas requested scale",
-      //   userScale,
-      //   "html2canvas devicePixelRatio",
-      //   window.devicePixelRatio
-      // );
-      // console.log("html2canvas canvas px", canvas.width, canvas.height);
-      // console.log("html2canvas dataURL length", canvas.toDataURL("image/png").length);
-      
+
+      // Restore original state
+      cleanup();
+
       const orientation = values.orientation;
 
       // Create PDF with correct dimensions
