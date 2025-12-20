@@ -128,6 +128,25 @@ function CustomDrawer({
     },
   };
 
+  // Build effective styles merging user-provided styles (if any) and dynamic state
+  const effectiveStyles = {
+    ...(styles ?? drawerStyles),
+    body: {
+      ...(styles?.body ?? drawerStyles.body),
+      display: isMinimized ? "none" : undefined,
+      fontSize: fontSizeLG,
+    },
+    header: {
+      ...(styles?.header ?? drawerStyles.header),
+      padding: 0,
+      borderBottom: `1px solid ${colorPrimary}`,
+    },
+    mask: {
+      ...(styles?.mask ?? drawerStyles.mask),
+      backgroundColor: mask ? undefined : "transparent",
+    },
+  };
+
   const handleToggleMinimize = () => {
     // If we're minimizing, store current size first
     if (!isMinimized) {
@@ -240,21 +259,9 @@ function CustomDrawer({
       // pass computed dimensions; Drawer accepts number or string for width/height
       width={computedWidth}
       height={computedHeight}
-      styles={styles ?? drawerStyles}
+      styles={effectiveStyles}
       mask={mask}
       afterOpenChange={afterOpenChange}
-      // prevent body from rendering when minimized (keeps header only)
-      bodyStyle={{
-        display: isMinimized ? "none" : undefined,
-        fontSize: fontSizeLG,
-      }}
-      headerStyle={{
-        padding: 0,
-        borderBottom: `1px solid ${colorPrimary}`,
-      }}
-      maskStyle={{
-        backgroundColor: mask ? undefined : "transparent",
-      }}
     >
       {children}
     </Drawer>

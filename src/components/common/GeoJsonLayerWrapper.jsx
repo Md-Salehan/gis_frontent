@@ -20,62 +20,105 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
   // FIXED: Check if print modal is open
   const isPrintModalOpen = useSelector((state) => state.ui.isPrintModalOpen);
 
-  // Optimized canvas renderer for print
+  // Optimized renderers per pane:
+  // - Canvas for normal view (fast)
+  // - SVG for print (scalable, sharp)
   const canvasRenderer = useMemo(() => {
     const key = `__canvas_renderer_for_${pane}`;
     if (!map[key]) {
-      map[key] = L.canvas({ 
-        padding: 0.5, 
+      map[key] = L.canvas({
+        padding: 0.5,
         pane,
-        tolerance: 0 // Higher precision for print
+        tolerance: 0, // Higher precision for print-like rendering
+      });
+    }
+    return map[key];
+  }, [map, pane]);
+
+  // Create a pane-aware SVG renderer and reuse it on the map object
+  const svgRenderer = useMemo(() => {
+    const key = `__svg_renderer_for_${pane}`;
+    if (!map[key]) {
+      map[key] = L.svg({
+        pane,
       });
     }
     return map[key];
   }, [map, pane]);
 
   // Memoize style function with print optimization
-  const style = useCallback((feature) => {
-    const props = metaData?.style || {};
+  const style = useCallback(
+    (feature) => {
+      const props = metaData?.style || {};
 
-    // Enhanced styles for print (slightly bolder)
-    const printStyle = {
-      color: props.stroke_color || DEFAULT_STYLES.color,
-      weight: Math.max(1, (props.stroke_width || DEFAULT_STYLES.weight) * (isPrintModalOpen ? 1.2 : 1)), // 20% thicker for print
-      opacity: Math.min(1, (props.stroke_opacity || DEFAULT_STYLES.opacity) * (isPrintModalOpen ? 1.1 : 1)),
-      fillOpacity: Math.min(1, (props.fill_opacity || DEFAULT_STYLES.fillOpacity) * (isPrintModalOpen ? 1.1 : 1)),
-      fillColor: props.fill_color || DEFAULT_STYLES.fillColor,
-      
-      // Print-specific optimizations
-      lineCap: 'round',
-      lineJoin: 'round',
-      dashArray: isPrintModalOpen ? null : undefined, // Remove dashes for print clarity
-    };
+      // Enhanced styles for print (slightly bolder)
+      const printStyle = {
+        color: props.stroke_color || DEFAULT_STYLES.color,
+        weight: Math.max(
+          1,
+          (props.stroke_width || DEFAULT_STYLES.weight) *
+            (isPrintModalOpen ? 1.2 : 1)
+        ), // 20% thicker for print
+        opacity: Math.min(
+          1,
+          (props.stroke_opacity || DEFAULT_STYLES.opacity) *
+            (isPrintModalOpen ? 1.1 : 1)
+        ),
+        fillOpacity: Math.min(
+          1,
+          (props.fill_opacity || DEFAULT_STYLES.fillOpacity) *
+            (isPrintModalOpen ? 1.1 : 1)
+        ),
+        fillColor: props.fill_color || DEFAULT_STYLES.fillColor,
 
-    // Apply styles based on geometry type
-    switch (props.geom_typ) {
-      case GEOMETRY_TYPES.POLYGON:
-        return printStyle;
-      case GEOMETRY_TYPES.LINE:
-        return {
-          ...printStyle,
-          ...LINE_STYLE,
-          weight: Math.max(2, printStyle.weight * (isPrintModalOpen ? 1.3 : 1)), // Lines even thicker for print
-        };
-      case GEOMETRY_TYPES.POINT:
-        return {
-          radius: Math.max(4, (props.marker_size || DEFAULT_STYLES.radius) * (isPrintModalOpen ? 1.2 : 1)),
-          color: props.stroke_color || DEFAULT_STYLES.color,
-          fillColor: props.fill_color || DEFAULT_STYLES.markerFillColor,
-          fillOpacity: Math.min(1, (props.fill_opacity || DEFAULT_STYLES.fillOpacity) * (isPrintModalOpen ? 1.2 : 1)),
-          weight: Math.max(1, (props.stroke_width || DEFAULT_STYLES.weight) * (isPrintModalOpen ? 1.2 : 1)),
-        };
-      default:
-        return {
-          ...DEFAULT_STYLES,
-          weight: DEFAULT_STYLES.weight * (isPrintModalOpen ? 1.2 : 1),
-        };
-    }
-  }, [metaData, isPrintModalOpen]);
+        // Print-specific optimizations
+        lineCap: "round",
+        lineJoin: "round",
+        dashArray: isPrintModalOpen ? null : undefined, // Remove dashes for print clarity
+      };
+
+      // Apply styles based on geometry type
+      switch (props.geom_typ) {
+        case GEOMETRY_TYPES.POLYGON:
+          return printStyle;
+        case GEOMETRY_TYPES.LINE:
+          return {
+            ...printStyle,
+            ...LINE_STYLE,
+            weight: Math.max(
+              2,
+              printStyle.weight * (isPrintModalOpen ? 1.3 : 1)
+            ), // Lines even thicker for print
+          };
+        case GEOMETRY_TYPES.POINT:
+          return {
+            radius: Math.max(
+              4,
+              (props.marker_size || DEFAULT_STYLES.radius) *
+                (isPrintModalOpen ? 1.2 : 1)
+            ),
+            color: props.stroke_color || DEFAULT_STYLES.color,
+            fillColor: props.fill_color || DEFAULT_STYLES.markerFillColor,
+            fillOpacity: Math.min(
+              1,
+              (props.fill_opacity || DEFAULT_STYLES.fillOpacity) *
+                (isPrintModalOpen ? 1.2 : 1)
+            ),
+            weight: Math.max(
+              1,
+              (props.stroke_width || DEFAULT_STYLES.weight) *
+                (isPrintModalOpen ? 1.2 : 1)
+            ),
+          };
+        default:
+          return {
+            ...DEFAULT_STYLES,
+            weight: DEFAULT_STYLES.weight * (isPrintModalOpen ? 1.2 : 1),
+          };
+      }
+    },
+    [metaData, isPrintModalOpen]
+  );
 
   // Simplified onEachFeature for print (no interactivity)
   const onEachFeature = useCallback(
@@ -102,9 +145,9 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
 
       // Disable hover effects and click for print
       if (isPrintModalOpen) {
-        layer.off('mouseover');
-        layer.off('mouseout');
-        layer.off('click');
+        layer.off("mouseover");
+        layer.off("mouseout");
+        layer.off("click");
       } else {
         // highlight on mouseover
         layer.on("mouseover", (e) => {
@@ -127,7 +170,7 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
         //   try {
         //     const bounds = layer.getBounds?.();
         //     console.log(bounds, "bounds");
-            
+
         //     if (bounds?.isValid()) {
         //       const center = bounds.getCenter();
         //       dispatch(
@@ -154,34 +197,43 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
       const props = metaData?.style || {};
       const iconName = props.marker_fa_icon_name;
       const iconImg = props.marker_img_url;
-      const markerSize = Math.max(8, Number(props.marker_size) || 18) * (isPrintModalOpen ? 1.2 : 1);
+      const markerSize =
+        Math.max(8, Number(props.marker_size) || 18) *
+        (isPrintModalOpen ? 1.2 : 1);
       const markerColor = props.marker_color || "#2c3e50";
 
-      if(iconImg){
+      if (iconImg) {
         const icon = L.icon({
           iconUrl: iconImg,
           iconSize: [markerSize, markerSize],
           iconAnchor: [markerSize / 2, markerSize / 2],
-          className: isPrintModalOpen ? 'print-marker-icon' : ''
+          className: isPrintModalOpen ? "print-marker-icon" : "",
         });
         return L.marker(latlng, { icon });
       }
 
       if (iconName) {
-        const html = `<i class="${iconName}" style="font-size:${markerSize}px;color:${markerColor};line-height:1;${isPrintModalOpen ? 'filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.3));' : ''}"></i>`;
+        const html = `<i class="${iconName}" style="font-size:${markerSize}px;color:${markerColor};line-height:1;${
+          isPrintModalOpen
+            ? "filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.3));"
+            : ""
+        }"></i>`;
         const icon = L.divIcon({
-          className: `fa-icon-marker ${isPrintModalOpen ? 'print-marker' : ''}`,
+          className: `fa-icon-marker ${isPrintModalOpen ? "print-marker" : ""}`,
           html,
           iconSize: [markerSize, markerSize],
           iconAnchor: [Math.round(markerSize / 2), Math.round(markerSize / 2)],
         });
         return L.marker(latlng, { icon });
       }
-      
+
       // Enhanced circle marker for print
       return L.circleMarker(latlng, {
         ...style(feature),
-        radius: Math.max(4, (props.marker_size || 8) * (isPrintModalOpen ? 1.2 : 1)),
+        radius: Math.max(
+          4,
+          (props.marker_size || 8) * (isPrintModalOpen ? 1.2 : 1)
+        ),
       });
     },
     [style, metaData, isPrintModalOpen]
@@ -190,13 +242,13 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
   return (
     <>
       <GeoJSON
-        key={`${layerId}-${isPrintModalOpen ? 'print' : 'normal'}`}
+        key={`${layerId}-${isPrintModalOpen ? "print" : "normal"}`}
         data={geoJsonData}
         style={style}
         pointToLayer={pointToLayer}
         onEachFeature={onEachFeature}
         pane={pane}
-        // renderer={canvasRenderer}
+        renderer={isPrintModalOpen ? svgRenderer : canvasRenderer} // Force SVG for print
         interactive={!isPrintModalOpen} // Disable interactivity for print
       />
       {/* Label layer renders labels (centroid) for active layers using metadata styles */}

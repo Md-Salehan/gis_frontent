@@ -43,7 +43,7 @@ function BufferToolDrawer() {
               size="small"
               style={{ height: "100%" }}
               //   title="Buffer"
-              bodyStyle={{ height: "100%", padding: 12, overflow: "auto" }}
+              styles={{ body: { height: "100%", padding: 12, overflow: "auto" } }}
             >
               {isBufferToolOpen && <BufferTool open={isBufferToolOpen} clearDataOnClose={true} />}
             </Card>
@@ -60,7 +60,7 @@ function BufferToolDrawer() {
               size="small"
               style={{ height: "100%" }}
               //   title="Attributes"
-              bodyStyle={{ height: "100%", padding: 12, overflow: "auto" }}
+              styles={{ body: { height: "100%", padding: 12, overflow: "auto" } }}
             >
               {isBufferToolOpen && (
                 <AttributeTable

@@ -133,7 +133,7 @@ const Legend = ({ visible }) => {
                       • {getGeomFullForm(s.geom_type) || ""}
                     </div> */}
                     <div style={{ fontSize: 11, color: "#888" }}>
-                      {item.name || ""}
+                      {s.label || ""}
                     </div>
                   </div>
                 </div>

@@ -308,7 +308,7 @@ const LayerPanel = memo(({ layers = [] }) => {
     <Card
       size="small"
       bordered={false}
-      bodyStyle={{ padding: 12 }}
+      styles={{ body: { padding: 12 } }}
       style={{ width: "100%" }}
       title={
         <Row align="middle" justify="space-between" style={{ gap: 8 }}>

@@ -42,7 +42,7 @@ export default function BaseMapTileLayer(props) {
   const key = active === "streets" ? "openstreetmap" : active;
   const cfg = {
     ...(BASEMAPS[key] || BASEMAPS.openstreetmap),
-    detectRetina: true,
+    // detectRetina: true,
     // tileSize: 512, // Force larger tile size
     // zoomOffset: -1, // Compensate for larger tiles
   };
