@@ -19,6 +19,9 @@ const BufferGeoJsonLayer = memo(({ layerId, geoJsonData, metaData, pane }) => {
   const viewport = useSelector((s) => s.map.viewport);
   const map = useMap();
 
+  const isPrintModalOpen = useSelector((state) => state.ui.isPrintModalOpen);
+  
+
   const canvasRenderer = useMemo(() => {
     const key = `__canvas_renderer_for_${pane}`;
     if (!map[key]) {
@@ -26,6 +29,17 @@ const BufferGeoJsonLayer = memo(({ layerId, geoJsonData, metaData, pane }) => {
     }
     return map[key];
   }, [map, pane]);
+
+  // Create a pane-aware SVG renderer and reuse it on the map object
+    const svgRenderer = useMemo(() => {
+      const key = `__svg_renderer_for_${pane}`;
+      if (!map[key]) {
+        map[key] = L.svg({
+          pane,
+        });
+      }
+      return map[key];
+    }, [map, pane]);
 
   const style = useCallback(() => {
     return RED_STYLE;
@@ -99,7 +113,8 @@ const BufferGeoJsonLayer = memo(({ layerId, geoJsonData, metaData, pane }) => {
       pointToLayer={pointToLayer}
       onEachFeature={onEachFeature}
       pane={pane}
-      renderer={canvasRenderer}
+      renderer={isPrintModalOpen ? svgRenderer : canvasRenderer} // Force SVG for print
+
     />
   );
 });

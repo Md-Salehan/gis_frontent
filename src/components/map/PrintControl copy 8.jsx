@@ -1,10 +1,4 @@
-import React, {
-  useState,
-  useMemo,
-  useRef,
-  useCallback,
-  useEffect,
-} from "react";
+import React, { useState, useMemo, useRef, useCallback } from "react";
 import {
   Modal,
   Form,
@@ -18,24 +12,16 @@ import {
   Spin,
   Row,
   Col,
+  InputNumber,
 } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { togglePrintModal } from "../../store/slices/uiSlice";
-import { toPng, toSvg } from "html-to-image";
+import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import PrintPreviewMap from "./PrintPreviewMap";
 import useDebounced from "../../hooks/useDebounced";
 
 const { Option } = Select;
-
-const initialValues = {
-  format: "a4",
-  orientation: "landscape",
-  title: "",
-  footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
-  showLegend: false,
-  mapScale: "250000",
-};
 
 const PrintControl = () => {
   const dispatch = useDispatch();
@@ -48,63 +34,41 @@ const PrintControl = () => {
   const [form] = Form.useForm();
   const previewMapRef = useRef(null);
   const previewContainerRef = useRef(null);
+  // track which preset (if any) is selected; default to 1:250,000
   const [presetValue, setPresetValue] = useState(undefined);
 
   // Form state for live preview updates
-  const [formValues, setFormValues] = useState(initialValues);
+  const [formValues, setFormValues] = useState({
+    format: "a4",
+    orientation: "landscape",
+    title: "",
+    footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
+    showLegend: false,
+    mapScale: "250000",
+  });
 
   const debouncedMapScale = useDebounced(
     formValues.mapScale,
     presetValue ? 0 : 300
-  );
+  ); // 300ms debounce ( If a preset is selected we want immediate update; otherwise debounce typing)
 
-  // Paper dimensions in millimeters
-  const PAPER_DIMENSIONS = useMemo(
-    () => ({
-      a0: { width: 841, height: 1189 },
-      a1: { width: 594, height: 841 },
-      a2: { width: 420, height: 594 },
-      a3: { width: 297, height: 420 },
-      a4: { width: 210, height: 297 },
-      letter: { width: 215.9, height: 279.4 },
-    }),
-    []
-  );
+  const handleResetForm = () => {
+    form.resetFields();
+    setFormValues({
+      format: "a4",
+      orientation: "landscape",
+      title: "",
+      footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
+      showLegend: false,
+      mapScale: "250000",
+    });
+    // Restore preset selection
+    setPresetValue(undefined);
+  };
 
-  // Calculate preview dimensions
-  const previewDimensions = useMemo(() => {
-    let dims = PAPER_DIMENSIONS[formValues.format] || PAPER_DIMENSIONS.a4;
-
-    if (formValues.orientation === "portrait") {
-      if (dims.width > dims.height) {
-        [dims.width, dims.height] = [dims.height, dims.width];
-      }
-    } else {
-      if (dims.width < dims.height) {
-        [dims.width, dims.height] = [dims.height, dims.width];
-      }
-    }
-
-    const mmToPxScale = 2.5;
-    let widthPx = dims.width * mmToPxScale;
-    let heightPx = dims.height * mmToPxScale;
-
-    const maxPreviewWidth = 1200;
-    const maxPreviewHeight = 900;
-    const clampScale = Math.min(
-      1,
-      maxPreviewWidth / widthPx,
-      maxPreviewHeight / heightPx
-    );
-
-    return {
-      widthPx: Math.round(widthPx * clampScale),
-      heightPx: Math.round(heightPx * clampScale),
-      mmWidth: dims.width,
-      mmHeight: dims.height,
-      aspectRatio: dims.width / dims.height,
-    };
-  }, [formValues.format, formValues.orientation, PAPER_DIMENSIONS]);
+  const handleFormChange = (changedValues, allValues) => {
+    setFormValues(allValues);
+  };
 
   // Validate scale input
   const validateScale = (_, value) => {
@@ -112,6 +76,7 @@ const PrintControl = () => {
       return Promise.resolve();
     }
 
+    // Accept formats: "1:5000", "5000", "1:25,000", "25000"
     const cleanedValue = value.replace(/,/g, "");
     const regex = /^(?:1:)?(\d+)$/;
 
@@ -137,10 +102,12 @@ const PrintControl = () => {
   const formatScaleValue = (value) => {
     if (!value) return "";
 
+    // If it's already in "1:xxxx" format, return as is
     if (value.includes(":")) {
       return value;
     }
 
+    // Otherwise, format as "1:xxxx"
     const numValue = parseInt(value.replace(/,/g, ""), 10);
     if (!isNaN(numValue)) {
       return `1:${numValue.toLocaleString()}`;
@@ -158,7 +125,7 @@ const PrintControl = () => {
     const match = cleanedValue.match(regex);
 
     if (match) {
-      return match[1];
+      return match[1]; // Return just the number part
     }
 
     return null;
@@ -177,237 +144,176 @@ const PrintControl = () => {
     { label: "1:250,000", value: "250000" },
   ];
 
-  // Capture map container with html-to-image
-  const captureMapImage = async () => {
+  // Calculate preview dimensions based on format and orientation
+  const previewDimensions = useMemo(() => {
+    const formatDimensions = {
+      a0: { width: 841, height: 1189 }, // mm
+      a1: { width: 594, height: 841 },
+      a2: { width: 420, height: 594 },
+      a3: { width: 297, height: 420 },
+      a4: { width: 210, height: 297 }, // mm
+      letter: { width: 215.9, height: 279.4 },
+    };
+
+    let dims = formatDimensions[formValues.format] || formatDimensions.a4;
+
+    if (formValues.orientation === "portrait") {
+      // Swap if portrait
+      if (dims.width > dims.height) {
+        [dims.width, dims.height] = [dims.height, dims.width];
+      }
+    } else {
+      // Ensure landscape orientation
+      if (dims.width < dims.height) {
+        [dims.width, dims.height] = [dims.height, dims.width];
+      }
+    }
+
+    // Scale to fit preview (1mm ≈ 3.78px at 96dpi, use 2.5 for smaller preview)
+    const mmToPxScale = 2.5;
+    let widthPx = dims.width * mmToPxScale;
+    let heightPx = dims.height * mmToPxScale;
+
+    // Clamp preview size to avoid extremely large previews for A0/A1
+    const maxPreviewWidth = 1200; // px
+    const maxPreviewHeight = 900; // px
+    const clampScale = Math.min(
+      1,
+      maxPreviewWidth / widthPx,
+      maxPreviewHeight / heightPx
+    );
+    widthPx = Math.round(widthPx * clampScale);
+    heightPx = Math.round(heightPx * clampScale);
+
+    return {
+      widthPx: widthPx*1,
+      heightPx: heightPx*1,
+      aspectRatio: dims.width / dims.height,
+    };
+  }, [formValues.format, formValues.orientation]);
+
+  const handleExportPDF = async (values) => {
     try {
+      setLoading(true);
+
       // Get the actual map container from the preview
       const mapElement =
         previewContainerRef.current?.querySelector(".leaflet-container");
 
       if (!mapElement) {
-        throw new Error("Map preview not found");
+        message.error("Map preview not found");
+        return;
       }
 
-      // Wait for map to stabilize
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // Calculate appropriate pixel ratio based on paper size
-      let pixelRatio = 2; // Default for A4/A3
-      switch (formValues.format) {
-        case "a0":
-        case "a1":
-          pixelRatio = 1.5; // Lower for very large formats to prevent memory issues
-          break;
-        case "a2":
-          pixelRatio = 2;
-          break;
-        case "a3":
-        case "a4":
-        case "letter":
-          pixelRatio = 2; // Higher for standard sizes
-          break;
-        default:
-          pixelRatio = 2;
+      // Wait for map tiles to load
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      
+      let userScale = 2; // Default scale factor
+      // Adjust scale for very large formats to improve quality
+      if (values.format === "a0" || values.format === "a1") {
+        userScale = 2;
       }
 
-      // Capture using html-to-image with optimized settings
-      const dataUrl = await toPng(mapElement, {
-        quality: 1.0,
-        pixelRatio: pixelRatio,
+      // Capture map canvas with high quality
+      const canvas = await html2canvas(mapElement, {
         backgroundColor: "#ffffff",
-        style: {
-          transform: "none",
-          margin: 0,
-          padding: 0,
-        },
-        filter: (node) => {
-          // Include all necessary nodes
-          const isControl = node.classList?.contains("leaflet-control");
-          const isAttribution = node.classList?.contains(
-            "leaflet-control-attribution"
-          );
+        scale: userScale, // Increase scale for better resolution
+        useCORS: true,
+        logging: false,
+        allowTaint: true,
+        windowHeight: mapElement.scrollHeight,
+        windowWidth: mapElement.scrollWidth,
+      });
+      // console.log(
+      //   "html2canvas requested scale",
+      //   userScale,
+      //   "html2canvas devicePixelRatio",
+      //   window.devicePixelRatio
+      // );
+      // console.log("html2canvas canvas px", canvas.width, canvas.height);
+      // console.log("html2canvas dataURL length", canvas.toDataURL("image/png").length);
+      
+      const orientation = values.orientation;
 
-          // Keep attribution but filter out other controls if needed
-          if (isControl && !isAttribution) {
-            // Optionally hide some controls for cleaner export
-            return false;
-          }
-
-          return true;
-        },
-        canvasWidth: mapElement.offsetWidth * pixelRatio,
-        canvasHeight: mapElement.offsetHeight * pixelRatio,
+      // Create PDF with correct dimensions
+      const pdf = new jsPDF({
+        orientation,
+        unit: "mm",
+        format: values.format.toUpperCase(),
       });
 
-      return dataUrl;
-    } catch (error) {
-      console.error("Failed to capture map image:", error);
-      throw error;
-    }
-  };
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
 
-  // Create PDF with captured image
-  const createPDF = async (mapImageUrl, values) => {
-    const { mmWidth, mmHeight } = previewDimensions;
-    const orientation = values.orientation;
+      let yPosition = 10;
 
-    const pdf = new jsPDF({
-      orientation,
-      unit: "mm",
-      format: [mmWidth, mmHeight],
-    });
+      // Add title if provided
+      if (values.title) {
+        pdf.setFontSize(16);
+        pdf.setFont(undefined, "bold");
+        pdf.text(values.title, pageWidth / 2, yPosition, { align: "center" });
+        yPosition += 5; // Space after title
+        pdf.setFont(undefined, "normal");
+      }
 
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-
-    // Margins
-    const margin = 10;
-    const headerHeight = values.title ? 15 : 0;
-    const footerHeight = values.footerText ? 15 : 0;
-
-    // Available space for map
-    const mapStartY = margin + headerHeight;
-    const mapHeight = pageHeight - margin - footerHeight - mapStartY;
-    const mapWidth = pageWidth - 2 * margin;
-
-    // Add title if provided
-    if (values.title) {
-      pdf.setFontSize(16);
-      pdf.setFont("helvetica", "bold");
-      pdf.text(values.title, pageWidth / 2, margin + 8, { align: "center" });
-
-      // Add scale below title if provided
-      // if (values.mapScale) {
-      //   pdf.setFontSize(10);
-      //   pdf.setFont("helvetica", "normal");
-      //   pdf.text(
-      //     `Scale: ${formatScaleValue(values.mapScale)}`,
-      //     pageWidth / 2,
-      //     margin + 13,
-      //     {
-      //       align: "center",
-      //     }
-      //   );
-      // }
-    } 
-    // else if (values.mapScale) {
-    //   // If no title, add scale at top
-    //   pdf.setFontSize(10);
-    //   pdf.setFont("helvetica", "bold");
-    //   pdf.text(
-    //     `Scale: ${formatScaleValue(values.mapScale)}`,
-    //     pageWidth / 2,
-    //     margin + 5,
-    //     {
-    //       align: "center",
-    //     }
-    //   );
-    // }
-    // Add scale if provided
+      // Add scale if provided
       if (values.mapScale) {
         pdf.setFontSize(10);
-        pdf.setFont("helvetica", "bold");
         const formattedScale = formatScaleValue(values.mapScale);
-        pdf.text(`Scale: ${formattedScale}`, pageWidth - margin, margin, {
+        pdf.text(`Scale: ${formattedScale}`, pageWidth - 20, yPosition, {
           align: "right",
         });
+        yPosition += 4;
       }
 
-    // Add date in top-right corner
-    const currentDate = new Date().toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-    pdf.setFontSize(8);
-    pdf.setFont("helvetica", "normal");
-    pdf.text(currentDate, margin, margin, { align: "left" });
+      // Calculate image dimensions to fit page
+      const maxImgWidth = pageWidth - 10;
+      const maxImgHeight =
+        pageHeight - yPosition - (values.footerText ? 15 : 10);
 
-    // Add map image
-    if (mapImageUrl) {
-      try {
-        pdf.addImage(
-          mapImageUrl,
-          "PNG",
-          margin,
-          mapStartY,
-          mapWidth,
-          mapHeight
-        );
-      } catch (error) {
-        console.error("Failed to add image to PDF:", error);
-        // Add placeholder if image fails
-        pdf.setFillColor(240, 240, 240);
-        pdf.rect(margin, mapStartY, mapWidth, mapHeight, "F");
-        pdf.setTextColor(100, 100, 100);
-        pdf.setFontSize(12);
-        pdf.text("Map Image", pageWidth / 2, pageHeight / 2, {
+      const imgAspectRatio = canvas.width / canvas.height;
+      let imgWidth = maxImgWidth;
+      let imgHeight = imgWidth / imgAspectRatio;
+
+      if (imgHeight > maxImgHeight) {
+        imgHeight = maxImgHeight;
+        imgWidth = imgHeight * imgAspectRatio;
+      }
+
+      const xPosition = (pageWidth - imgWidth) / 2;
+
+      // Add map image to PDF
+      const mapImgData = canvas.toDataURL("image/png");
+      pdf.addImage(
+        mapImgData,
+        "PNG",
+        xPosition,
+        yPosition,
+        imgWidth,
+        imgHeight
+      );
+
+      // Add footer if enabled
+      if (values.footerText) {
+        pdf.setFontSize(8);
+        pdf.setTextColor(128, 128, 128);
+        pdf.text(values.footerText, pageWidth / 2, pageHeight - 8, {
           align: "center",
         });
-      }
-    }
-
-    // Add footer if enabled
-    if (values.footerText) {
-      pdf.setFontSize(9);
-      pdf.setTextColor(100, 100, 100);
-      pdf.setFont("helvetica", "normal");
-      pdf.text(values.footerText, pageWidth / 2, pageHeight - margin - 5, {
-        align: "center",
-      });
-      pdf.setTextColor(0, 0, 0);
-    }
-
-    // Add page border
-    // pdf.setLineWidth(0.2);
-    // pdf.rect(margin, margin, pageWidth - 2 * margin, pageHeight - 2 * margin);
-
-    return pdf;
-  };
-
-  // Main export handler
-  const handleExportPDF = async (values) => {
-    try {
-      setLoading(true);
-      message.info("Capturing map... This may take a moment.");
-
-      // Hide preview UI elements temporarily
-      const previewUI =
-        previewContainerRef.current?.querySelectorAll(".preview-ui");
-      const originalStyles = [];
-      if (previewUI) {
-        previewUI.forEach((el) => {
-          originalStyles.push(el.style.display);
-          el.style.display = "none";
-        });
+        pdf.setTextColor(0, 0, 0);
       }
 
-      try {
-        // Capture the map image
-        const mapImageUrl = await captureMapImage();
+      // Generate filename
+      const fileName = values.title
+        ? `${values.title.replace(/\s+/g, "_")}.pdf`
+        : `map_export_${Date.now()}.pdf`;
 
-        // Create PDF
-        const pdf = await createPDF(mapImageUrl, values);
+      // Save PDF
+      pdf.save(fileName);
 
-        // Generate filename
-        const fileName = values.title
-          ? `${values.title.replace(/\s+/g, "_")}_${new Date().getTime()}.pdf`
-          : `map_export_${new Date().getTime()}.pdf`;
-
-        // Save PDF
-        pdf.save(fileName);
-
-        message.success("Map exported successfully!");
-        dispatch(togglePrintModal());
-        handleResetForm();
-      } finally {
-        // Restore UI elements
-        if (previewUI) {
-          previewUI.forEach((el, index) => {
-            el.style.display = originalStyles[index] || "";
-          });
-        }
-      }
+      message.success("Map exported successfully!");
+      dispatch(togglePrintModal());
+      handleResetForm();
     } catch (error) {
       console.error("Export error:", error);
       message.error("Failed to export map. Please try again.");
@@ -416,20 +322,9 @@ const PrintControl = () => {
     }
   };
 
-  const handleResetForm = () => {
-    form.resetFields();
-    setFormValues(initialValues);
-    // Restore preset selection
-    setPresetValue(undefined);
-  };
-
   const handleCancel = () => {
     handleResetForm();
     dispatch(togglePrintModal());
-  };
-
-  const handleFormChange = (changedValues, allValues) => {
-    setFormValues(allValues);
   };
 
   return (
@@ -469,7 +364,14 @@ const PrintControl = () => {
               layout="vertical"
               onFinish={handleExportPDF}
               onValuesChange={handleFormChange}
-              initialValues={initialValues}
+              initialValues={{
+                format: "a4",
+                orientation: "landscape",
+                title: "",
+                footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
+                showLegend: false,
+                mapScale: "250000",
+              }}
             >
               {/* Map Title */}
               <Form.Item
@@ -498,6 +400,8 @@ const PrintControl = () => {
                   placeholder="e.g., 1:5000 or 5000"
                   size="large"
                   addonBefore="1:"
+                  // If user edits the main input manually, clear any selected preset so
+                  // the Select returns to its placeholder state.
                   onChange={() => {
                     if (presetValue) setPresetValue(undefined);
                   }}
@@ -512,8 +416,12 @@ const PrintControl = () => {
                         setFormValues({ ...formValues, mapScale: value });
                         setPresetValue(value);
                       }}
+                      // Prevent clicks on the Select from bubbling up to the Input/modal
+                      // which can cause the dropdown to open and immediately close.
                       onMouseDown={(e) => e.stopPropagation()}
                       onClick={(e) => e.stopPropagation()}
+                      // Ensure dropdown attaches inside the select's parent container
+                      // (avoids some edge cases with modals/portals)
                       getPopupContainer={(triggerNode) =>
                         triggerNode?.parentNode || document.body
                       }
@@ -659,9 +567,8 @@ const PrintControl = () => {
                   }}
                 >
                   {/* Title in Preview */}
-                  
+                  {
                     <div
-                      className="preview-ui"
                       style={{
                         height: "40px",
                         boxSizing: "border-box",
@@ -675,12 +582,11 @@ const PrintControl = () => {
                     >
                       {formValues.title}
                     </div>
-                  
+                  }
 
                   {/* Scale display in preview */}
-                  {/* {debouncedMapScale && (
+                  {debouncedMapScale && (
                     <div
-                      className="preview-ui"
                       style={{
                         position: "absolute",
                         top: formValues.title ? "50px" : "10px",
@@ -696,31 +602,12 @@ const PrintControl = () => {
                     >
                       Scale: {formatScaleValue(debouncedMapScale)}
                     </div>
-                  )} */}
-
-                  {/* Date in preview */}
-                  {/* <div
-                    className="preview-ui"
-                    style={{
-                      position: "absolute",
-                      top: formValues.title ? "50px" : "10px",
-                      left: "10px",
-                      padding: "4px 8px",
-                      backgroundColor: "rgba(255, 255, 255, 0.9)",
-                      borderRadius: "4px",
-                      fontSize: "10px",
-                      color: "#666",
-                      zIndex: 1000,
-                      boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                    }}
-                  >
-                    {new Date().toLocaleDateString()}
-                  </div> */}
+                  )}
 
                   {/* Live Map Preview */}
                   <div
                     style={{
-                      width: "95%",
+                      width: "calc(100% - 20px)",
                       height: "calc(100% - 80px)",
                       margin: "0 auto",
                       position: "relative",
@@ -739,9 +626,8 @@ const PrintControl = () => {
                   </div>
 
                   {/* Footer in Preview */}
-                  
+                  {
                     <div
-                      className="preview-ui"
                       style={{
                         height: "40px",
                         boxSizing: "border-box",
@@ -755,7 +641,7 @@ const PrintControl = () => {
                     >
                       {formValues.footerText}
                     </div>
-                  
+                  }
                 </div>
               </Spin>
             </div>

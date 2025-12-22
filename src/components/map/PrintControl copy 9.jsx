@@ -204,7 +204,7 @@ const PrintControl = () => {
         case "a3":
         case "a4":
         case "letter":
-          pixelRatio = 2; // Higher for standard sizes
+          pixelRatio = 3; // Higher for standard sizes
           break;
         default:
           pixelRatio = 2;
@@ -277,41 +277,31 @@ const PrintControl = () => {
       pdf.text(values.title, pageWidth / 2, margin + 8, { align: "center" });
 
       // Add scale below title if provided
-      // if (values.mapScale) {
-      //   pdf.setFontSize(10);
-      //   pdf.setFont("helvetica", "normal");
-      //   pdf.text(
-      //     `Scale: ${formatScaleValue(values.mapScale)}`,
-      //     pageWidth / 2,
-      //     margin + 13,
-      //     {
-      //       align: "center",
-      //     }
-      //   );
-      // }
-    } 
-    // else if (values.mapScale) {
-    //   // If no title, add scale at top
-    //   pdf.setFontSize(10);
-    //   pdf.setFont("helvetica", "bold");
-    //   pdf.text(
-    //     `Scale: ${formatScaleValue(values.mapScale)}`,
-    //     pageWidth / 2,
-    //     margin + 5,
-    //     {
-    //       align: "center",
-    //     }
-    //   );
-    // }
-    // Add scale if provided
       if (values.mapScale) {
         pdf.setFontSize(10);
-        pdf.setFont("helvetica", "bold");
-        const formattedScale = formatScaleValue(values.mapScale);
-        pdf.text(`Scale: ${formattedScale}`, pageWidth - margin, margin, {
-          align: "right",
-        });
+        pdf.setFont("helvetica", "normal");
+        pdf.text(
+          `Scale: ${formatScaleValue(values.mapScale)}`,
+          pageWidth / 2,
+          margin + 13,
+          {
+            align: "center",
+          }
+        );
       }
+    } else if (values.mapScale) {
+      // If no title, add scale at top
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(
+        `Scale: ${formatScaleValue(values.mapScale)}`,
+        pageWidth / 2,
+        margin + 5,
+        {
+          align: "center",
+        }
+      );
+    }
 
     // Add date in top-right corner
     const currentDate = new Date().toLocaleDateString("en-US", {
@@ -321,7 +311,7 @@ const PrintControl = () => {
     });
     pdf.setFontSize(8);
     pdf.setFont("helvetica", "normal");
-    pdf.text(currentDate, margin, margin, { align: "left" });
+    pdf.text(currentDate, pageWidth - margin, margin + 5, { align: "right" });
 
     // Add map image
     if (mapImageUrl) {
@@ -359,8 +349,8 @@ const PrintControl = () => {
     }
 
     // Add page border
-    // pdf.setLineWidth(0.2);
-    // pdf.rect(margin, margin, pageWidth - 2 * margin, pageHeight - 2 * margin);
+    pdf.setLineWidth(0.2);
+    pdf.rect(margin, margin, pageWidth - 2 * margin, pageHeight - 2 * margin);
 
     return pdf;
   };
@@ -399,7 +389,6 @@ const PrintControl = () => {
 
         message.success("Map exported successfully!");
         dispatch(togglePrintModal());
-        handleResetForm();
       } finally {
         // Restore UI elements
         if (previewUI) {
@@ -509,7 +498,6 @@ const PrintControl = () => {
                       value={presetValue}
                       onChange={(value) => {
                         form.setFieldsValue({ mapScale: value });
-                        setFormValues({ ...formValues, mapScale: value });
                         setPresetValue(value);
                       }}
                       onMouseDown={(e) => e.stopPropagation()}
@@ -659,7 +647,7 @@ const PrintControl = () => {
                   }}
                 >
                   {/* Title in Preview */}
-                  
+                  {formValues.title && (
                     <div
                       className="preview-ui"
                       style={{
@@ -675,10 +663,10 @@ const PrintControl = () => {
                     >
                       {formValues.title}
                     </div>
-                  
+                  )}
 
                   {/* Scale display in preview */}
-                  {/* {debouncedMapScale && (
+                  {debouncedMapScale && (
                     <div
                       className="preview-ui"
                       style={{
@@ -696,10 +684,10 @@ const PrintControl = () => {
                     >
                       Scale: {formatScaleValue(debouncedMapScale)}
                     </div>
-                  )} */}
+                  )}
 
                   {/* Date in preview */}
-                  {/* <div
+                  <div
                     className="preview-ui"
                     style={{
                       position: "absolute",
@@ -715,14 +703,15 @@ const PrintControl = () => {
                     }}
                   >
                     {new Date().toLocaleDateString()}
-                  </div> */}
+                  </div>
 
                   {/* Live Map Preview */}
                   <div
                     style={{
-                      width: "95%",
-                      height: "calc(100% - 80px)",
-                      margin: "0 auto",
+                      width: "100%",
+                      height: formValues.title
+                        ? "calc(100% - 80px)"
+                        : "calc(100% - 40px)",
                       position: "relative",
                     }}
                   >
@@ -739,7 +728,7 @@ const PrintControl = () => {
                   </div>
 
                   {/* Footer in Preview */}
-                  
+                  {formValues.footerText && (
                     <div
                       className="preview-ui"
                       style={{
@@ -755,7 +744,7 @@ const PrintControl = () => {
                     >
                       {formValues.footerText}
                     </div>
-                  
+                  )}
                 </div>
               </Spin>
             </div>
