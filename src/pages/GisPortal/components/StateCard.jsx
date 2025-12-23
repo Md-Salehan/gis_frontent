@@ -2,12 +2,15 @@ import React from "react";
 // import "./StateCard.css";
 import { Card } from "antd";
 import { useNavigate } from "react-router-dom";
+import { setPortalId } from "../../../store/slices/portalSlice";
+import { useDispatch } from "react-redux";
 
 const StateCard = ({ portal }) => {
-  console.log(portal, "portal in state card");
+  const dispatch = useDispatch();
   
   const navigate = useNavigate();
   const handleNavigate = () => {
+    // dispatch(setPortalId(portal));
     navigate(`/gis-dashboard/${portal?.portal_id}`);
   };
 

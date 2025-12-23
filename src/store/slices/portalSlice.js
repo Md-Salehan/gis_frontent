@@ -1,7 +1,8 @@
 import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
-  selectedPortal: null,
+  portalId: null,
+  portalList: [],
   activeTab: 'all',
   filters: {
     searchQuery: '',
@@ -14,8 +15,11 @@ const portalSlice = createSlice({
   name: 'portal',
   initialState,
   reducers: {
-    setSelectedPortal: (state, action) => {
-      state.selectedPortal = action.payload;
+    setPortalId: (state, action) => {
+      state.portalId = action.payload;
+    },
+    setPortalList: (state, action) => {
+      state.portalList = action.payload;
     },
     setActiveTab: (state, action) => {
       state.activeTab = action.payload;
@@ -30,7 +34,8 @@ const portalSlice = createSlice({
 });
 
 export const {
-  setSelectedPortal,
+  setPortalId,
+  setPortalList,
   setActiveTab,
   updateFilters,
   resetFilters

@@ -25,7 +25,7 @@ const MapResizer = ({ orientation, format, scaleValue }) => {
   useEffect(() => {
     // Use setTimeout to ensure DOM has updated
     const timer = setTimeout(() => {
-      map.invalidateSize();
+      map.invalidateSize(); // Ensure the map container is properly resized
       // Also trigger a re-render of tiles
       map.eachLayer((layer) => {
         if (layer.redraw) {

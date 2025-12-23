@@ -46,79 +46,42 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
     return map[key];
   }, [map, pane]);
 
-  // Memoize style function with print optimization
-  const style = useCallback(
-    (feature) => {
-      const props = metaData?.style || {};
+  
 
-      // Enhanced styles for print (slightly bolder)
-      const printStyle = {
-        color: props.stroke_color || DEFAULT_STYLES.color,
-        weight: Math.max(
-          1,
-          (props.stroke_width || DEFAULT_STYLES.weight) *
-            (isPrintModalOpen ? 1.2 : 1)
-        ), // 20% thicker for print
-        opacity: Math.min(
-          1,
-          (props.stroke_opacity || DEFAULT_STYLES.opacity) *
-            (isPrintModalOpen ? 1.1 : 1)
-        ),
-        fillOpacity: Math.min(
-          1,
-          (props.fill_opacity || DEFAULT_STYLES.fillOpacity) *
-            (isPrintModalOpen ? 1.1 : 1)
-        ),
-        fillColor: props.fill_color || DEFAULT_STYLES.fillColor,
+  // Memoize style function
+  const style = useCallback((feature) => {
+    const props = metaData?.style || {};
 
-        // Print-specific optimizations
-        lineCap: "round",
-        lineJoin: "round",
-        dashArray: isPrintModalOpen ? null : undefined, // Remove dashes for print clarity
-      };
+    // Get styles from properties
+    const customStyle = {
+      color: props.stroke_color || DEFAULT_STYLES.color ,
+      weight: props.stroke_width || DEFAULT_STYLES.weight,
+      opacity: props.stroke_opacity || DEFAULT_STYLES.opacity,
+      fillOpacity: props.fill_opacity || DEFAULT_STYLES.fillOpacity,
+      fillColor: props.fill_color || DEFAULT_STYLES.fillColor,
+    };
 
-      // Apply styles based on geometry type
-      switch (props.geom_typ) {
-        case GEOMETRY_TYPES.POLYGON:
-          return printStyle;
-        case GEOMETRY_TYPES.LINE:
-          return {
-            ...printStyle,
-            ...LINE_STYLE,
-            weight: Math.max(
-              2,
-              printStyle.weight * (isPrintModalOpen ? 1.3 : 1)
-            ), // Lines even thicker for print
-          };
-        case GEOMETRY_TYPES.POINT:
-          return {
-            radius: Math.max(
-              4,
-              (props.marker_size || DEFAULT_STYLES.radius) *
-                (isPrintModalOpen ? 1.2 : 1)
-            ),
-            color: props.stroke_color || DEFAULT_STYLES.color,
-            fillColor: props.fill_color || DEFAULT_STYLES.markerFillColor,
-            fillOpacity: Math.min(
-              1,
-              (props.fill_opacity || DEFAULT_STYLES.fillOpacity) *
-                (isPrintModalOpen ? 1.2 : 1)
-            ),
-            weight: Math.max(
-              1,
-              (props.stroke_width || DEFAULT_STYLES.weight) *
-                (isPrintModalOpen ? 1.2 : 1)
-            ),
-          };
-        default:
-          return {
-            ...DEFAULT_STYLES,
-            weight: DEFAULT_STYLES.weight * (isPrintModalOpen ? 1.2 : 1),
-          };
-      }
-    },
-    [metaData, isPrintModalOpen]
-  );
+    // Apply styles based on geometry type
+    switch (props.geom_typ) {
+      case GEOMETRY_TYPES.POLYGON: // Polygon
+        return customStyle;
+      case GEOMETRY_TYPES.LINE: // Line
+        return {
+          ...customStyle,
+          ...LINE_STYLE,
+        };
+      case GEOMETRY_TYPES.POINT: // Point
+        return {
+          radius: props.marker_size || DEFAULT_STYLES.radius,
+          color: props.stroke_color || DEFAULT_STYLES.color,
+          fillColor: props.fill_color || DEFAULT_STYLES.markerFillColor,
+          fillOpacity: props.fill_opacity || DEFAULT_STYLES.fillOpacity,
+          weight: props.stroke_width || DEFAULT_STYLES.weight,
+        };
+      default:
+        return DEFAULT_STYLES;
+    }
+  }, []);
 
   // Simplified onEachFeature for print (no interactivity)
   const onEachFeature = useCallback(

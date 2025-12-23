@@ -262,7 +262,7 @@ const PrintControl = () => {
 
     // Margins
     const margin = 10;
-    const headerHeight = values.title ? 15 : 0;
+    const headerHeight = values.title ? 15 : 5;
     const footerHeight = values.footerText ? 15 : 0;
 
     // Available space for map
@@ -276,33 +276,8 @@ const PrintControl = () => {
       pdf.setFont("helvetica", "bold");
       pdf.text(values.title, pageWidth / 2, margin + 8, { align: "center" });
 
-      // Add scale below title if provided
-      // if (values.mapScale) {
-      //   pdf.setFontSize(10);
-      //   pdf.setFont("helvetica", "normal");
-      //   pdf.text(
-      //     `Scale: ${formatScaleValue(values.mapScale)}`,
-      //     pageWidth / 2,
-      //     margin + 13,
-      //     {
-      //       align: "center",
-      //     }
-      //   );
-      // }
     } 
-    // else if (values.mapScale) {
-    //   // If no title, add scale at top
-    //   pdf.setFontSize(10);
-    //   pdf.setFont("helvetica", "bold");
-    //   pdf.text(
-    //     `Scale: ${formatScaleValue(values.mapScale)}`,
-    //     pageWidth / 2,
-    //     margin + 5,
-    //     {
-    //       align: "center",
-    //     }
-    //   );
-    // }
+    
     // Add scale if provided
       if (values.mapScale) {
         pdf.setFontSize(10);

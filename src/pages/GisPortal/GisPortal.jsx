@@ -5,21 +5,23 @@ import StateGrid from "./components/StateGrid";
 import FooterBar from "./components/FooterBar";
 import { useGetPortalsQuery } from "../../store/api/portalApi";
 import { AutoComplete, Input } from "antd";
-
+import { setPortalList } from "../../store/slices/portalSlice";
 
 const GisPortal = () => {
+  const dispatch = useDispatch();
   const { data: portalList = [], isLoading, error } = useGetPortalsQuery();
   const [filteredPortals, setFilteredPortals] = useState([]);
   const [options, setOptions] = useState([]);
 
   useEffect(() => {
     document.title = "GIS Portal";
+    dispatch(setPortalList(portalList));
     setFilteredPortals(portalList);
-  }, [portalList]);
-
+  }, [portalList, dispatch]);
+  
   const handleSearch = (value) => {
     const searchValue = value.toLowerCase();
-    
+
     // Generate search options based on portal names and descriptions
     const searchOptions = portalList
       .filter(

@@ -69,7 +69,7 @@ const GisDashboard = memo(() => {
     if (portal_id) {
       dispatch(setPortalId(portal_id));
     }
-  }, [portal_id]);
+  }, [portal_id, dispatch]);
 
   useEffect(() => {
     document.title = "GIS Dashboard";
