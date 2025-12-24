@@ -30,6 +30,7 @@
     "react-redux": "^9.2.0",
     "react-responsive": "^10.0.1",
     "react-router-dom": "^7.9.4",
+    "redux-persist": "^6.0.0",
     "svg2pdf.js": "^2.6.0"
   },
   "devDependencies": {

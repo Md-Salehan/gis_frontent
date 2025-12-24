@@ -14,7 +14,7 @@ const initialState = {
     metaData: null,
     feature: null,
   },
-  portalId: null,
+  // portalId: null,
   layerOrder: [], // array of layerIds to maintain order
   bufferLayers: {},
   bufferOrder: [],
@@ -85,12 +85,15 @@ const mapSlice = createSlice({
       state.measure = { ...state.measure, ...action.payload };
     },
     // Add new reducer for portal ID
-    setPortalId: (state, action) => {
-      state.portalId = action.payload;
-    },
+    // setPortalId: (state, action) => {
+    //   state.portalId = action.payload;
+    // },
     resetBuffer: (state) => {
       state.bufferLayers = {};
       state.bufferOrder = [];
+    },
+    resetMapState: (state) => {
+      return initialState;
     },
 
   },
@@ -108,7 +111,9 @@ export const {
   setMeasureType,
   setMeasureUnit,
   setMeasure,
-  setPortalId,
+  resetMapState,
+  resetMapState2,
+  // setPortalId,
   // setMultiSelectedRows,
   // toggleRowSelection,
   // clearMultiSelectedRows,

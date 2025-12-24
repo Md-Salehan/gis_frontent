@@ -9,7 +9,7 @@ import { updateViewport } from "../../../../store/slices/mapSlice";
 
 const Sidebar = memo(({}) => {
   const dispatch = useDispatch();
-  const { portalId } = useSelector((state) => state.map);
+  const { portalId } = useSelector((state) => state.portal);
   const [getLayers, { data: layerInfo, isLoading, error }] =
     useGetLayersMutation();
 

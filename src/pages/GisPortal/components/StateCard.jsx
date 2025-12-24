@@ -11,7 +11,7 @@ const StateCard = ({ portal }) => {
   const navigate = useNavigate();
   const handleNavigate = () => {
     // dispatch(setPortalId(portal));
-    navigate(`/gis-dashboard/${portal?.portal_id}`);
+    navigate(`/gis-dashboard/${portal?.portal_nm}`);
   };
 
   return (

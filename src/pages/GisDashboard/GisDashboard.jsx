@@ -14,8 +14,8 @@ import {
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
+  resetMapState,
   setGeoJsonLayer,
-  setPortalId,
   toggleSidebar,
 } from "../../store/slices/mapSlice";
 import "./GisDashboard.css";
@@ -54,22 +54,23 @@ import {
   toggleMeasure,
   togglePrintModal,
 } from "../../store/slices/uiSlice";
+import { setPortalId, setPortalIdByName } from "../../store/slices/portalSlice";
 const { Sider, Content, Header, Footer } = Layout;
 
 const GisDashboard = memo(() => {
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
-  const { portal_id } = useParams();
+  const { portal_nm } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { sidebarCollapsed } = useSelector((state) => state.map);
 
   useEffect(() => {
-    if (portal_id) {
-      dispatch(setPortalId(portal_id));
+    if (portal_nm) {
+      dispatch(setPortalIdByName(portal_nm));
     }
-  }, [portal_id, dispatch]);
+  }, [portal_nm]);
 
   useEffect(() => {
     document.title = "GIS Dashboard";
@@ -166,7 +167,10 @@ const GisDashboard = memo(() => {
                 <Tooltip title="Back">
                   <Button
                     type="text"
-                    onClick={() => navigate(-1)}
+                    onClick={() => {
+                      navigate(-1);
+                      dispatch(resetMapState());
+                    }}
                     icon={<LeftOutlined />}
                   />
                 </Tooltip>

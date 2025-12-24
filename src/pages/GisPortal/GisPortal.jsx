@@ -6,6 +6,7 @@ import FooterBar from "./components/FooterBar";
 import { useGetPortalsQuery } from "../../store/api/portalApi";
 import { AutoComplete, Input } from "antd";
 import { setPortalList } from "../../store/slices/portalSlice";
+import { useDispatch } from "react-redux";
 
 const GisPortal = () => {
   const dispatch = useDispatch();
@@ -15,10 +16,12 @@ const GisPortal = () => {
 
   useEffect(() => {
     document.title = "GIS Portal";
-    dispatch(setPortalList(portalList));
-    setFilteredPortals(portalList);
-  }, [portalList, dispatch]);
-  
+    if (portalList.length) {
+      dispatch(setPortalList(portalList));
+      setFilteredPortals(portalList);
+    }
+  }, [portalList]);
+
   const handleSearch = (value) => {
     const searchValue = value.toLowerCase();
 

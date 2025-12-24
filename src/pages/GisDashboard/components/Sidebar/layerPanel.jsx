@@ -58,7 +58,7 @@ LayerCheckbox.displayName = "LayerCheckbox";
 
 const LayerPanel = memo(({ layers = [] }) => {
   const dispatch = useDispatch();
-  const { portalId } = useSelector((state) => state.map);
+  const { portalId } = useSelector((state) => state.portal);
   const loadingMessage = useSelector((state) => state.ui.loadingMessage);
 
   const [checkedState, setCheckedState] = useState({

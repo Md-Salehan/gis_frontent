@@ -15,7 +15,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   setGeoJsonLayer,
-  setPortalId,
   toggleSidebar,
 } from "../../store/slices/mapSlice";
 import "./GisDashboard.css";
@@ -54,6 +53,7 @@ import {
   toggleMeasure,
   togglePrintModal,
 } from "../../store/slices/uiSlice";
+import { setPortalId } from "../../store/slices/portalSlice";
 const { Sider, Content, Header, Footer } = Layout;
 
 const GisDashboard = memo(() => {

@@ -13,7 +13,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Auth />} />
         <Route path="/portal" element={<GisPortal />} />
-        <Route path="/gis-dashboard/:portal_id" element={<GisDashboard />} />
+        <Route path="/gis-dashboard/:portal_nm" element={<GisDashboard />} />
         {/* Add more routes as needed */}
       </Routes>
     </Suspense>

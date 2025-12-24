@@ -4,7 +4,6 @@ import { DEFAULT_STYLES } from "../../constants";
 function LeyerIcon({ iconInfo }) {
   let geom_typ = iconInfo?.geom_typ;
   let iconType = "unknown-layer-icon";
-  console.log(iconInfo, "xxrxx");
 
   let style = {
     backgroundColor: iconInfo?.fill_color || DEFAULT_STYLES.fillColor,
@@ -14,9 +13,8 @@ function LeyerIcon({ iconInfo }) {
   // If an image URL is provided, render that
   const imgUrl = iconInfo?.marker_img_url;
   if (imgUrl) {
-    console.log("xxrxx Rendering image icon:", imgUrl);
     
-    const markerSize = iconInfo?.marker_size || 16;
+    const markerSize = 16;
     return (
       <div className="layer-icon" style={{}}>
         <img
@@ -67,7 +65,7 @@ function LeyerIcon({ iconInfo }) {
     };
   }
 
-  console.log(style, "xxr2");
+
 
   return <div className={iconType} style={style}></div>;
 }
