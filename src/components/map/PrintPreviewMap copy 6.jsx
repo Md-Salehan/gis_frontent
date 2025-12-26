@@ -58,7 +58,7 @@ const MapResizer = ({ orientation, format, scaleValue }) => {
 
 // Component to handle scale-based zoom adjustment
 // Component to handle scale-based zoom adjustment
-const ScaleController = memo(({ scaleValue, mapCenter, isUserZooming, mapScaleChangeSource }) => {
+const ScaleController = memo(({ scaleValue, mapCenter, isUserZooming }) => {
   const map = useMap();
   const lastScaleValue = useRef(scaleValue);
   const isSettingScale = useRef(false);
@@ -109,15 +109,12 @@ const ScaleController = memo(({ scaleValue, mapCenter, isUserZooming, mapScaleCh
     } catch (error) {
       console.error("Error setting map scale:", error);
     } finally {
-      console.log("xxq scalerControl");
-      
       // Reset the flag after a delay to prevent race conditions
-      mapScaleChangeSource.current = "zoomChange";
       setTimeout(() => {
         isSettingScale.current = false;
       }, 100);
     }
-  }, [map, scaleValue, mapCenter, isUserZooming, mapScaleChangeSource]);
+  }, [map, scaleValue, mapCenter, isUserZooming]);
 
   return null;
 });
@@ -125,13 +122,14 @@ const ScaleController = memo(({ scaleValue, mapCenter, isUserZooming, mapScaleCh
 // Sync zoom to scale and notify parent
 // Update ZoomScaleSync to track user interaction
 // Sync zoom to scale and notify parent
-const ZoomScaleSync = memo(({ onScaleChange, isUserZooming, mapScaleChangeSource }) => {
+const ZoomScaleSync = memo(({ onScaleChange, isUserZooming }) => {
   const map = useMap();
   const isProgrammaticZoom = useRef(false);
   const lastZoom = useRef(map?.getZoom?.() || 0);
 
   const updateScale = useCallback(() => {
-
+    
+    
     try {
       if (!map || isProgrammaticZoom.current) return;
 
@@ -147,7 +145,7 @@ const ZoomScaleSync = memo(({ onScaleChange, isUserZooming, mapScaleChangeSource
       if (Math.abs(lastZoom.current - zoom) > 0.01) {
         lastZoom.current = zoom;
         if (typeof onScaleChange === "function") {
-          onScaleChange(Math.round(scaleDen), "zoomChange");
+          onScaleChange(Math.round(scaleDen));
         }
       }
     } catch (err) {
@@ -160,55 +158,45 @@ const ZoomScaleSync = memo(({ onScaleChange, isUserZooming, mapScaleChangeSource
 
     const handleZoomStart = (e) => {
       // Check if this is a programmatic zoom (from ScaleController)
-      if (mapScaleChangeSource.current === "userInput" || mapScaleChangeSource.current === null) {
+      if (e.source === "scale-controller") {
         isProgrammaticZoom.current = true;
-        console.log("xxq 1", mapScaleChangeSource.current);
+        console.log("isProgrammaticZoom set to true");
         
       } else {
         isUserZooming.current = true;
-        console.log("xxq 2");
-        
       }
     };
 
     const handleZoomEnd = () => {
-      console.log("xxq end", mapScaleChangeSource.current);
-      
       if (isProgrammaticZoom.current) {
         isProgrammaticZoom.current = false;
-        console.log("xxq 3");
-        
       } else {
         isUserZooming.current = false;
-        console.log("xxq 4");
-        
         // Update scale after user zoom
         updateScale();
       }
     };
 
-    // const handleZoom = () => {
-    //   // For user-initiated zooms (mouse wheel), update scale in real-time
-    //   if (!isProgrammaticZoom.current && isUserZooming.current) {
-    //     console.log("xxq 5");
-        
-    //     // updateScale();
-    //   }
-    // };
+    const handleZoom = () => {
+      // For user-initiated zooms (mouse wheel), update scale in real-time
+      if (!isProgrammaticZoom.current && isUserZooming.current) {
+        updateScale();
+      }
+    };
 
     map.on("zoomstart", handleZoomStart);
-    // map.on("zoom", handleZoom);
+    map.on("zoom", handleZoom);
     map.on("zoomend", handleZoomEnd);
 
-    // // Initial update
-    // updateScale();
+    // Initial update
+    updateScale();
 
     return () => {
       map.off("zoomstart", handleZoomStart);
-      // map.off("zoom", handleZoom);
+      map.off("zoom", handleZoom);
       map.off("zoomend", handleZoomEnd);
     };
-  }, [map, onScaleChange, isUserZooming, updateScale, mapScaleChangeSource]); // Added missing dependencies
+  }, [map, onScaleChange, isUserZooming, updateScale]); // Added missing dependencies
 
   return null;
 });
@@ -224,7 +212,6 @@ const PrintPreviewMap = forwardRef(
       format,
       scaleValue,
       onScaleChange,
-      mapScaleChangeSource,
     },
     ref
   ) => {
@@ -347,13 +334,11 @@ const PrintPreviewMap = forwardRef(
           scaleValue={scaleValue}
           mapCenter={viewport?.center || [28.7041, 77.1025]}
           isUserZooming={isUserZooming}
-          mapScaleChangeSource={mapScaleChangeSource}
         />
 
         <ZoomScaleSync
           onScaleChange={onScaleChange}
           isUserZooming={isUserZooming}
-          mapScaleChangeSource={mapScaleChangeSource}
         />
 
         <ScaleControl
@@ -362,7 +347,6 @@ const PrintPreviewMap = forwardRef(
           metric={true}
           maxWidth={200}
           updateWhenIdle={true}
-          mapScaleChangeSource={mapScaleChangeSource}
         />
         <FitBounds geoJsonLayers={geoJsonLayers} />
 

@@ -35,7 +35,6 @@ const initialValues = {
   footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
   showLegend: false,
   mapScale: "250000",
-  // mapScaleChangeSource: null,
 };
 
 const PrintControl = () => {
@@ -49,27 +48,15 @@ const PrintControl = () => {
   const [form] = Form.useForm();
   const previewMapRef = useRef(null);
   const previewContainerRef = useRef(null);
-  const [presetValue, setPresetValue] = useState("250000");
+  const [presetValue, setPresetValue] = useState(undefined);
 
   // Form state for live preview updates
   const [formValues, setFormValues] = useState(initialValues);
-
-  const mapScaleChangeSource = useRef("userInput"); // "userInput" or "zoomChange" or null
 
   const debouncedMapScale = useDebounced(
     formValues.mapScale,
     presetValue ? 0 : 300
   );
-
-  useEffect(() => {
-    let t = null;
-    if(mapScaleChangeSource.current === "userInput") { 
-      t = setTimeout(() => {
-       mapScaleChangeSource.current = "zoomChange";
-      }, 300);
-    }
-    return () => clearTimeout(t);
-  }, [formValues.mapScale, mapScaleChangeSource.current]);
 
   // Paper dimensions in millimeters
   const PAPER_DIMENSIONS = useMemo(
@@ -192,15 +179,12 @@ const PrintControl = () => {
 
   // When map zoom changes (via scrollWheelZoom), update the scale input in the form
   const handleMapZoomScaleChange = useCallback(
-    (scaleDen, source) => {
+    (scaleDen) => {
       if (!scaleDen) return;
       const scaleStr = String(Math.round(scaleDen));
-
       // Update form field and local state to reflect new scale
       form.setFieldsValue({ mapScale: scaleStr });
       setFormValues((prev) => ({ ...prev, mapScale: scaleStr }));
-      mapScaleChangeSource.current = source;
-
       // Update preset selection if it matches one of the presets
       const found = scalePresets.find((p) => p.value === scaleStr);
       setPresetValue(found ? found.value : undefined);
@@ -446,7 +430,7 @@ const PrintControl = () => {
       width="95vw"
       style={{ maxWidth: "1600px" }}
       bodyStyle={{
-        padding: "24px",  
+        padding: "24px",
         maxHeight: "85vh",
         overflow: "hidden",
       }}
@@ -514,8 +498,7 @@ const PrintControl = () => {
                       value={presetValue}
                       onChange={(value) => {
                         form.setFieldsValue({ mapScale: value });
-                        setFormValues({ ...formValues, mapScale: value});
-                        mapScaleChangeSource.current = "userInput";
+                        setFormValues({ ...formValues, mapScale: value });
                         setPresetValue(value);
                       }}
                       onMouseDown={(e) => e.stopPropagation()}
@@ -741,7 +724,6 @@ const PrintControl = () => {
                       format={formValues.format}
                       scaleValue={parseScaleValue(debouncedMapScale)}
                       onScaleChange={handleMapZoomScaleChange}
-                      mapScaleChangeSource={mapScaleChangeSource}
                     />
                   </div>
 

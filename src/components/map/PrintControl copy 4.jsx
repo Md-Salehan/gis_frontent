@@ -25,6 +25,7 @@ import { toPng, toSvg } from "html-to-image";
 import jsPDF from "jspdf";
 import PrintPreviewMap from "./PrintPreviewMap";
 import useDebounced from "../../hooks/useDebounced";
+import { debounce } from "lodash";
 
 const { Option } = Select;
 
@@ -35,7 +36,6 @@ const initialValues = {
   footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
   showLegend: false,
   mapScale: "250000",
-  // mapScaleChangeSource: null,
 };
 
 const PrintControl = () => {
@@ -49,27 +49,21 @@ const PrintControl = () => {
   const [form] = Form.useForm();
   const previewMapRef = useRef(null);
   const previewContainerRef = useRef(null);
-  const [presetValue, setPresetValue] = useState("250000");
+  const [presetValue, setPresetValue] = useState(undefined);
 
   // Form state for live preview updates
   const [formValues, setFormValues] = useState(initialValues);
 
-  const mapScaleChangeSource = useRef("userInput"); // "userInput" or "zoomChange" or null
+  const [isScaleLocked, setIsScaleLocked] = useState(false);
+  const [mapZoomLevel, setMapZoomLevel] = useState(viewport?.zoom || 8);
+  const [previousScaleValue, setPreviousScaleValue] = useState(
+    initialValues.mapScale
+  );
 
   const debouncedMapScale = useDebounced(
     formValues.mapScale,
     presetValue ? 0 : 300
   );
-
-  useEffect(() => {
-    let t = null;
-    if(mapScaleChangeSource.current === "userInput") { 
-      t = setTimeout(() => {
-       mapScaleChangeSource.current = "zoomChange";
-      }, 300);
-    }
-    return () => clearTimeout(t);
-  }, [formValues.mapScale, mapScaleChangeSource.current]);
 
   // Paper dimensions in millimeters
   const PAPER_DIMENSIONS = useMemo(
@@ -189,24 +183,6 @@ const PrintControl = () => {
     { label: "1:100,000", value: "100000" },
     { label: "1:250,000", value: "250000" },
   ];
-
-  // When map zoom changes (via scrollWheelZoom), update the scale input in the form
-  const handleMapZoomScaleChange = useCallback(
-    (scaleDen, source) => {
-      if (!scaleDen) return;
-      const scaleStr = String(Math.round(scaleDen));
-
-      // Update form field and local state to reflect new scale
-      form.setFieldsValue({ mapScale: scaleStr });
-      setFormValues((prev) => ({ ...prev, mapScale: scaleStr }));
-      mapScaleChangeSource.current = source;
-
-      // Update preset selection if it matches one of the presets
-      const found = scalePresets.find((p) => p.value === scaleStr);
-      setPresetValue(found ? found.value : undefined);
-    },
-    [form, scalePresets]
-  );
 
   // Capture map container with html-to-image
   const captureMapImage = async () => {
@@ -421,6 +397,87 @@ const PrintControl = () => {
     }
   };
 
+  // Calculate scale from zoom level
+  const calculateScaleFromZoom = useCallback(
+    (zoom, lat = viewport?.center?.[0] || 28.7041) => {
+      // Calculate scale using standard GIS formula
+      // 156543.03392 meters/pixel at zoom 0 at equator
+      const metersPerPixel =
+        (156543.03392 * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, zoom);
+
+      // Assuming 96 DPI (standard screen)
+      const inchesPerMeter = 39.3701;
+      const dpi = 96;
+      const metersPerInch = 0.0254;
+
+      // Calculate map scale: 1 inch on map = X inches in reality
+      const inchesOnMapPerMeter = 1 / (metersPerPixel / metersPerInch);
+      const scaleDenominator = Math.round(inchesOnMapPerMeter * dpi);
+
+      // Return as string without "1:" prefix for consistency
+      return scaleDenominator.toString();
+    },
+    [viewport?.center]
+  );
+
+  // Debounced function to update scale from zoom
+  const updateScaleFromZoom = useCallback(
+    debounce((zoom, lat) => {
+      if (isScaleLocked) return;
+
+      const calculatedScale = calculateScaleFromZoom(zoom, lat);
+      form.setFieldsValue({ mapScale: calculatedScale });
+      setFormValues((prev) => ({ ...prev, mapScale: calculatedScale }));
+      setPresetValue(undefined);
+    }, 300),
+    [isScaleLocked, calculateScaleFromZoom]
+  );
+
+  // Handle map zoom changes from PrintPreviewMap
+  const handleMapZoomChange = useCallback(
+    (zoom) => {
+      if (zoom !== mapZoomLevel) {
+        setMapZoomLevel(zoom);
+        updateScaleFromZoom(zoom, viewport?.center?.[0]);
+      }
+    },
+    [mapZoomLevel, updateScaleFromZoom, viewport?.center]
+  );
+
+  // Handle scale input changes
+  const handleScaleChange = (value) => {
+    // Store the value for comparison
+    setPreviousScaleValue(value);
+
+    // If user is typing, lock the scale to prevent zoom updates
+    setIsScaleLocked(true);
+
+    // Parse the scale value
+    const parsedValue = parseScaleValue(value);
+    if (parsedValue) {
+      // Calculate zoom from scale
+      const scaleNumber = parseInt(parsedValue, 10);
+      const lat = viewport?.center?.[0] || 28.7041;
+
+      // Inverse of calculateScaleFromZoom
+      const metersPerPixel = (1 / scaleNumber) * 0.0254 * 96; // Convert scale to meters/pixel
+      const zoom = Math.log2(
+        (156543.03392 * Math.cos((lat * Math.PI) / 180)) / metersPerPixel
+      );
+
+      // Clamp zoom
+      const clampedZoom = Math.max(0, Math.min(20, zoom));
+
+      // Update preview map zoom through callback
+      if (previewMapRef.current && previewMapRef.current.setZoomFromScale) {
+        previewMapRef.current.setZoomFromScale(clampedZoom);
+      }
+    }
+
+    // Unlock after a delay
+    setTimeout(() => setIsScaleLocked(false), 1000);
+  };
+
   const handleResetForm = () => {
     form.resetFields();
     setFormValues(initialValues);
@@ -435,6 +492,11 @@ const PrintControl = () => {
 
   const handleFormChange = (changedValues, allValues) => {
     setFormValues(allValues);
+
+    // Check if mapScale changed
+    if (changedValues.mapScale !== undefined) {
+      handleScaleChange(changedValues.mapScale);
+    }
   };
 
   return (
@@ -446,7 +508,7 @@ const PrintControl = () => {
       width="95vw"
       style={{ maxWidth: "1600px" }}
       bodyStyle={{
-        padding: "24px",  
+        padding: "24px",
         maxHeight: "85vh",
         overflow: "hidden",
       }}
@@ -514,8 +576,7 @@ const PrintControl = () => {
                       value={presetValue}
                       onChange={(value) => {
                         form.setFieldsValue({ mapScale: value });
-                        setFormValues({ ...formValues, mapScale: value});
-                        mapScaleChangeSource.current = "userInput";
+                        setFormValues({ ...formValues, mapScale: value });
                         setPresetValue(value);
                       }}
                       onMouseDown={(e) => e.stopPropagation()}
@@ -740,8 +801,8 @@ const PrintControl = () => {
                       orientation={formValues.orientation}
                       format={formValues.format}
                       scaleValue={parseScaleValue(debouncedMapScale)}
-                      onScaleChange={handleMapZoomScaleChange}
-                      mapScaleChangeSource={mapScaleChangeSource}
+                      onZoomChange={handleMapZoomChange} // Add this prop
+                      initialZoom={mapZoomLevel}
                     />
                   </div>
 

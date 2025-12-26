@@ -35,7 +35,6 @@ const initialValues = {
   footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
   showLegend: false,
   mapScale: "250000",
-  // mapScaleChangeSource: null,
 };
 
 const PrintControl = () => {
@@ -49,27 +48,15 @@ const PrintControl = () => {
   const [form] = Form.useForm();
   const previewMapRef = useRef(null);
   const previewContainerRef = useRef(null);
-  const [presetValue, setPresetValue] = useState("250000");
+  const [presetValue, setPresetValue] = useState(undefined);
 
   // Form state for live preview updates
   const [formValues, setFormValues] = useState(initialValues);
-
-  const mapScaleChangeSource = useRef("userInput"); // "userInput" or "zoomChange" or null
 
   const debouncedMapScale = useDebounced(
     formValues.mapScale,
     presetValue ? 0 : 300
   );
-
-  useEffect(() => {
-    let t = null;
-    if(mapScaleChangeSource.current === "userInput") { 
-      t = setTimeout(() => {
-       mapScaleChangeSource.current = "zoomChange";
-      }, 300);
-    }
-    return () => clearTimeout(t);
-  }, [formValues.mapScale, mapScaleChangeSource.current]);
 
   // Paper dimensions in millimeters
   const PAPER_DIMENSIONS = useMemo(
@@ -190,24 +177,6 @@ const PrintControl = () => {
     { label: "1:250,000", value: "250000" },
   ];
 
-  // When map zoom changes (via scrollWheelZoom), update the scale input in the form
-  const handleMapZoomScaleChange = useCallback(
-    (scaleDen, source) => {
-      if (!scaleDen) return;
-      const scaleStr = String(Math.round(scaleDen));
-
-      // Update form field and local state to reflect new scale
-      form.setFieldsValue({ mapScale: scaleStr });
-      setFormValues((prev) => ({ ...prev, mapScale: scaleStr }));
-      mapScaleChangeSource.current = source;
-
-      // Update preset selection if it matches one of the presets
-      const found = scalePresets.find((p) => p.value === scaleStr);
-      setPresetValue(found ? found.value : undefined);
-    },
-    [form, scalePresets]
-  );
-
   // Capture map container with html-to-image
   const captureMapImage = async () => {
     try {
@@ -306,17 +275,18 @@ const PrintControl = () => {
       pdf.setFontSize(16);
       pdf.setFont("helvetica", "bold");
       pdf.text(values.title, pageWidth / 2, margin + 8, { align: "center" });
-    }
 
+    } 
+    
     // Add scale if provided
-    if (values.mapScale) {
-      pdf.setFontSize(10);
-      pdf.setFont("helvetica", "bold");
-      const formattedScale = formatScaleValue(values.mapScale);
-      pdf.text(`Scale: ${formattedScale}`, pageWidth - margin, margin, {
-        align: "right",
-      });
-    }
+      if (values.mapScale) {
+        pdf.setFontSize(10);
+        pdf.setFont("helvetica", "bold");
+        const formattedScale = formatScaleValue(values.mapScale);
+        pdf.text(`Scale: ${formattedScale}`, pageWidth - margin, margin, {
+          align: "right",
+        });
+      }
 
     // Add date in top-right corner
     const currentDate = new Date().toLocaleDateString("en-US", {
@@ -446,7 +416,7 @@ const PrintControl = () => {
       width="95vw"
       style={{ maxWidth: "1600px" }}
       bodyStyle={{
-        padding: "24px",  
+        padding: "24px",
         maxHeight: "85vh",
         overflow: "hidden",
       }}
@@ -514,8 +484,7 @@ const PrintControl = () => {
                       value={presetValue}
                       onChange={(value) => {
                         form.setFieldsValue({ mapScale: value });
-                        setFormValues({ ...formValues, mapScale: value});
-                        mapScaleChangeSource.current = "userInput";
+                        setFormValues({ ...formValues, mapScale: value });
                         setPresetValue(value);
                       }}
                       onMouseDown={(e) => e.stopPropagation()}
@@ -665,22 +634,23 @@ const PrintControl = () => {
                   }}
                 >
                   {/* Title in Preview */}
-
-                  <div
-                    className="preview-ui"
-                    style={{
-                      height: "40px",
-                      boxSizing: "border-box",
-                      padding: "10px",
-                      textAlign: "center",
-                      borderBottom: "1px solid #eee",
-                      fontSize: "14px",
-                      fontWeight: "bold",
-                      backgroundColor: "#fafafa",
-                    }}
-                  >
-                    {formValues.title}
-                  </div>
+                  
+                    <div
+                      className="preview-ui"
+                      style={{
+                        height: "40px",
+                        boxSizing: "border-box",
+                        padding: "10px",
+                        textAlign: "center",
+                        borderBottom: "1px solid #eee",
+                        fontSize: "14px",
+                        fontWeight: "bold",
+                        backgroundColor: "#fafafa",
+                      }}
+                    >
+                      {formValues.title}
+                    </div>
+                  
 
                   {/* Scale display in preview */}
                   {/* {debouncedMapScale && (
@@ -740,28 +710,27 @@ const PrintControl = () => {
                       orientation={formValues.orientation}
                       format={formValues.format}
                       scaleValue={parseScaleValue(debouncedMapScale)}
-                      onScaleChange={handleMapZoomScaleChange}
-                      mapScaleChangeSource={mapScaleChangeSource}
                     />
                   </div>
 
                   {/* Footer in Preview */}
-
-                  <div
-                    className="preview-ui"
-                    style={{
-                      height: "40px",
-                      boxSizing: "border-box",
-                      padding: "8px",
-                      textAlign: "center",
-                      borderTop: "1px solid #eee",
-                      fontSize: "10px",
-                      color: "#888",
-                      backgroundColor: "#fafafa",
-                    }}
-                  >
-                    {formValues.footerText}
-                  </div>
+                  
+                    <div
+                      className="preview-ui"
+                      style={{
+                        height: "40px",
+                        boxSizing: "border-box",
+                        padding: "8px",
+                        textAlign: "center",
+                        borderTop: "1px solid #eee",
+                        fontSize: "10px",
+                        color: "#888",
+                        backgroundColor: "#fafafa",
+                      }}
+                    >
+                      {formValues.footerText}
+                    </div>
+                  
                 </div>
               </Spin>
             </div>
