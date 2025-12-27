@@ -24,9 +24,9 @@ import {
 import { PANE_ZINDEX } from "../../constants";
 import FitBounds from "../common/FitBounds";
 import Base from "antd/es/typography/Base";
-import { debugScaleCalculations, parseScaleValue, scaleToZoom, scaleToZoomx, zoomToScale, zoomToScalex, zoomToScaley } from "../../utils";
 
 // Add a component to handle map updates when container size changes
+// Update MapResizer to avoid unnecessary redraws
 const MapResizer = ({ orientation, format, scaleValue }) => {
   const map = useMap();
   const lastProps = useRef({ orientation, format, scaleValue });
@@ -44,13 +44,19 @@ const MapResizer = ({ orientation, format, scaleValue }) => {
     // Use requestAnimationFrame for smoother updates
     requestAnimationFrame(() => {
       map.invalidateSize();
-     
+      // Remove the layer.redraw() calls as they cause flicker
+      // map.eachLayer((layer) => {
+      //   if (layer.redraw) {
+      //     layer.redraw();
+      //   }
+      // });
     });
   }, [map, orientation, format, scaleValue]);
 
   return null;
 };
 
+// Component to handle scale-based zoom adjustment
 // Component to handle scale-based zoom adjustment
 const ScaleController = memo(({ scaleValue, mapCenter, isUserZooming, mapScaleChangeSource }) => {
   const map = useMap();
@@ -71,36 +77,42 @@ const ScaleController = memo(({ scaleValue, mapCenter, isUserZooming, mapScaleCh
       isSettingScale.current = true;
 
       // Parse scale value (e.g., "1:5000" or "5000")
-      let scaleNumber = parseScaleValue(scaleValue);
-      
+      let scaleNumber;
+      if (scaleValue.includes(":")) {
+        const parts = scaleValue.split(":");
+        scaleNumber = parseFloat(parts[1] || parts[0]);
+      } else {
+        scaleNumber = parseFloat(scaleValue);
+      }
 
       if (isNaN(scaleNumber) || scaleNumber <= 0) {
         isSettingScale.current = false;
         return;
       }
 
-      // Extract latitude from mapCenter
-      const lat = Array.isArray(mapCenter) ? mapCenter[0] : mapCenter?.lat || 0;
-      // Use the utility function to calculate zoom
-      const clampedZoom = scaleToZoomx(scaleNumber, lat);
+      // Base scale at zoom 0
+      const baseScaleAtEquator = 500000000;
+      const targetScale = scaleNumber;
 
-
-
-      //debug
-      // debugScaleCalculations(scaleValue, lat, "ScaleController");
+      // Calculate approximate zoom level
+      const zoomLevel = Math.log2(baseScaleAtEquator / targetScale);
+      const clampedZoom = Math.max(
+        0,
+        Math.min(20, Math.round(zoomLevel * 10) / 10)
+      );
 
       // Get current zoom to avoid unnecessary updates
       const currentZoom = map.getZoom();
-      if (Math.abs(currentZoom - clampedZoom) > 0.1) {
+      if ("Math.abs(currentZoom - clampedZoom) > 0.1") {
         map.setZoom(clampedZoom, { animate: false });
       }
-      console.log("mylog scalerControl", mapScaleChangeSource.current);
     } catch (error) {
-      console.error("mylog scalerControl error:", error);
+      console.error("Error setting map scale:", error);
     } finally {
-      console.log("mylog scalerControl finnaly", mapScaleChangeSource.current);
+      console.log("xxq scalerControl");
       
       // Reset the flag after a delay to prevent race conditions
+      mapScaleChangeSource.current = "zoomChange";
       setTimeout(() => {
         isSettingScale.current = false;
       }, 100);
@@ -126,11 +138,10 @@ const ZoomScaleSync = memo(({ onScaleChange, isUserZooming, mapScaleChangeSource
       const zoom = map.getZoom();
       const center = map.getCenter();
       const lat = center?.lat || 0;
-      
-      // Use the utility function to calculate scale
-
-      const scaleDen = zoomToScaley(zoom, lat);
-
+      const dpi = 96;
+      const metersPerPixel =
+        (156543.03392 * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, zoom);
+      const scaleDen = metersPerPixel * dpi * 39.37;
 
       // Only update if zoom actually changed
       if (Math.abs(lastZoom.current - zoom) > 0.01) {
@@ -151,25 +162,25 @@ const ZoomScaleSync = memo(({ onScaleChange, isUserZooming, mapScaleChangeSource
       // Check if this is a programmatic zoom (from ScaleController)
       if (mapScaleChangeSource.current === "userInput" || mapScaleChangeSource.current === null) {
         isProgrammaticZoom.current = true;
-        console.log("mylog 1", mapScaleChangeSource.current);
+        console.log("xxq 1", mapScaleChangeSource.current);
         
       } else {
         isUserZooming.current = true;
-        console.log("mylog 2",  mapScaleChangeSource.current);
+        console.log("xxq 2");
         
       }
     };
 
     const handleZoomEnd = () => {
-      console.log("mylog end", mapScaleChangeSource.current);
+      console.log("xxq end", mapScaleChangeSource.current);
       
       if (isProgrammaticZoom.current) {
         isProgrammaticZoom.current = false;
-        console.log("mylog 3",  mapScaleChangeSource.current);
+        console.log("xxq 3");
         
       } else {
         isUserZooming.current = false;
-        console.log("mylog 4",  mapScaleChangeSource.current);
+        console.log("xxq 4");
         
         // Update scale after user zoom
         updateScale();
@@ -179,7 +190,7 @@ const ZoomScaleSync = memo(({ onScaleChange, isUserZooming, mapScaleChangeSource
     // const handleZoom = () => {
     //   // For user-initiated zooms (mouse wheel), update scale in real-time
     //   if (!isProgrammaticZoom.current && isUserZooming.current) {
-    //     console.log("mylog 5");
+    //     console.log("xxq 5");
         
     //     // updateScale();
     //   }
@@ -298,12 +309,11 @@ const PrintPreviewMap = forwardRef(
         zoom: viewport?.zoom || 8,
         style: { width: "100%", height: "100%" },
         zoomControl: false,
-        // doubleClickZoom: false,
-        // dragging: true,
-        // keyboard: false,
-        // scrollWheelZoom: true,
-        // touchZoom: false,
-        
+        doubleClickZoom: false,
+        dragging: true,
+        keyboard: false,
+        scrollWheelZoom: true,
+        touchZoom: false,
         // Add these props to help with re-rendering
         whenReady: () => {
           // This callback ensures map is initialized properly
@@ -349,11 +359,10 @@ const PrintPreviewMap = forwardRef(
         <ScaleControl
           position="bottomleft"
           imperial={true}
-          metric={false}
+          metric={true}
           maxWidth={200}
           updateWhenIdle={true}
           mapScaleChangeSource={mapScaleChangeSource}
-
         />
         <FitBounds geoJsonLayers={geoJsonLayers} />
 

@@ -30,7 +30,8 @@ const MapPanel = memo(() => {
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
   const viewport = useSelector((state) => state.map.viewport);
   const isLegendVisible = useSelector((state) => state.ui.isLegendVisible);
-
+  const isPrintModalOpen = useSelector((state) => state.ui.isPrintModalOpen);
+  
   // buffers (kept separately)
   const bufferLayers = useSelector((state) => state.map.bufferLayers);
   const bufferOrder = useSelector((state) => state.map.bufferOrder);
@@ -170,7 +171,7 @@ const MapPanel = memo(() => {
         <Legend visible={isLegendVisible} />
         <AttributeTableDrawer />
         <MeasureControl />
-        <PrintControl />
+        {isPrintModalOpen && <PrintControl />}
         <BufferToolDrawer />
       </MapContainer>
     </div>

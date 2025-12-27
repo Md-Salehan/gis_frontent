@@ -86,7 +86,7 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
   // Simplified onEachFeature for print (no interactivity)
   const onEachFeature = useCallback(
     (feature, layer) => {
-      if (feature.properties) {
+      if (feature.properties && !isPrintModalOpen) {
         const title = "Tooltip";
         const geometryType = feature.geometry?.type?.toLowerCase();
         let coordinates = null;
@@ -107,11 +107,11 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
       }
 
       // Disable hover effects and click for print
-      if (isPrintModalOpen) {
-        layer.off("mouseover");
-        layer.off("mouseout");
-        layer.off("click");
-      } else {
+      // if (isPrintModalOpen) {
+      //   layer.off("mouseover");
+      //   layer.off("mouseout");
+      //   layer.off("click");
+      // } else {
         // highlight on mouseover
         layer.on("mouseover", (e) => {
           const currentStyle = style(feature);
@@ -129,29 +129,30 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
         });
 
         // click -> save selected feature and center map viewport on it
-        // layer.on("click", (e) => {
-        //   try {
-        //     const bounds = layer.getBounds?.();
-        //     console.log(bounds, "bounds");
+        layer.on("click", (e) => {
+          try {
+            const bounds = layer.getBounds?.();
+            console.log(bounds, "bounds");
 
-        //     if (bounds?.isValid()) {
-        //       const center = bounds.getCenter();
-        //       dispatch(
-        //         updateViewport({
-        //           center: [center.lat, center.lng],
-        //           zoom: Math.min(16, viewport.zoom || 13),
-        //         })
-        //       );
-        //     } else if (feature.geometry?.coordinates) {
-        //       const [lng, lat] = feature.geometry.coordinates;
-        //       dispatch(updateViewport({ center: [lat, lng] }));
-        //     }
-        //   } catch (err) {
-        //     // ignore
-        //   }
-        // });
+            if (bounds?.isValid()) {
+              const center = bounds.getCenter();
+              dispatch(
+                updateViewport({
+                  center: [center.lat, center.lng],
+                  zoom: Math.min(16, viewport.zoom || 13),
+                })
+              );
+            } else if (feature.geometry?.coordinates) {
+              const [lng, lat] = feature.geometry.coordinates;
+              dispatch(updateViewport({ center: [lat, lng] }));
+            }
+          } catch (err) {
+            // ignore
+          }
+        });
       }
-    },
+    // }
+    ,
     [dispatch, style, viewport.zoom, isPrintModalOpen]
   );
 
@@ -212,7 +213,7 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
         onEachFeature={onEachFeature}
         pane={pane}
         renderer={isPrintModalOpen ? svgRenderer : canvasRenderer} // Force SVG for print
-        interactive={!isPrintModalOpen} // Disable interactivity for print
+        // interactive={!isPrintModalOpen} // Disable interactivity for print
       />
       {/* Label layer renders labels (centroid) for active layers using metadata styles */}
       <LabelLayer

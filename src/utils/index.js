@@ -7,3 +7,4 @@ export * from './styleUtils';
 export * from './tooltipUtils';
 export * from './labelUtils';
 export * from './extractLeafletSVG';
+export * from './mapScaleCalculations';
