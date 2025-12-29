@@ -102,18 +102,14 @@ const ScaleController = memo(
           ? mapCenter[0]
           : mapCenter?.lat || 0;
         // Use the utility function to calculate zoom
-        const clampedZoom = scaleToZoomx(scaleNumber, lat);
+        const clampedZoom = Math.floor(scaleToZoomx(scaleNumber, lat));
 
         //debug
         // debugScaleCalculations(scaleValue, lat, "ScaleController");
 
-        // Get current zoom to avoid unnecessary updates
-        const currentZoom = map.getZoom();
-        if (Math.abs(currentZoom - clampedZoom) > 0.1) {
-          // map.setZoom(clampedZoom, { animate: false });
-          if (mapCenter && mapCenter.length === 2) {
-            map.setView(mapCenter, clampedZoom);
-          }
+        // map.setZoom(clampedZoom, { animate: false });
+        if (mapCenter && mapCenter.length === 2) {
+          map.setView(mapCenter, clampedZoom);
         }
         mapScaleChangeSource.current = "zoomChange";
         console.log(
@@ -159,11 +155,9 @@ const ZoomScaleSync = memo(
         const scaleDen = zoomToScaley(zoom, lat);
 
         // Only update if zoom actually changed
-        if (Math.abs(lastZoom.current - zoom) > 0.01) {
-          lastZoom.current = zoom;
-          if (typeof onScaleChange === "function") {
-            onScaleChange(scaleDen, "zoomChange");
-          }
+        lastZoom.current = zoom;
+        if (typeof onScaleChange === "function") {
+          onScaleChange(scaleDen, "zoomChange");
         }
       } catch (err) {
         console.error("ZoomScaleSync error:", err);
