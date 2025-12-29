@@ -12,6 +12,7 @@ import {
   LINE_STYLE,
 } from "../../constants";
 import LabelLayer from "./LabelLayer";
+import { meta } from "@eslint/js";
 
 const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
   const dispatch = useDispatch();
@@ -85,11 +86,12 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
 
   // Simplified onEachFeature for print (no interactivity)
   const onEachFeature = useCallback(
-    (feature, layer) => {
+    (feature, layer, layer_nm) => {
       if (feature.properties && !isPrintModalOpen) {
         const title = "Tooltip";
         const geometryType = feature.geometry?.type?.toLowerCase();
         let coordinates = null;
+        // layerNm = metaData?.name || "Layer";
 
         // Extract coordinates for points
         if (geometryType === "point" && feature.geometry?.coordinates) {
@@ -97,12 +99,24 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
           coordinates = L.latLng(lat, lng);
         }
 
-        bindTooltip(
+
+        console.log(
+          layer_nm,
           layer,
           { ...feature.properties },
           title,
           coordinates,
           geometryType
+        , "mylog tooltip");
+        
+
+        bindTooltip(
+          layer,
+          { ...feature.properties },
+          title,
+          coordinates,
+          geometryType,
+          layer_nm
         );
       }
 
@@ -210,7 +224,7 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
         data={geoJsonData}
         style={style}
         pointToLayer={pointToLayer}
-        onEachFeature={onEachFeature}
+        onEachFeature={(feature, layer) => onEachFeature(feature, layer, metaData?.layer?.layer_nm)}
         pane={pane}
         renderer={isPrintModalOpen ? svgRenderer : canvasRenderer} // Force SVG for print
         // interactive={!isPrintModalOpen} // Disable interactivity for print

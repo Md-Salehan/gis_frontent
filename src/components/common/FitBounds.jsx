@@ -52,14 +52,17 @@ const FitBounds = memo(({ geoJsonLayers }) => {
               })
             );
             map.fitBounds(combinedBounds, {
-              padding: [10, 10],
-              maxZoom: 16,
+              padding: [0, 0],
+              // maxZoom: 16,
               animate: false,
             });
           } catch (e) {
             console.log(e, "error in fitbounds");
 
-            map.fitBounds(combinedBounds, { padding: [10, 10], maxZoom: 16 });
+            map.fitBounds(combinedBounds, { 
+              padding: [10, 10], 
+              // maxZoom: 16 
+            });
           }
         }
 

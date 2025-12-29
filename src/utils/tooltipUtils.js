@@ -259,7 +259,8 @@ const generatePropertiesSection = (properties = {}) => {
 const generateTooltipHTML = (
   properties = {},
   latlng = null,
-  geometryType = ""
+  geometryType = "",
+  layer_nm = ""
 ) => {
   const isPoint = geometryType === "point" || geometryType === "P";
 
@@ -272,6 +273,7 @@ const generateTooltipHTML = (
           </svg>
           Feature Details
         </h2>
+        <div style="margin-top:4px;margin-left:25px;font-size:12px;color:#d1d5db;font-weight:500;">${layer_nm || "Unnamed Layer"}</div>
       </div>
 
       <!-- unified scrollable content block: coordinates, images, properties are inside this element -->
@@ -296,10 +298,11 @@ export const bindTooltip = (
   properties = {},
   title = "",
   latlng = null,
-  geometryType = ""
+  geometryType = "",
+  layer_nm = ""
 ) => {
   if (properties && Object.keys(properties).length > 0) {
-    const tooltipHtml = generateTooltipHTML(properties, latlng, geometryType);
+    const tooltipHtml = generateTooltipHTML(properties, latlng, geometryType, layer_nm);
     layer.bindPopup(tooltipHtml, {
       ...POPUP_CONFIG,
       className: "enhanced-tooltip",

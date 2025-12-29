@@ -47,25 +47,26 @@ const MapResizer = ({ orientation, format, scaleValue }) => {
 
     if (!propsChanged) return;
     console.log("mylog MapResizer props changed:", currentProps);
-
+    
     lastProps.current = currentProps;
 
-    // Use requestAnimationFrame for smoother updates
-    requestAnimationFrame(() => {
-      map.invalidateSize();
-    });
+    // // Use requestAnimationFrame for smoother updates
+    // requestAnimationFrame(() => {
+    //   map.invalidateSize();
+    // });
 
     // Use setTimeout to ensure DOM has updated
-    // const timer = setTimeout(() => {
-    //   map.invalidateSize(); // Ensure the map container is properly resized
-    //   // Also trigger a re-render of tiles
-    //   map.eachLayer((layer) => {
-    //     if (layer.redraw) {
-    //       layer.redraw();
-    //     }
-    //   });
-    // }, 100);
-    // return () => clearTimeout(timer);
+    const timer = setTimeout(() => {
+      map.invalidateSize(); // Ensure the map container is properly resized
+      // Also trigger a re-render of tiles
+      map.eachLayer((layer) => {
+        if (layer.redraw) {
+          layer.redraw();
+        }
+      });
+    }, 100);
+    
+    return () => clearTimeout(timer);
   }, [map, orientation, format, scaleValue]);
 
   return null;
@@ -78,20 +79,14 @@ const ScaleController = memo(
     const lastScaleValue = useRef(scaleValue);
 
     useEffect(() => {
-      console.log("mylog scalerControl 1", mapScaleChangeSource.current);
       // Don't adjust zoom if user is manually zooming or if we're already setting scale
       if (mapScaleChangeSource.current !== "userInput") return;
-      console.log("mylog scalerControl 2", mapScaleChangeSource.current);
 
       if (!scaleValue || !mapCenter) return;
-      console.log(
-        "mylog scalerControl 3",
-        mapScaleChangeSource.current,
-        lastScaleValue.current,
-        scaleValue
-      );
 
-      console.log("mylog scalerControl 4", mapScaleChangeSource.current);
+      // Skip if scaleValue hasn't changed
+      if (lastScaleValue.current === scaleValue) return;
+      lastScaleValue.current = scaleValue;
 
       try {
         // Parse scale value (e.g., "1:5000" or "5000")
@@ -110,17 +105,9 @@ const ScaleController = memo(
         // Get current zoom to avoid unnecessary updates
         const currentZoom = map.getZoom();
         if (Math.abs(currentZoom - clampedZoom) > 0.1) {
-          // map.setZoom(clampedZoom, { animate: false });
-          if (mapCenter && mapCenter.length === 2) {
-            map.setView(mapCenter, clampedZoom);
-          }
+          map.setZoom(clampedZoom, { animate: false });
         }
-        mapScaleChangeSource.current = "zoomChange";
-        console.log(
-          "mylog scalerControl 2",
-          clampedZoom,
-          mapScaleChangeSource.current
-        );
+        console.log("mylog scalerControl", mapScaleChangeSource.current);
       } catch (error) {
         console.error("mylog scalerControl error:", error);
       } finally {
@@ -175,15 +162,15 @@ const ZoomScaleSync = memo(
 
       const handleZoomStart = (e) => {
         console.log("mylog start", mapScaleChangeSource.current);
-        mapScaleChangeSource.current = "zoomChange";
       };
 
       const handleZoomEnd = () => {
         console.log("mylog end", mapScaleChangeSource.current);
         // Update scale after user zoom
         updateScale();
-        // mapScaleChangeSource.current = "userInput";
       };
+
+      
 
       map.on("zoomstart", handleZoomStart);
       // map.on("zoom", handleZoom);
@@ -312,6 +299,8 @@ const PrintPreviewMap = forwardRef(
       }),
       [viewport]
     );
+
+
 
     return (
       <MapContainer {...mapSettings} ref={ref}>
