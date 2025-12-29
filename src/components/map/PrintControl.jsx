@@ -666,6 +666,7 @@ const PrintControl = () => {
             <h3 className="print-panel-title">Preview</h3>
 
             {/* Preview Container */}
+            
             <div
               style={{
                 width: "100%",
@@ -678,6 +679,8 @@ const PrintControl = () => {
                 padding: "20px",
               }}
             >
+              <Spin spinning={loading} tip="Rendering preview...">
+                
               <div
                 ref={previewContainerRef}
                 style={{
@@ -789,6 +792,7 @@ const PrintControl = () => {
                   {formValues.footerText}
                 </div>
               </div>
+              </Spin>
             </div>
 
             {/* Preview Info */}
