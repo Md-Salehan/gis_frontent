@@ -131,7 +131,7 @@ const MapPanel = memo(() => {
   return (
     <div className="map-panel">
       <MapContainer {...mapSettings}>
-        <ZoomControl position="topleft" />
+        <ZoomControl position="topright" />
         <ScaleControl
           position="bottomright"
           imperial={true}

@@ -13,7 +13,7 @@ function GeomanControl() {
 
     // Add controls to the map
     map.pm.addControls({
-      position: 'topleft', // Position of the toolbar
+      position: 'topright', // Position of the toolbar
       drawMarker: true,
       drawCircle: true,
       drawPolyline: true,

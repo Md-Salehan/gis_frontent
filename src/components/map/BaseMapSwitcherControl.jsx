@@ -32,7 +32,7 @@ export default function BaseMapSwitcherControl() {
         style={{
           position: "absolute",
           top: 8,
-          right: 8,
+          left: 8,
           zIndex: 1200,
           display: "flex",
           flexDirection: "column",
