@@ -7,6 +7,7 @@ export const DEFAULT_STYLES = {
   fillColor: "transparent",
   markerFillColor: "#000000",
   radius: 3,
+  markerSize: 8,
 };
 
 // Selected feature highlighting styles

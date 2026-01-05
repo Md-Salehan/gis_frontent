@@ -8,7 +8,7 @@ import { getGeomFullForm } from "../../utils";
 
 const Legend = ({ visible }) => {
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
-  const portal_id = useSelector((state) => state.map.portalId);
+  const portal_id = useSelector((state) => state.portal.portalId);
   const [getLegend, { isLoading }] = useGetLegendMutation();
   const [legendItems, setLegendItems] = useState(null);
   const [error, setError] = useState(null);
@@ -29,8 +29,11 @@ const Legend = ({ visible }) => {
           layer_ids: layerIds,
           // options: { include_bbox: true, include_sld: true },
         };
+        console.log(payload, "legend");
+        
         const res = await getLegend(payload).unwrap();
         if (mounted) {
+          
           setLegendItems(res?.data || null);
         }
       } catch (err) {
@@ -123,6 +126,8 @@ const Legend = ({ visible }) => {
                       borderRadius: '3px',
                     }}
                   /> */}
+                  {console.log({ ...s.style, geom_typ: s.geom_type }, "legend")
+                  }
                   <LeyerIcon iconInfo={{ ...s.style, geom_typ: s.geom_type }} />
                   <div>
                     {/* <div style={{ fontSize: 13 }}>{s.label || s.value}</div> */}

@@ -133,7 +133,8 @@
 
 .state-image {
   width: 80%;
-  height: auto;
+  height: 80%;
+  object-fit: contain;
   margin-top: 15px;
 }
 

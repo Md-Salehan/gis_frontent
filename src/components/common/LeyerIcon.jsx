@@ -34,7 +34,7 @@ function LeyerIcon({ iconInfo }) {
   const faName = iconInfo?.marker_fa_icon_name;
   if (faName) {
     const markerSize = 16; // default size
-    const markerColor = iconInfo?.fill_color || DEFAULT_STYLES.color;
+    const markerColor = iconInfo?.marker_color || DEFAULT_STYLES.markerFillColor;
 
     const iStyle = {
       fontSize: `${markerSize}px`,

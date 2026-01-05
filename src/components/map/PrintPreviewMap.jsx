@@ -283,6 +283,7 @@ const PrintPreviewMap = forwardRef(
           geoJsonData={data.geoJsonData}
           metaData={data.metaData}
           pane={`pane-layer-${layerId}`}
+          isPrintModalOpen={true}
         />
       ));
     }, [sortedLayers]);

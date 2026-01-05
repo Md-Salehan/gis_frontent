@@ -14,12 +14,12 @@ import {
 import LabelLayer from "./LabelLayer";
 import { meta } from "@eslint/js";
 
-const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
+const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane, isPrintModalOpen = false }) => {
   const dispatch = useDispatch();
   const viewport = useSelector((state) => state.map.viewport);
   const map = useMap();
   // FIXED: Check if print modal is open
-  const isPrintModalOpen = useSelector((state) => state.ui.isPrintModalOpen);
+  // const isPrintModalOpen = useSelector((state) => state.ui.isPrintModalOpen);
 
   // Optimized renderers per pane:
   // - Canvas for normal view (fast)
@@ -47,7 +47,9 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
     return map[key];
   }, [map, pane]);
 
-  
+  const normalizevalue = (value) => {
+    return value * (isPrintModalOpen ? 0.5 : 1);
+  };
 
   // Memoize style function
   const style = useCallback((feature) => {
@@ -55,8 +57,8 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
 
     // Get styles from properties
     const customStyle = {
-      color: props.stroke_color || DEFAULT_STYLES.color ,
-      weight: props.stroke_width || DEFAULT_STYLES.weight,
+      color: props.stroke_color || DEFAULT_STYLES.color,
+      weight: normalizevalue(props.stroke_width || DEFAULT_STYLES.weight),
       opacity: props.stroke_opacity || DEFAULT_STYLES.opacity,
       fillOpacity: props.fill_opacity || DEFAULT_STYLES.fillOpacity,
       fillColor: props.fill_color || DEFAULT_STYLES.fillColor,
@@ -73,11 +75,11 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
         };
       case GEOMETRY_TYPES.POINT: // Point
         return {
-          radius: props.marker_size || DEFAULT_STYLES.radius,
+          radius: normalizevalue(props.marker_size || DEFAULT_STYLES.radius),
           color: props.stroke_color || DEFAULT_STYLES.color,
           fillColor: props.fill_color || DEFAULT_STYLES.markerFillColor,
           fillOpacity: props.fill_opacity || DEFAULT_STYLES.fillOpacity,
-          weight: props.stroke_width || DEFAULT_STYLES.weight,
+          weight: normalizevalue(props.stroke_width || DEFAULT_STYLES.weight),
         };
       default:
         return DEFAULT_STYLES;
@@ -99,17 +101,6 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
           coordinates = L.latLng(lat, lng);
         }
 
-
-        console.log(
-          layer_nm,
-          layer,
-          { ...feature.properties },
-          title,
-          coordinates,
-          geometryType
-        , "mylog tooltip");
-        
-
         bindTooltip(
           layer,
           { ...feature.properties },
@@ -126,47 +117,46 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
       //   layer.off("mouseout");
       //   layer.off("click");
       // } else {
-        // highlight on mouseover
-        layer.on("mouseover", (e) => {
-          const currentStyle = style(feature);
-          e.target.setStyle({
-            ...currentStyle,
-            weight: currentStyle.weight + HOVER_STYLE_CONFIG.weightIncrease,
-            fillOpacity:
-              (currentStyle.fillOpacity || 0) +
-              HOVER_STYLE_CONFIG.fillOpacityIncrease,
-          });
+      // highlight on mouseover
+      layer.on("mouseover", (e) => {
+        const currentStyle = style(feature);
+        e.target.setStyle({
+          ...currentStyle,
+          weight: currentStyle.weight + HOVER_STYLE_CONFIG.weightIncrease,
+          fillOpacity:
+            (currentStyle.fillOpacity || 0) +
+            HOVER_STYLE_CONFIG.fillOpacityIncrease,
         });
+      });
 
-        layer.on("mouseout", (e) => {
-          e.target.setStyle(style(feature));
-        });
+      layer.on("mouseout", (e) => {
+        e.target.setStyle(style(feature));
+      });
 
-        // click -> save selected feature and center map viewport on it
-        layer.on("click", (e) => {
-          try {
-            const bounds = layer.getBounds?.();
-            console.log(bounds, "bounds");
+      // click -> save selected feature and center map viewport on it
+      layer.on("click", (e) => {
+        try {
+          const bounds = layer.getBounds?.();
+          console.log(bounds, "bounds");
 
-            if (bounds?.isValid()) {
-              const center = bounds.getCenter();
-              dispatch(
-                updateViewport({
-                  center: [center.lat, center.lng],
-                  zoom: Math.min(16, viewport.zoom || 13),
-                })
-              );
-            } else if (feature.geometry?.coordinates) {
-              const [lng, lat] = feature.geometry.coordinates;
-              dispatch(updateViewport({ center: [lat, lng] }));
-            }
-          } catch (err) {
-            // ignore
+          if (bounds?.isValid()) {
+            const center = bounds.getCenter();
+            dispatch(
+              updateViewport({
+                center: [center.lat, center.lng],
+                zoom: Math.min(16, viewport.zoom || 13),
+              })
+            );
+          } else if (feature.geometry?.coordinates) {
+            const [lng, lat] = feature.geometry.coordinates;
+            dispatch(updateViewport({ center: [lat, lng] }));
           }
-        });
-      }
+        } catch (err) {
+          // ignore
+        }
+      });
+    },
     // }
-    ,
     [dispatch, style, viewport.zoom, isPrintModalOpen]
   );
 
@@ -175,10 +165,11 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
       const props = metaData?.style || {};
       const iconName = props.marker_fa_icon_name;
       const iconImg = props.marker_img_url;
-      const markerSize =
-        Math.max(8, Number(props.marker_size) || 18) *
-        (isPrintModalOpen ? 1.2 : 1);
-      const markerColor = props.marker_color || "#2c3e50";
+      const radius = normalizevalue(props.marker_size || DEFAULT_STYLES.radius);
+      const markerSize = normalizevalue(
+        Number(props.marker_size) || DEFAULT_STYLES.markerSize
+      );
+      const markerColor = props.marker_color || DEFAULT_STYLES.markerFillColor;
 
       if (iconImg) {
         const icon = L.icon({
@@ -208,10 +199,8 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
       // Enhanced circle marker for print
       return L.circleMarker(latlng, {
         ...style(feature),
-        radius: Math.max(
-          4,
-          (props.marker_size || 8) * (isPrintModalOpen ? 1.2 : 1)
-        ),
+        radius: radius,
+        // className: isPrintModalOpen ? "print-circle-marker" : "",
       });
     },
     [style, metaData, isPrintModalOpen]
@@ -224,7 +213,9 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane }) => {
         data={geoJsonData}
         style={style}
         pointToLayer={pointToLayer}
-        onEachFeature={(feature, layer) => onEachFeature(feature, layer, metaData?.layer?.layer_nm)}
+        onEachFeature={(feature, layer) =>
+          onEachFeature(feature, layer, metaData?.layer?.layer_nm)
+        }
         pane={pane}
         renderer={isPrintModalOpen ? svgRenderer : canvasRenderer} // Force SVG for print
         // interactive={!isPrintModalOpen} // Disable interactivity for print
