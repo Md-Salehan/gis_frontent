@@ -3,6 +3,7 @@ import { Card, Spin, Alert } from "antd";
 import { useSelector } from "react-redux";
 import { useGetLegendMutation } from "../../store/api/legendApi";
 import LeyerIcon from "./LeyerIcon";
+import { getGeomFullForm } from "../../utils";
 import { DragOutlined } from "@ant-design/icons";
 
 const Legend = ({ visible }) => {
@@ -55,151 +56,115 @@ const Legend = ({ visible }) => {
     };
   }, [visible, geoJsonLayers, getLegend, portal_id]);
 
-  // Helper: clamp
-  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  // Compute & clamp helper
+  const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
 
-  // Helper: find nearest positioned parent (offsetParent fallback)
-  const findPositionedParent = (el) => {
-    // Prefer offsetParent, otherwise walk up until a non-static ancestor
-    let p = el.offsetParent || el.parentElement;
-    while (p && p !== document.body) {
-      const cs = getComputedStyle(p);
-      if (cs && cs.position && cs.position !== "static") return p;
-      p = p.parentElement;
-    }
-    return document.body;
-  };
-
-  // Compute & set initial position + clamp existing pos on resize
+  // Initialize position and keep within bounds when size changes
   useEffect(() => {
     if (!visible) return;
     const el = legendRef.current;
     if (!el) return;
-
-    const parent = findPositionedParent(el);
+    const parent = el.parentElement || el.offsetParent || document.body;
     parentRef.current = parent;
 
-    const margin = 20;
-
-    const computeAndSet = () => {
+    const computeAndSetInitial = () => {
       const parentRect = parent.getBoundingClientRect();
       const legendRect = el.getBoundingClientRect();
-
-      const maxX = Math.max(0, parentRect.width - legendRect.width - margin);
-      const maxY = Math.max(0, parentRect.height - legendRect.height - margin);
-
-      setPos((prev) => {
-        // if not moved yet, initialize bottom-right with margin
-        if (prev.x == null && prev.y == null) {
-          return { x: maxX, y: maxY };
-        }
-        // clamp existing pos so it never goes outside after a resize
-        const clampedX = clamp(prev.x, 0, Math.max(0, parentRect.width - legendRect.width));
-        const clampedY = clamp(prev.y, 0, Math.max(0, parentRect.height - legendRect.height));
-        return { x: clampedX, y: clampedY };
+      const margin = 20;
+      const initX = clamp(parentRect.width - legendRect.width - margin, 0, parentRect.width);
+      const initY = clamp(parentRect.height - legendRect.height - margin, 0, parentRect.height);
+      setPos((p) => {
+        // don't overwrite if user already dragged
+        if (p.x !== null && p.y !== null) return p;
+        return { x: initX, y: initY };
       });
     };
 
-    // Observe size changes of parent and legend
-    const ro = new ResizeObserver(() => computeAndSet());
-    try {
-      ro.observe(parent);
-      ro.observe(el);
-    } catch (e) {
-      // Ignore if ResizeObserver isn't available
-    }
+    // Use ResizeObserver to respond to content or parent changes
+    const ro = new ResizeObserver(() => computeAndSetInitial());
+    ro.observe(parent);
+    ro.observe(el);
     // initial run
-    requestAnimationFrame(computeAndSet);
-    window.addEventListener("resize", computeAndSet);
+    requestAnimationFrame(computeAndSetInitial);
+    const onWinResize = () => computeAndSetInitial();
+    window.addEventListener("resize", onWinResize);
 
     return () => {
       ro.disconnect();
-      window.removeEventListener("resize", computeAndSet);
+      window.removeEventListener("resize", onWinResize);
     };
-  }, [visible, legendItems]);
+  }, [visible, legendItems]); // recalc if legend content changes size
 
-  // Pointer handlers
-  const onPointerDown = useCallback(
-    (e) => {
-      // Only primary button (touch/pointer ok)
-      if (e.button && e.button !== 0) return;
-      e.preventDefault();
-      e.stopPropagation();
+  // Pointer event handlers
+  const onPointerDown = useCallback((e) => {
+    // only primary button
+    if (e.button && e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
 
-      const el = legendRef.current;
-      const parent = parentRef.current || (el && findPositionedParent(el));
-      if (!el || !parent) return;
+    const el = legendRef.current;
+    const parent = parentRef.current || (el && el.parentElement);
+    if (!el || !parent) return;
 
-      const legendRect = el.getBoundingClientRect();
-      const parentRect = parent.getBoundingClientRect();
-      const margin = 20;
+    const legendRect = el.getBoundingClientRect();
+    const parentRect = parent.getBoundingClientRect();
 
-      const maxX = Math.max(0, parentRect.width - legendRect.width - margin);
-      const maxY = Math.max(0, parentRect.height - legendRect.height - margin);
+    startRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      origX:
+        pos.x !== null
+          ? pos.x
+          : clamp(parentRect.width - legendRect.width - 20, 0, parentRect.width),
+      origY:
+        pos.y !== null
+          ? pos.y
+          : clamp(parentRect.height - legendRect.height - 20, 0, parentRect.height),
+      legendW: legendRect.width,
+      legendH: legendRect.height,
+      parentW: parentRect.width,
+      parentH: parentRect.height,
+      pointerId: e.pointerId,
+    };
 
-      startRef.current = {
-        startX: e.clientX,
-        startY: e.clientY,
-        origX: pos.x != null ? pos.x : maxX,
-        origY: pos.y != null ? pos.y : maxY,
-        legendW: legendRect.width,
-        legendH: legendRect.height,
-        parentW: parentRect.width,
-        parentH: parentRect.height,
-        pointerId: e.pointerId,
-      };
+    try {
+      el.setPointerCapture(e.pointerId);
+    } catch (err) {
+      // ignore if not supported
+    }
+    setIsDragging(true);
+  }, [pos]);
 
-      try {
-        el.setPointerCapture(e.pointerId);
-      } catch (err) {
-        // ignore
+  const onPointerMove = useCallback((e) => {
+    if (!isDragging || !startRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const s = startRef.current;
+    const dx = e.clientX - s.startX;
+    const dy = e.clientY - s.startY;
+    const newX = clamp(s.origX + dx, 0, Math.max(0, s.parentW - s.legendW));
+    const newY = clamp(s.origY + dy, 0, Math.max(0, s.parentH - s.legendH));
+    setPos({ x: newX, y: newY });
+  }, [isDragging]);
+
+  const onPointerUp = useCallback((e) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const el = legendRef.current;
+    try {
+      if (el && startRef.current && startRef.current.pointerId === e.pointerId) {
+        el.releasePointerCapture(e.pointerId);
       }
-      setIsDragging(true);
-      // visually helpful cursor on body
-      document.body.style.cursor = "grabbing";
-      document.body.style.userSelect = "none";
-    },
-    [pos]
-  );
+    } catch (err) {
+      // ignore
+    }
+    startRef.current = null;
+    setIsDragging(false);
+  }, [isDragging]);
 
-  const onPointerMove = useCallback(
-    (e) => {
-      if (!isDragging || !startRef.current) return;
-      e.preventDefault();
-      e.stopPropagation();
-
-      const s = startRef.current;
-      const dx = e.clientX - s.startX;
-      const dy = e.clientY - s.startY;
-      const newX = clamp(s.origX + dx, 0, Math.max(0, s.parentW - s.legendW));
-      const newY = clamp(s.origY + dy, 0, Math.max(0, s.parentH - s.legendH));
-      setPos({ x: newX, y: newY });
-    },
-    [isDragging]
-  );
-
-  const onPointerUp = useCallback(
-    (e) => {
-      if (!isDragging) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const el = legendRef.current;
-      try {
-        if (el && startRef.current && startRef.current.pointerId === e.pointerId) {
-          el.releasePointerCapture(e.pointerId);
-        }
-      } catch (err) {
-        // ignore
-      }
-      startRef.current = null;
-      setIsDragging(false);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-    },
-    [isDragging]
-  );
-
-  // Attach global handlers only while dragging
+  // Attach document-level listeners while dragging to ensure consistent behavior
   useEffect(() => {
     if (!isDragging) return;
     window.addEventListener("pointermove", onPointerMove);
@@ -212,7 +177,7 @@ const Legend = ({ visible }) => {
     };
   }, [isDragging, onPointerMove, onPointerUp]);
 
-  // Keyboard accessibility: arrow nudging
+  // Keyboard accessibility: allow nudging with arrow keys
   const onKeyDown = (e) => {
     if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) return;
     e.preventDefault();
@@ -237,12 +202,6 @@ const Legend = ({ visible }) => {
 
   if (!visible) return null;
 
-  // Use transform for smoother updates; fall back to bottom-right when not moved
-  const transformStyle =
-    pos.x != null && pos.y != null
-      ? { left: 0, top: 0, transform: `translate3d(${pos.x}px, ${pos.y}px, 0)`, willChange: "transform" }
-      : { right: 20, bottom: 20 };
-
   return (
     <Card
       ref={legendRef}
@@ -258,7 +217,6 @@ const Legend = ({ visible }) => {
             gap: 8,
             userSelect: "none",
           }}
-          aria-hidden="true"
         >
           <DragOutlined />
           Legend
@@ -267,18 +225,20 @@ const Legend = ({ visible }) => {
       style={{
         position: "absolute",
         zIndex: 1000,
-        ...transformStyle,
+        left: pos.x != null ? pos.x : undefined,
+        top: pos.y != null ? pos.y : undefined,
+        right: pos.x == null ? 20 : undefined,
+        bottom: pos.y == null ? 20 : undefined,
         backgroundColor: "white",
         maxWidth: "320px",
         maxHeight: "400px",
         overflowY: "auto",
-        touchAction: "none",
+        touchAction: "none", // prevent touch scrolling while dragging
         userSelect: isDragging ? "none" : "auto",
       }}
       tabIndex={0}
       onKeyDown={onKeyDown}
       aria-label="Map legend (draggable)"
-      aria-grabbed={isDragging}
     >
       {isLoading && (
         <div style={{ textAlign: "center", padding: 12 }}>

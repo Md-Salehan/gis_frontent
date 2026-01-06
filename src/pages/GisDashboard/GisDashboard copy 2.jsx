@@ -10,8 +10,6 @@ import {
   Row,
   Col,
   Tooltip,
-  Dropdown,
-  message,
 } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -37,7 +35,6 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   LeftOutlined,
-  LogoutOutlined,
 } from "@ant-design/icons";
 import {
   Download,
@@ -58,7 +55,6 @@ import {
   togglePrintModal,
 } from "../../store/slices/uiSlice";
 import { setPortalId, setPortalIdByName } from "../../store/slices/portalSlice";
-import { logout } from "../../store/slices/authSlice";
 const { Sider, Content, Header, Footer } = Layout;
 
 const GisDashboard = memo(() => {
@@ -80,7 +76,7 @@ const GisDashboard = memo(() => {
     document.title = "GIS Dashboard";
     return () => {
       dispatch(resetMapState());
-    };
+    }
   }, []);
 
   useEffect(() => {
@@ -96,8 +92,9 @@ const GisDashboard = memo(() => {
         // dispatch(toggleLegend(false));
         // dispatch(togglePrintModal(false));
         // dispatch(toggleMeasure(false));
-        dispatch(toggleBuffer({ state: false }));
-        dispatch(toggleAttributeTable({ state: true }));
+        dispatch(toggleBuffer({state: false}));
+        dispatch(toggleAttributeTable({state: true}));
+
       },
     },
     {
@@ -127,6 +124,7 @@ const GisDashboard = memo(() => {
         // dispatch(toggleMeasure(false));
         // dispatch(toggleBuffer(false));
         dispatch(togglePrintModal());
+        
       },
     },
     {
@@ -134,10 +132,10 @@ const GisDashboard = memo(() => {
       icon: React.createElement(Proportions),
       label: "Buffer",
       onClick: () => {
-        dispatch(toggleAttributeTable({ state: false }));
+        dispatch(toggleAttributeTable({state: false}));
         // dispatch(togglePrintModal(false));
         // dispatch(toggleMeasure(false));
-        dispatch(toggleBuffer({ state: true }));
+        dispatch(toggleBuffer({state: true}));
       },
     },
   ];
@@ -145,29 +143,6 @@ const GisDashboard = memo(() => {
   const handleSiderCollapse = (collapsed) => {
     dispatch(toggleSidebar());
   };
-
-  // Avatar dropdown menu
-  const avatarMenuItems = [
-    {
-      key: "profile",
-      icon: <UserOutlined />,
-      label: "Profile",
-      onClick: () => {
-        navigate("/profile");
-      }
-    },
-    {
-      key: "logout",
-      icon: <LogoutOutlined />,
-      label: "Logout",
-      onClick: () => {
-        dispatch(logout());
-        navigate("/");
-      }
-    },
-  ];
-
-
 
   return (
     <Layout className="gis-layout" style={{ minHeight: "100vh" }}>
@@ -237,17 +212,9 @@ const GisDashboard = memo(() => {
             </Col>
 
             <Col>
-              <Dropdown
-                menu={{
-                  items: avatarMenuItems,
-                }}
-                placement="bottomRight"
-                trigger={["click"]}
-              >
-                <Space style={{ cursor: "pointer" }} align="middle">
-                  <Avatar icon={<UserOutlined />} />
-                </Space>
-              </Dropdown>
+              <Space align="middle">
+                <Avatar icon={<UserOutlined />} />
+              </Space>
             </Col>
           </Row>
         </Header>
