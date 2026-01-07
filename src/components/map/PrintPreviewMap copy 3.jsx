@@ -356,9 +356,9 @@ const PrintPreviewMap = forwardRef(
         {renderedLayers}
 
         {/* Legend if enabled */}
-        { (
+        {showLegend && (
           <Legend
-            visible={showLegend}
+            visible={true}
             isMovable={true}
             width={legendWidth}
             height={legendHeight}

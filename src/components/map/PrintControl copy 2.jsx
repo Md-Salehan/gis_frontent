@@ -18,7 +18,6 @@ import {
   Spin,
   Row,
   Col,
-  InputNumber,
 } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { togglePrintModal } from "../../store/slices/uiSlice";
@@ -36,10 +35,7 @@ const initialValues = {
   footerText: `Generated on ${new Date().toLocaleDateString()} | GIS Dashboard`,
   showLegend: false,
   mapScale: "250000",
-  legendWidth: null, // mm (matches Legend default maxWidth)
-  legendHeight: null, // mm
-  legendTitleFontSize: 13, // px
-  legendLabelFontSize: 11, // px
+  // mapScaleChangeSource: null,
 };
 
 const PrintControl = () => {
@@ -152,46 +148,6 @@ const PrintControl = () => {
       );
     }
 
-    return Promise.resolve();
-  };
-
-  const validateLegendWidth = (_, value) => {
-    if (value == null || value === "")
-      return Promise.reject(new Error("Please enter legend width"));
-    if (value < 100 || value > 800)
-      return Promise.reject(
-        new Error("Legend width must be between 100 and 800 mm")
-      );
-    return Promise.resolve();
-  };
-
-  const validateLegendHeight = (_, value) => {
-    if (value == null || value === "")
-      return Promise.reject(new Error("Please enter legend height"));
-    if (value < 100 || value > 1200)
-      return Promise.reject(
-        new Error("Legend height must be between 100 and 1200 mm")
-      );
-    return Promise.resolve();
-  };
-
-  const validateLegendTitleFont = (_, value) => {
-    if (value == null || value === "")
-      return Promise.reject(new Error("Please enter title font size"));
-    if (value < 8 || value > 36)
-      return Promise.reject(
-        new Error("Title font size must be between 8 and 36 px")
-      );
-    return Promise.resolve();
-  };
-
-  const validateLegendLabelFont = (_, value) => {
-    if (value == null || value === "")
-      return Promise.reject(new Error("Please enter label font size"));
-    if (value < 8 || value > 36)
-      return Promise.reject(
-        new Error("Label font size must be between 8 and 36 px")
-      );
     return Promise.resolve();
   };
 
@@ -490,8 +446,7 @@ const PrintControl = () => {
   };
 
   const handleFormChange = (changedValues, allValues) => {
-    // Merge changed values into state to avoid overwriting other fields
-    setFormValues((prev) => ({ ...prev, ...changedValues }));
+    setFormValues(allValues);
   };
 
   return (
@@ -666,95 +621,6 @@ const PrintControl = () => {
                 <Switch />
               </Form.Item>
 
-              {/* Legend styling options, shown only when legend enabled */}
-              {formValues.showLegend && (
-                <>
-                  <Row gutter={8}>
-                    <Col span={12}>
-                      <Form.Item
-                        label="Legend Width (mm)"
-                        name="legendWidth"
-                        rules={[{ validator: validateLegendWidth }]}
-                      >
-                        <InputNumber
-                          min={100}
-                          max={800}
-                          step={10}
-                          style={{ width: "100%" }}
-                          value={formValues.legendWidth}
-                          onChange={(v) =>
-                            setFormValues((p) => ({ ...p, legendWidth: v }))
-                          }
-                        />
-                      </Form.Item>
-                    </Col>
-
-                    <Col span={12}>
-                      <Form.Item
-                        label="Legend Height (mm)"
-                        name="legendHeight"
-                        rules={[{ validator: validateLegendHeight }]}
-                      >
-                        <InputNumber
-                          min={100}
-                          max={1200}
-                          step={10}
-                          style={{ width: "100%" }}
-                          value={formValues.legendHeight}
-                          onChange={(v) =>
-                            setFormValues((p) => ({ ...p, legendHeight: v }))
-                          }
-                        />
-                      </Form.Item>
-                    </Col>
-                  </Row>
-
-                  <Row gutter={8}>
-                    <Col span={12}>
-                      <Form.Item
-                        label="Legend Title Font Size (px)"
-                        name="legendTitleFontSize"
-                        rules={[{ validator: validateLegendTitleFont }]}
-                      >
-                        <InputNumber
-                          min={8}
-                          max={36}
-                          style={{ width: "100%" }}
-                          value={formValues.legendTitleFontSize}
-                          onChange={(v) =>
-                            setFormValues((p) => ({
-                              ...p,
-                              legendTitleFontSize: v,
-                            }))
-                          }
-                        />
-                      </Form.Item>
-                    </Col>
-
-                    <Col span={12}>
-                      <Form.Item
-                        label="Legend Label Font Size (px)"
-                        name="legendLabelFontSize"
-                        rules={[{ validator: validateLegendLabelFont }]}
-                      >
-                        <InputNumber
-                          min={8}
-                          max={36}
-                          style={{ width: "100%" }}
-                          value={formValues.legendLabelFontSize}
-                          onChange={(v) =>
-                            setFormValues((p) => ({
-                              ...p,
-                              legendLabelFontSize: v,
-                            }))
-                          }
-                        />
-                      </Form.Item>
-                    </Col>
-                  </Row>
-                </>
-              )}
-
               <Divider style={{ margin: "16px 0" }} />
 
               {/* Action Buttons */}
@@ -800,7 +666,7 @@ const PrintControl = () => {
             <h3 className="print-panel-title">Preview</h3>
 
             {/* Preview Container */}
-
+            
             <div
               style={{
                 width: "100%",
@@ -814,38 +680,39 @@ const PrintControl = () => {
               }}
             >
               <Spin spinning={loading} tip="Rendering preview...">
+                
+              <div
+                ref={previewContainerRef}
+                style={{
+                  width: `${previewDimensions.widthPx}px`,
+                  height: `${previewDimensions.heightPx}px`,
+                  backgroundColor: "white",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                  borderRadius: "2px",
+                  overflow: "hidden",
+                  position: "relative",
+                }}
+              >
+                {/* Title in Preview */}
+
                 <div
-                  ref={previewContainerRef}
+                  className="preview-ui"
                   style={{
-                    width: `${previewDimensions.widthPx}px`,
-                    height: `${previewDimensions.heightPx}px`,
-                    backgroundColor: "white",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                    borderRadius: "2px",
-                    overflow: "hidden",
-                    position: "relative",
+                    height: "40px",
+                    boxSizing: "border-box",
+                    padding: "10px",
+                    textAlign: "center",
+                    borderBottom: "1px solid #eee",
+                    fontSize: "14px",
+                    fontWeight: "bold",
+                    backgroundColor: "#fafafa",
                   }}
                 >
-                  {/* Title in Preview */}
+                  {formValues.title}
+                </div>
 
-                  <div
-                    className="preview-ui"
-                    style={{
-                      height: "40px",
-                      boxSizing: "border-box",
-                      padding: "10px",
-                      textAlign: "center",
-                      borderBottom: "1px solid #eee",
-                      fontSize: "14px",
-                      fontWeight: "bold",
-                      backgroundColor: "#fafafa",
-                    }}
-                  >
-                    {formValues.title}
-                  </div>
-
-                  {/* Scale display in preview */}
-                  {/* {debouncedMapScale && (
+                {/* Scale display in preview */}
+                {/* {debouncedMapScale && (
                     <div
                       className="preview-ui"
                       style={{
@@ -865,8 +732,8 @@ const PrintControl = () => {
                     </div>
                   )} */}
 
-                  {/* Date in preview */}
-                  {/* <div
+                {/* Date in preview */}
+                {/* <div
                     className="preview-ui"
                     style={{
                       position: "absolute",
@@ -884,57 +751,47 @@ const PrintControl = () => {
                     {new Date().toLocaleDateString()}
                   </div> */}
 
-                  {/* Live Map Preview */}
-                  <div
-                    style={{
-                      width: "95%",
-                      height: "calc(100% - 80px)",
-                      margin: "0 auto",
-                      position: "relative",
-                    }}
-                  >
-                    <PrintPreviewMap
-                      ref={previewMapRef}
-                      geoJsonLayers={geoJsonLayers}
-                      bufferLayers={bufferLayers}
-                      viewport={viewport}
-                      showLegend={formValues.showLegend}
-                      orientation={formValues.orientation}
-                      format={formValues.format}
-                      scaleValue={parseScaleValue(debouncedMapScale)}
-                      onScaleChange={handleMapZoomScaleChange}
-                      mapScaleChangeSource={mapScaleChangeSource}
-                      setFormValues={setFormValues}
-                      // Only include styling props when legend is enabled
-                      {...(formValues.showLegend
-                        ? {
-                            legendWidth: formValues.legendWidth,
-                            legendHeight: formValues.legendHeight,
-                            legendTitleFontSize: formValues.legendTitleFontSize,
-                            legendLabelFontSize: formValues.legendLabelFontSize,
-                          }
-                        : {})}
-                    />
-                  </div>
-
-                  {/* Footer in Preview */}
-
-                  <div
-                    className="preview-ui"
-                    style={{
-                      height: "40px",
-                      boxSizing: "border-box",
-                      padding: "8px",
-                      textAlign: "center",
-                      borderTop: "1px solid #eee",
-                      fontSize: "10px",
-                      color: "#888",
-                      backgroundColor: "#fafafa",
-                    }}
-                  >
-                    {formValues.footerText}
-                  </div>
+                {/* Live Map Preview */}
+                <div
+                  style={{
+                    width: "95%",
+                    height: "calc(100% - 80px)",
+                    margin: "0 auto",
+                    position: "relative",
+                  }}
+                >
+                  <PrintPreviewMap
+                    ref={previewMapRef}
+                    geoJsonLayers={geoJsonLayers}
+                    bufferLayers={bufferLayers}
+                    viewport={viewport}
+                    showLegend={formValues.showLegend}
+                    orientation={formValues.orientation}
+                    format={formValues.format}
+                    scaleValue={parseScaleValue(debouncedMapScale)}
+                    onScaleChange={handleMapZoomScaleChange}
+                    mapScaleChangeSource={mapScaleChangeSource}
+                  />
                 </div>
+
+                {/* Footer in Preview */}
+
+                <div
+                  className="preview-ui"
+                  style={{
+                    height: "40px",
+                    boxSizing: "border-box",
+                    padding: "8px",
+                    textAlign: "center",
+                    borderTop: "1px solid #eee",
+                    fontSize: "10px",
+                    color: "#888",
+                    backgroundColor: "#fafafa",
+                  }}
+                >
+                  {formValues.footerText}
+                </div>
+              </div>
               </Spin>
             </div>
 

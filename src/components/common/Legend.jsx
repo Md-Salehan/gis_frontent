@@ -5,7 +5,17 @@ import { useGetLegendMutation } from "../../store/api/legendApi";
 import LeyerIcon from "./LeyerIcon";
 import { DragOutlined } from "@ant-design/icons";
 
-const Legend = ({ visible }) => {
+const Legend = ({
+  visible,
+  isMovable = false,
+  width,
+  height,
+  titleFontSize,
+  labelFontSize,
+  getDimentions,
+}) => {
+  console.log(width, height, titleFontSize, labelFontSize, "xx4");
+  
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
   const portal_id = useSelector((state) => state.portal.portalId);
   const [getLegend, { isLoading }] = useGetLegendMutation();
@@ -18,6 +28,13 @@ const Legend = ({ visible }) => {
   const startRef = useRef(null); // { startX, startY, origX, origY, legendW, legendH, parentW, parentH }
   const [pos, setPos] = useState({ x: null, y: null });
   const [isDragging, setIsDragging] = useState(false);
+
+  useEffect(() => {
+    if (getDimentions && legendRef.current) {
+      const rect = legendRef.current.getBoundingClientRect();
+      getDimentions({ width: Math.floor(rect.width), height: Math.floor(rect.height) });
+    } 
+  }, [getDimentions, legendRef, legendItems]);
 
   // Fetch legend when visible and layers exist
   useEffect(() => {
@@ -72,14 +89,15 @@ const Legend = ({ visible }) => {
 
   // Compute & set initial position + clamp existing pos on resize
   useEffect(() => {
-    if (!visible) return;
+    if (!isMovable || !visible) return;
+
     const el = legendRef.current;
     if (!el) return;
 
     const parent = findPositionedParent(el);
     parentRef.current = parent;
 
-    const margin = 20;
+    const margin = 80;
 
     const computeAndSet = () => {
       const parentRect = parent.getBoundingClientRect();
@@ -94,8 +112,16 @@ const Legend = ({ visible }) => {
           return { x: maxX, y: maxY };
         }
         // clamp existing pos so it never goes outside after a resize
-        const clampedX = clamp(prev.x, 0, Math.max(0, parentRect.width - legendRect.width));
-        const clampedY = clamp(prev.y, 0, Math.max(0, parentRect.height - legendRect.height));
+        const clampedX = clamp(
+          prev.x,
+          0,
+          Math.max(0, parentRect.width - legendRect.width)
+        );
+        const clampedY = clamp(
+          prev.y,
+          0,
+          Math.max(0, parentRect.height - legendRect.height)
+        );
         return { x: clampedX, y: clampedY };
       });
     };
@@ -185,7 +211,11 @@ const Legend = ({ visible }) => {
       e.stopPropagation();
       const el = legendRef.current;
       try {
-        if (el && startRef.current && startRef.current.pointerId === e.pointerId) {
+        if (
+          el &&
+          startRef.current &&
+          startRef.current.pointerId === e.pointerId
+        ) {
           el.releasePointerCapture(e.pointerId);
         }
       } catch (err) {
@@ -214,7 +244,8 @@ const Legend = ({ visible }) => {
 
   // Keyboard accessibility: arrow nudging
   const onKeyDown = (e) => {
-    if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) return;
+    if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key))
+      return;
     e.preventDefault();
     e.stopPropagation();
     const step = e.shiftKey ? 20 : 8;
@@ -222,8 +253,13 @@ const Legend = ({ visible }) => {
     if (!parent) return;
     const parentRect = parent.getBoundingClientRect();
     const el = legendRef.current;
-    const legendRect = el ? el.getBoundingClientRect() : { width: 0, height: 0 };
-    const current = { x: pos.x ?? parentRect.width - legendRect.width - 20, y: pos.y ?? parentRect.height - legendRect.height - 20 };
+    const legendRect = el
+      ? el.getBoundingClientRect()
+      : { width: 0, height: 0 };
+    const current = {
+      x: pos.x ?? parentRect.width - legendRect.width - 20,
+      y: pos.y ?? parentRect.height - legendRect.height - 20,
+    };
     let nx = current.x;
     let ny = current.y;
     if (e.key === "ArrowUp") ny = current.y - step;
@@ -240,8 +276,13 @@ const Legend = ({ visible }) => {
   // Use transform for smoother updates; fall back to bottom-right when not moved
   const transformStyle =
     pos.x != null && pos.y != null
-      ? { left: 0, top: 0, transform: `translate3d(${pos.x}px, ${pos.y}px, 0)`, willChange: "transform" }
-      : { right: 20, bottom: 20 };
+      ? {
+          left: 0,
+          top: 0,
+          transform: `translate3d(${pos.x}px, ${pos.y}px, 0)`,
+          willChange: "transform",
+        }
+      : { right: "1%", bottom: "8%" };
 
   return (
     <Card
@@ -250,7 +291,7 @@ const Legend = ({ visible }) => {
       size="small"
       title={
         <div
-          onPointerDown={onPointerDown}
+          onPointerDown={isMovable ? onPointerDown : undefined}
           style={{
             cursor: isDragging ? "grabbing" : "grab",
             display: "flex",
@@ -259,8 +300,9 @@ const Legend = ({ visible }) => {
             userSelect: "none",
           }}
           aria-hidden="true"
+          fontSize={titleFontSize ?? 13}
         >
-          <DragOutlined />
+          {isMovable && <DragOutlined />}
           Legend
         </div>
       }
@@ -269,14 +311,14 @@ const Legend = ({ visible }) => {
         zIndex: 1000,
         ...transformStyle,
         backgroundColor: "white",
-        maxWidth: "320px",
-        maxHeight: "400px",
+        width: width ?? "auto",
+        height: height ?? "auto",
         overflowY: "auto",
         touchAction: "none",
         userSelect: isDragging ? "none" : "auto",
       }}
       tabIndex={0}
-      onKeyDown={onKeyDown}
+      onKeyDown={isMovable ? onKeyDown : undefined}
       aria-label="Map legend (draggable)"
       aria-grabbed={isDragging}
     >
@@ -290,14 +332,20 @@ const Legend = ({ visible }) => {
         <Alert
           type="error"
           message="Error"
-          description={typeof error === "string" ? error : JSON.stringify(error)}
+          description={
+            typeof error === "string" ? error : JSON.stringify(error)
+          }
           showIcon
         />
       )}
 
-      {Object.entries(geoJsonLayers || {}).length === 0 && <div>No layer selected</div>}
+      {Object.entries(geoJsonLayers || {}).length === 0 && (
+        <div>No layer selected</div>
+      )}
 
-      {!isLoading && !error && legendItems && legendItems.length === 0 && <div>No legend items found</div>}
+      {!isLoading && !error && legendItems && legendItems.length === 0 && (
+        <div>No legend items found</div>
+      )}
 
       {!isLoading &&
         !error &&
@@ -317,7 +365,11 @@ const Legend = ({ visible }) => {
                 >
                   <LeyerIcon iconInfo={{ ...s.style, geom_typ: s.geom_type }} />
                   <div>
-                    <div style={{ fontSize: 11, color: "#888" }}>{s.label || ""}</div>
+                    <div
+                      style={{ fontSize: labelFontSize ?? 11, color: "#888" }}
+                    >
+                      {s.label || ""}
+                    </div>
                   </div>
                 </div>
               ))}
