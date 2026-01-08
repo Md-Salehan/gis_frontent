@@ -209,7 +209,7 @@ const PrintPreviewMap = forwardRef(
       scaleValue,
       onScaleChange,
       mapScaleChangeSource,
-      handleLegendDimensions,
+      setFormValues,
       legendWidth,
       legendHeight,
       legendTitleFontSize,
@@ -366,10 +366,12 @@ const PrintPreviewMap = forwardRef(
             labelFontSize={legendLabelFontSize}
             getDimentions={(dims) => {
               // Update legend dimensions in form values
-              if (handleLegendDimensions) {
-                      console.log(dims, "xx5 2");
-
-                handleLegendDimensions(dims);
+              if (setFormValues) {
+                setFormValues((prev) => ({
+                  ...prev,
+                  legendWidth: dims.width,
+                  legendHeight: dims.height,
+                }));
               }
             }}
           />

@@ -15,7 +15,7 @@ const Legend = ({
   getDimentions,
 }) => {
   console.log(width, height, titleFontSize, labelFontSize, "xx4");
-
+  
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
   const portal_id = useSelector((state) => state.portal.portalId);
   const [getLegend, { isLoading }] = useGetLegendMutation();
@@ -30,29 +30,11 @@ const Legend = ({
   const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
-    let t;
-
-    if (
-      getDimentions &&
-      legendRef.current &&
-      !width &&
-      !height &&
-      legendItems
-    ) {
+    if (getDimentions && legendRef.current) {
       const rect = legendRef.current.getBoundingClientRect();
-      
-
-      t = setTimeout(() => {
-        // Return pixel values directly - no conversion needed
-        getDimentions({
-          width: Math.ceil(rect.width),
-          height: Math.ceil(rect.height),
-        });
-      }, 500);
-    }
-
-    return () => clearTimeout(t);
-  }, [getDimentions, legendRef, width, height, legendItems]);
+      getDimentions({ width: Math.floor(rect.width), height: Math.floor(rect.height) });
+    } 
+  }, [getDimentions, legendRef, legendItems]);
 
   // Fetch legend when visible and layers exist
   useEffect(() => {
@@ -309,7 +291,6 @@ const Legend = ({
       size="small"
       title={
         <div
-        className="vvvvv"
           onPointerDown={isMovable ? onPointerDown : undefined}
           style={{
             cursor: isDragging ? "grabbing" : "grab",
@@ -317,10 +298,9 @@ const Legend = ({
             alignItems: "center",
             gap: 8,
             userSelect: "none",
-            fontSize: titleFontSize ?? 14,
           }}
           aria-hidden="true"
-          
+          fontSize={titleFontSize ?? 13}
         >
           {isMovable && <DragOutlined />}
           Legend

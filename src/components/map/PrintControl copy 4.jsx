@@ -158,10 +158,9 @@ const PrintControl = () => {
   const validateLegendWidth = (_, value) => {
     if (value == null || value === "")
       return Promise.reject(new Error("Please enter legend width"));
-    if (value < 50 || value > 2000)
-      // Example: 50px to 2000px
+    if (value < 100 || value > 800)
       return Promise.reject(
-        new Error("Legend width must be between 50 and 2000 px")
+        new Error("Legend width must be between 100 and 800 mm")
       );
     return Promise.resolve();
   };
@@ -169,10 +168,9 @@ const PrintControl = () => {
   const validateLegendHeight = (_, value) => {
     if (value == null || value === "")
       return Promise.reject(new Error("Please enter legend height"));
-    if (value < 50 || value > 3000)
-      // Example: 50px to 3000px
+    if (value < 100 || value > 1200)
       return Promise.reject(
-        new Error("Legend height must be between 50 and 3000 px")
+        new Error("Legend height must be between 100 and 1200 mm")
       );
     return Promise.resolve();
   };
@@ -496,23 +494,6 @@ const PrintControl = () => {
     setFormValues((prev) => ({ ...prev, ...changedValues }));
   };
 
-  const handleLegendDimensions = useCallback((dimensions) => {
-  if (dimensions.width && dimensions.height) {
-    // Update both state and form fields
-    setFormValues(prev => ({
-      ...prev,
-      legendWidth: dimensions.width,
-      legendHeight: dimensions.height
-    }));
-    
-    // This is the key part - update the form fields!
-    form.setFieldsValue({
-      legendWidth: dimensions.width,
-      legendHeight: dimensions.height
-    });
-  }
-}, [form]);
-
   return (
     <Modal
       title="Export Map to PDF"
@@ -695,7 +676,6 @@ const PrintControl = () => {
                         name="legendWidth"
                         rules={[{ validator: validateLegendWidth }]}
                       >
-                        {console.log(formValues, "xx5 3")}
                         <InputNumber
                           min={100}
                           max={800}
@@ -924,7 +904,6 @@ const PrintControl = () => {
                       scaleValue={parseScaleValue(debouncedMapScale)}
                       onScaleChange={handleMapZoomScaleChange}
                       mapScaleChangeSource={mapScaleChangeSource}
-                      handleLegendDimensions={handleLegendDimensions}
                       // Only include styling props when legend is enabled
                       {...(formValues.showLegend
                         ? {

@@ -209,7 +209,6 @@ const PrintPreviewMap = forwardRef(
       scaleValue,
       onScaleChange,
       mapScaleChangeSource,
-      handleLegendDimensions,
       legendWidth,
       legendHeight,
       legendTitleFontSize,
@@ -356,7 +355,7 @@ const PrintPreviewMap = forwardRef(
         {renderedLayers}
 
         {/* Legend if enabled */}
-        { (
+        
           <Legend
             visible={showLegend}
             isMovable={true}
@@ -364,16 +363,9 @@ const PrintPreviewMap = forwardRef(
             height={legendHeight}
             titleFontSize={legendTitleFontSize}
             labelFontSize={legendLabelFontSize}
-            getDimentions={(dims) => {
-              // Update legend dimensions in form values
-              if (handleLegendDimensions) {
-                      console.log(dims, "xx5 2");
-
-                handleLegendDimensions(dims);
-              }
-            }}
+            
           />
-        )}
+        
       </MapContainer>
     );
   }
