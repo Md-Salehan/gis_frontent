@@ -14,7 +14,6 @@ const Legend = ({
   labelFontSize,
   getDimentions,
 }) => {
-  console.log(width, height, titleFontSize, labelFontSize, "xx4");
 
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
   const portal_id = useSelector((state) => state.portal.portalId);
@@ -107,7 +106,7 @@ const Legend = ({
 
   // Compute & set initial position + clamp existing pos on resize
   useEffect(() => {
-    if (!isMovable || !visible) return;
+    if (!isMovable || !visible || !legendItems) return;
 
     const el = legendRef.current;
     if (!el) return;
@@ -115,7 +114,7 @@ const Legend = ({
     const parent = findPositionedParent(el);
     parentRef.current = parent;
 
-    const margin = 80;
+    const margin = 10;
 
     const computeAndSet = () => {
       const parentRect = parent.getBoundingClientRect();
@@ -176,7 +175,7 @@ const Legend = ({
 
       const legendRect = el.getBoundingClientRect();
       const parentRect = parent.getBoundingClientRect();
-      const margin = 20;
+      const margin = 10;
 
       const maxX = Math.max(0, parentRect.width - legendRect.width - margin);
       const maxY = Math.max(0, parentRect.height - legendRect.height - margin);
@@ -300,7 +299,7 @@ const Legend = ({
           transform: `translate3d(${pos.x}px, ${pos.y}px, 0)`,
           willChange: "transform",
         }
-      : { right: "1%", bottom: "8%" };
+      : { right: "1%", bottom: isMovable ? "1%" : "8%" };
 
   return (
     <Card

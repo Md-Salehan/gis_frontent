@@ -23,7 +23,7 @@ const StateCard = ({ portal }) => {
     }
 
     // relative path → prepend API base URL
-    return `${import.meta.env.VITE_API_URL}${path}`;
+    return `${import.meta.env.VITE_JAVA_SERVER_PREFIX}${path}`;
   };
 
   return (
@@ -33,11 +33,13 @@ const StateCard = ({ portal }) => {
       hoverable
       variant={false}
     >
+      <div className="state-img-wpr">
       <img
         src={getImgUrl(portal?.portal_logo_img_url)}
         alt={portal?.portal_nm}
         className="state-image"
       />
+      </div>
       <p className="state-name">{portal?.portal_nm}</p>
     </Card>
   );

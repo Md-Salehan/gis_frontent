@@ -10,7 +10,7 @@ const baseQuery = fetchBaseQuery({
     headers.set("Content-Type", "application/json");
     return headers;
   },
-  credentials: "include",
+  credentials: "omit",
 });
 
 export const baseApi = createApi({

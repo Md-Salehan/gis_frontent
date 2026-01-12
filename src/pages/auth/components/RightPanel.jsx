@@ -37,6 +37,7 @@ const handleLogin = async () => {
           setCredentials({
             user: response.scplAdContext,
             token: response.scplAdContext.access,
+            appLogNo: response.scplAdContext.appLogNo,
           })
         );
         message.success("Logged in successfully!");

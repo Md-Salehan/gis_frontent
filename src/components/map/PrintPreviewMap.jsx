@@ -46,7 +46,6 @@ const MapResizer = ({ orientation, format, scaleValue }) => {
       JSON.stringify(lastProps.current) !== JSON.stringify(currentProps);
 
     if (!propsChanged) return;
-    console.log("mylog MapResizer props changed:", currentProps);
 
     lastProps.current = currentProps;
 
@@ -78,20 +77,12 @@ const ScaleController = memo(
     const lastScaleValue = useRef(scaleValue);
 
     useEffect(() => {
-      console.log("mylog scalerControl 1", mapScaleChangeSource.current);
       // Don't adjust zoom if user is manually zooming or if we're already setting scale
       if (mapScaleChangeSource.current !== "userInput") return;
-      console.log("mylog scalerControl 2", mapScaleChangeSource.current);
 
       if (!scaleValue || !mapCenter) return;
-      console.log(
-        "mylog scalerControl 3",
-        mapScaleChangeSource.current,
-        lastScaleValue.current,
-        scaleValue
-      );
+      
 
-      console.log("mylog scalerControl 4", mapScaleChangeSource.current);
 
       try {
         // Parse scale value (e.g., "1:5000" or "5000")
@@ -112,18 +103,11 @@ const ScaleController = memo(
           map.setView(mapCenter, clampedZoom);
         }
         mapScaleChangeSource.current = "zoomChange";
-        console.log(
-          "mylog scalerControl 2",
-          clampedZoom,
-          mapScaleChangeSource.current
-        );
+        
       } catch (error) {
         console.error("mylog scalerControl error:", error);
       } finally {
-        console.log(
-          "mylog scalerControl finnaly",
-          mapScaleChangeSource.current
-        );
+        
       }
     }, [map, scaleValue, mapCenter, isUserZooming, mapScaleChangeSource]);
 
@@ -140,11 +124,9 @@ const ZoomScaleSync = memo(
     const lastZoom = useRef(map?.getZoom?.() || 0);
 
     const updateScale = useCallback(() => {
-      console.log("myLog updateScale 1");
-      ("mylog ZoomScaleSync updateScale called");
+      
       try {
         if (!map || mapScaleChangeSource.current !== "zoomChange") return;
-        console.log("myLog updateScale 2");
 
         const zoom = map.getZoom();
         const center = map.getCenter();
@@ -168,12 +150,10 @@ const ZoomScaleSync = memo(
       if (!map || !onScaleChange) return;
 
       const handleZoomStart = (e) => {
-        console.log("mylog start", mapScaleChangeSource.current);
         mapScaleChangeSource.current = "zoomChange";
       };
 
       const handleZoomEnd = () => {
-        console.log("mylog end", mapScaleChangeSource.current);
         // Update scale after user zoom
         updateScale();
         // mapScaleChangeSource.current = "userInput";
@@ -367,7 +347,6 @@ const PrintPreviewMap = forwardRef(
             getDimentions={(dims) => {
               // Update legend dimensions in form values
               if (handleLegendDimensions) {
-                      console.log(dims, "xx5 2");
 
                 handleLegendDimensions(dims);
               }

@@ -256,12 +256,7 @@ const PrintControl = () => {
       const found = scalePresets.find((p) => p.value === scaleStr);
       setPresetValue(found ? found.value : undefined);
 
-      console.log(
-        "myLog handleMapZoomScaleChange called with scaleDen:",
-        scaleDen,
-        "source:",
-        source
-      );
+      
     },
     [form, scalePresets]
   );
@@ -695,7 +690,6 @@ const PrintControl = () => {
                         name="legendWidth"
                         rules={[{ validator: validateLegendWidth }]}
                       >
-                        {console.log(formValues, "xx5 3")}
                         <InputNumber
                           min={100}
                           max={800}
