@@ -21,7 +21,7 @@ const GisPortal = () => {
       setFilteredPortals(portalList);
       
     }
-  }, [portalList]);
+  }, [portalList, dispatch]);
 
   const handleSearch = (value) => {
     const searchValue = value.toLowerCase();
