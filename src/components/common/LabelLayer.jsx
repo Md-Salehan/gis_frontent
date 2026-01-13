@@ -158,7 +158,6 @@ const LabelLayer = memo(({ layerId, geoJsonData, metaData }) => {
         padding: 4px 8px;
         border-radius: 4px;
         white-space: nowrap;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         font-weight: 600;
       ">
         ${text}

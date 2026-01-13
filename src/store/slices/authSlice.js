@@ -19,7 +19,7 @@ const authSlice = createSlice({
       state.appLogNo = payload.appLogNo;
       state.isAuthenticated = true;
       state.error = null;
-      localStorage.setItem('token', payload.token);
+      // localStorage.setItem('token', payload.token);
     },
     resetAuth: (state) => {
       return initialState;

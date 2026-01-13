@@ -1,7 +1,8 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { combineReducers } from "redux";
 import { baseApi } from "./api/baseApi";
-import storage from "redux-persist/lib/storage";
+import storageSession from 'redux-persist/lib/storage/session';
+
 import {
   persistReducer,
   persistStore,
@@ -28,7 +29,7 @@ const reducers = combineReducers({
 
 const persistConfig = {
   key: "root",
-  storage,
+  storage: storageSession,
   whitelist: ["auth", "ui", "portal"], // only persist these slices
 };
 
