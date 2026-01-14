@@ -6,17 +6,8 @@ import React, {
   memo,
   useRef,
 } from "react";
-import {
-  Table,
-  Tabs,
-  Checkbox,
-  Button,
-  message,
-  Space,
-  Tooltip,
-  Input,
-} from "antd";
-import { DownloadOutlined, SearchOutlined, CloseCircleOutlined } from "@ant-design/icons";
+import { Table, Tabs, Checkbox, Button, message, Space, Tooltip } from "antd";
+import { DownloadOutlined, SearchOutlined } from "@ant-design/icons";
 import { useSelector, useDispatch } from "react-redux";
 import {
   setSelectedFeature,
@@ -47,7 +38,6 @@ function AttributeTable({
   const [selectedRowKeys, setSelectedRowKeys] = useState({});
   const [multiSelected, setMultiSelected] = useState([]);
   const [hasInitialized, setHasInitialized] = useState(false);
-  const [searchQueries, setSearchQueries] = useState({});
 
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
 
@@ -91,73 +81,15 @@ function AttributeTable({
     }));
   }, []);
 
-  // getTableData now accepts optionally an array of originalIndices to
-  // ensure keys (layerId-index) use original indices even when filtered.
-  const getTableData = useCallback((features, layerId, originalIndices) => {
+  const getTableData = useCallback((features, layerId) => {
     if (!features || features.length === 0) return [];
 
-    return features.map((feature, index) => {
-      const originalIndex =
-        Array.isArray(originalIndices) && originalIndices[index] !== undefined
-          ? originalIndices[index]
-          : index;
-      return {
-        key: `${layerId}-${originalIndex}`,
-        featureIndex: originalIndex,
-        ...feature.properties,
-      };
-    });
+    return features.map((feature, index) => ({
+      key: `${layerId}-${index}`,
+      featureIndex: index,
+      ...feature.properties,
+    }));
   }, []);
-
-  // ============================================
-  // Filtering utilities
-  // ============================================
-  const getFilteredFeatureIndices = useCallback(
-    (features, layerId) => {
-      if (!features || features.length === 0) return [];
-
-      const q = (searchQueries[layerId] || "").trim().toLowerCase();
-      if (!q) return features.map((_, idx) => idx);
-
-      const matchesQuery = (feature) => {
-        // Search properties
-        const props = feature.properties || {};
-        for (const k of Object.keys(props)) {
-          const v = props[k];
-          if (
-            v !== undefined &&
-            v !== null &&
-            String(v).toLowerCase().includes(q)
-          ) {
-            return true;
-          }
-        }
-
-        // Search geometry coordinates (flattened)
-        if (feature.geometry && feature.geometry.coordinates) {
-          try {
-            const coordsStr = JSON.stringify(feature.geometry.coordinates)
-              .toLowerCase()
-              .replace(/\s+/g, "");
-            if (coordsStr.includes(q)) return true;
-          } catch (err) {
-            // ignore
-          }
-        }
-
-        // Also allow matching layerId
-        if (String(layerId).toLowerCase().includes(q)) return true;
-
-        return false;
-      };
-
-      return features
-        .map((f, idx) => ({ f, idx }))
-        .filter(({ f }) => matchesQuery(f))
-        .map(({ idx }) => idx);
-    },
-    [searchQueries]
-  );
 
   // ============================================
   // Selection Handlers
@@ -228,61 +160,44 @@ function AttributeTable({
   }, []);
 
   // ============================================
-  // Select All / Unselect All Handler (respects filtering)
+  // Select All / Unselect All Handler
   // ============================================
   const handleSelectAllChange = useCallback(
     (layerId, checked) => {
       const layerData = geoJsonLayers[layerId];
       if (!layerData?.geoJsonData?.features) return;
 
-      const features = layerData.geoJsonData.features;
-      const visibleIndices = getFilteredFeatureIndices(features, layerId);
-
-      const allRowKeys = visibleIndices.map((idx) => `${layerId}-${idx}`);
+      const allRowKeys = layerData.geoJsonData.features.map(
+        (_, idx) => `${layerId}-${idx}`
+      );
 
       setMultiSelected((prev) => {
         const updated = { ...prev };
         if (checked) {
-          // Add visible keys to the set (preserve other selections)
-          const existing = new Set(
-            prev[layerId] ? Array.from(prev[layerId]) : []
-          );
-          allRowKeys.forEach((k) => existing.add(k));
-          updated[layerId] = existing;
+          updated[layerId] = new Set(allRowKeys);
         } else {
-          // Remove visible keys from selection
-          const existing = new Set(
-            prev[layerId] ? Array.from(prev[layerId]) : []
-          );
-          allRowKeys.forEach((k) => existing.delete(k));
-          updated[layerId] = existing;
+          updated[layerId] = new Set();
         }
         return updated;
       });
     },
-    [geoJsonLayers, getFilteredFeatureIndices]
+    [geoJsonLayers]
   );
 
   // ============================================
-  // Determine Select All Checkbox State (based on visible/filtered rows)
+  // Determine Select All Checkbox State
   // ============================================
   const getSelectAllState = useCallback(
     (layerId) => {
       const layerData = geoJsonLayers[layerId];
       const features = layerData?.geoJsonData?.features || [];
-      const visibleIndices = getFilteredFeatureIndices(features, layerId);
-      const visibleCount = visibleIndices.length;
-      const visibleSelectedCount =
-        visibleIndices.filter((idx) =>
-          (multiSelected[layerId] || new Set()).has(`${layerId}-${idx}`)
-        ).length || 0;
+      const selectedCount = multiSelected[layerId]?.size || 0;
 
-      if (visibleCount === 0) return false;
-      if (visibleSelectedCount === 0) return false; // Unchecked
-      if (visibleSelectedCount === visibleCount) return true; // Checked
+      if (selectedCount === 0) return false; // Unchecked
+      if (selectedCount === features.length) return true; // Checked
       return "indeterminate"; // Indeterminate (partial selection)
     },
-    [geoJsonLayers, multiSelected, getFilteredFeatureIndices]
+    [geoJsonLayers, multiSelected]
   );
 
   // ============================================
@@ -498,11 +413,6 @@ function AttributeTable({
     return layerEntries.map(([layerId, layerData]) => {
       const label = layerData?.metaData?.layer?.layer_nm || layerId;
 
-      // Build filtered set for this layer according to search query
-      const features = layerData?.geoJsonData?.features || [];
-      const visibleIndices = getFilteredFeatureIndices(features, layerId);
-      const filteredFeatures = visibleIndices.map((idx) => features[idx]);
-
       // ✅ Action column with view button
       const actionColumn = {
         title: "Find",
@@ -532,17 +442,15 @@ function AttributeTable({
         },
       };
 
-      // ✅ UPDATED: Select column with Select All header (works on filtered rows)
+      // ✅ UPDATED: Select column with Select All header
       const selectColumn = {
         title: (
-          <Tooltip title="Select all / Unselect all rows in this tab (filtered)">
+          <Tooltip title="Select all / Unselect all rows in this tab">
             <Checkbox
               checked={getSelectAllState(layerId) === true}
               indeterminate={getSelectAllState(layerId) === "indeterminate"}
               onChange={(e) => handleSelectAllChange(layerId, e.target.checked)}
-            >
-              Select
-            </Checkbox>
+            >Select</Checkbox>
           </Tooltip>
         ),
         key: `${layerId}-select`,
@@ -570,79 +478,20 @@ function AttributeTable({
 
       const children =
         activeTab === layerId ? (
-          <>
-            <Space
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginBottom: 8,
-              }}
-            >
-              <div>
-                <Input.Search
-                  placeholder={`Search ${label}`}
-                  enterButton={<SearchOutlined />}
-                  allowClear
-                  value={searchQueries[layerId] || ""}
-                  onChange={(e) =>
-                    setSearchQueries((prev) => ({
-                      ...prev,
-                      [layerId]: e.target.value,
-                    }))
-                  }
-                  onSearch={(value) =>
-                    setSearchQueries((prev) => ({ ...prev, [layerId]: value }))
-                  }
-                  style={{ width: 400 }}
-                />
-
-                {/* <Button
-                  size="small"
-                  onClick={() => {
-                    // Reset search for this tab
-                    setSearchQueries((prev) => ({ ...prev, [layerId]: "" }));
-                  }}
-                  style={{ marginLeft: 8 }}
-                  icon={<CloseCircleOutlined />}
-                  disabled={!searchQueries[layerId]}
-                >
-                  
-                </Button> */}
-              </div>
-              {csvDownloader && (
-                <Button
-                  type="primary"
-                  icon={<DownloadOutlined />}
-                  onClick={exportSelectedToCSV}
-                >
-                  Download CSV
-                </Button>
-              )}
-            </Space>
-
-            {filteredFeatures.length === 0 ? (
-              <div>No matching features found</div>
-            ) : (
-              <Table
-                rowKey="key"
-                columns={columns}
-                dataSource={getTableData(
-                  filteredFeatures,
-                  layerId,
-                  visibleIndices
-                )}
-                scroll={{ x: true, y: 600 }}
-                size="small"
-                pagination={{ pageSize: 5 }}
-                onRow={(record) => ({
-                  style: {
-                    cursor: "pointer",
-                    backgroundColor: getRowBackgroundColor(record, layerId),
-                  },
-                })}
-              />
-            )}
-          </>
+          <Table
+            rowKey="key"
+            columns={columns}
+            dataSource={getTableData(layerData?.geoJsonData?.features, layerId)}
+            scroll={{ x: true, y: 600 }}
+            size="small"
+            pagination={{ pageSize: 5 }}
+            onRow={(record) => ({
+              style: {
+                cursor: "pointer",
+                backgroundColor: getRowBackgroundColor(record, layerId),
+              },
+            })}
+          />
         ) : null;
 
       return {
@@ -663,10 +512,6 @@ function AttributeTable({
     getRowBackgroundColor,
     getSelectAllState,
     handleSelectAllChange,
-    searchQueries,
-    getFilteredFeatureIndices,
-    csvDownloader, 
-    exportSelectedToCSV,
   ]);
 
   // ============================================
@@ -687,7 +532,6 @@ function AttributeTable({
       if (clearDataOnTabChange) {
         setSelectedRowKeys({});
         setMultiSelected({});
-        setSearchQueries({}); // clear searches on tab change (if opted)
         dispatch(resetBuffer());
         dispatch(setSelectedFeature({ feature: [], metaData: null }));
         dispatch(setMultiSelectedFeatures([]));
@@ -699,7 +543,6 @@ function AttributeTable({
   const cleanUp = useCallback(() => {
     setSelectedRowKeys({});
     setMultiSelected({});
-    setSearchQueries({});
     dispatch(setSelectedFeature({ feature: [], metaData: null }));
     dispatch(setMultiSelectedFeatures([]));
   }, [dispatch]);
@@ -715,7 +558,7 @@ function AttributeTable({
   // ============================================
   return (
     <>
-      {/* {csvDownloader && (
+      {csvDownloader && (
         <div
           style={{
             display: "flex",
@@ -731,7 +574,7 @@ function AttributeTable({
             Download CSV
           </Button>
         </div>
-      )} */}
+      )}
 
       {tabs.length === 0 ? (
         <div>No active layers with attributes to display</div>

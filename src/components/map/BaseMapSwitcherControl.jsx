@@ -12,10 +12,11 @@ import BaseMapTileLayer from "./BaseMapTileLayer";
  */
 const OPTIONS = [
   { key: "openstreetmap", label: "OSM", title: "OpenStreetMap" },
-  { key: "google_satellite", label: "Google", title: "Google Satellite" },
-  { key: "esri_satellite", label: "ESRI", title: "ESRI Satellite" },
-  { key: "stadia_alidade_satellite", label: "Stadia Sat", title: "Stadia Alidade Satellite" },
-  { key: "stadia_alidade_dark", label: "Stadia Dark", title: "Stadia Alidade Dark" },
+  // { key: "google_satellite", label: "Google", title: "Google Satellite" },
+  { key: "esri_satellite", label: "ESRI Satellite", title: "ESRI Satellite" },
+  { key: "carto", label: "Carto", title: "Carto Voyager" },
+  { key: "open_topo_map", label: "Topo", title: "Open Topo Map" },
+  { key: "carto_dark", label: "Dark", title: "Carto Dark" },
 ];
 
 export default function BaseMapSwitcherControl() {

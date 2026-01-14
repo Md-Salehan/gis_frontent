@@ -21,16 +21,19 @@ const BASEMAPS = {
     attribution: "Tiles &copy; Esri",
     maxZoom: 20,
   },
-  stadia_alidade_satellite: {
-    url: "https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}{r}.jpg",
-    attribution:
-      '&copy; CNES, Distribution Airbus DS, © Airbus DS, © PlanetObserver (Contains Copernicus Data) | &copy; <a href="https://www.stadiamaps.com/">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  carto: {
+    url: "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
+    attribution: "&copy; CARTO &copy; OpenStreetMap contributors",
     maxZoom: 20,
   },
-  stadia_alidade_dark: {
-    url: "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png",
-    attribution:
-      '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors',
+  open_topo_map: {
+    url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+    attribution: "&copy; OpenTopoMap contributors",
+    maxZoom: 17,
+  },
+  carto_dark: {
+    url: "https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}@2x.png",
+    attribution: "&copy; CARTO &copy; OpenStreetMap contributors",
     maxZoom: 20,
   },
 };
