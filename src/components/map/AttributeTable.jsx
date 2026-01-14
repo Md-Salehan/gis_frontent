@@ -702,23 +702,6 @@ function AttributeTable({
   // ============================================
   return (
     <>
-      {/* {csvDownloader && (
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            marginBottom: 8,
-          }}
-        >
-          <Button
-            type="primary"
-            icon={<DownloadOutlined />}
-            onClick={exportSelectedToCSV}
-          >
-            Download CSV
-          </Button>
-        </div>
-      )} */}
 
       {tabs.length === 0 ? (
         <div>No active layers with attributes to display</div>
