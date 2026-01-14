@@ -578,7 +578,6 @@ function AttributeTable({
                 marginBottom: 8,
               }}
             >
-              <div>
                 <Input.Search
                   placeholder={`Search ${label}`}
                   enterButton={<SearchOutlined />}
@@ -596,19 +595,7 @@ function AttributeTable({
                   style={{ width: 400 }}
                 />
 
-                {/* <Button
-                  size="small"
-                  onClick={() => {
-                    // Reset search for this tab
-                    setSearchQueries((prev) => ({ ...prev, [layerId]: "" }));
-                  }}
-                  style={{ marginLeft: 8 }}
-                  icon={<CloseCircleOutlined />}
-                  disabled={!searchQueries[layerId]}
-                >
-                  
-                </Button> */}
-              </div>
+                
               {csvDownloader && (
                 <Button
                   type="primary"
