@@ -8,3 +8,4 @@ export * from './tooltipUtils';
 export * from './labelUtils';
 export * from './extractLeafletSVG';
 export * from './mapScaleCalculations';
+export * from './helper';

@@ -1,12 +1,13 @@
 import React, { memo } from "react";
 import { Card } from "antd";
+import { getImgUrl } from "../../../../utils";
 
 const TopLocationCard = memo(({ portalDetails }) => {
   return (
     <div className="top-location-card">
       <div className="loc-icon">
         <img 
-          src={portalDetails?.portal_logo_img_url} 
+          src={getImgUrl(portalDetails?.portal_logo_img_url)} 
           alt="Location Logo" 
           loading="lazy"
         />  

@@ -11,7 +11,7 @@ createRoot(document.getElementById("root")).render(
   <StrictMode>
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
-        <BrowserRouter basename="/gis/">
+        <BrowserRouter basename="/gis">
           <App />
         </BrowserRouter>
       </PersistGate>

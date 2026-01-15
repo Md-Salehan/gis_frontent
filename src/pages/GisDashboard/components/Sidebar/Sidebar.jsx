@@ -13,11 +13,21 @@ const Sidebar = memo(({}) => {
   const [getLayers, { data: layerInfo, isLoading, error }] =
     useGetLayersMutation();
 
+  const fetchLayerlist = async (portalId) => {
+    try {
+      const response = await getLayers(portalId).unwrap();
+      
+    } catch (err) {
+      console.error("Failed to fetch layers: ", err);
+    }
+  };
+
+
   useEffect(() => {
     if (portalId) {
-      getLayers(portalId);
+      fetchLayerlist(portalId);
     }
-  }, [portalId, getLayers]);
+  }, [portalId]);
 
   // Apply default zoom from portalDetails.max_zoom when layers load
   useEffect(() => {

@@ -1,12 +1,11 @@
-import { Layout } from 'antd';
-import React from 'react'
-const {  Footer } = Layout;
+import { Layout } from "antd";
+import React from "react";
+const { Footer } = Layout;
 
 function FooterBar() {
   return (
     <Footer style={{ textAlign: "center" }}>
-          {/* Ant Design ©{new Date().getFullYear()} Created by Ant UED */}
-          <p>
+      {/* <p>
         Semaphore GIS Portal © 2025 <br />
         Designed & Developed by{" "}
         <a href="#" target="_blank" rel="noopener noreferrer">
@@ -14,9 +13,10 @@ function FooterBar() {
           LTD.
         </a>
       </p>
-      <span>3, Gokul Baral Street, 1st Floor, Kolkata 700012</span>
-        </Footer>
-  )
+      <span>3, Gokul Baral Street, 1st Floor, Kolkata 700012</span> */}
+      <p>{}</p>
+    </Footer>
+  );
 }
 
-export default FooterBar
+export default FooterBar;

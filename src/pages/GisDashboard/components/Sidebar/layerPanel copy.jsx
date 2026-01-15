@@ -40,7 +40,7 @@ const LayerCheckbox = memo(({ option, disabled }) => (
             textOverflow: "ellipsis",
           }}
         >
-          {option.label}
+          {option.label} 
           {/* | {option.value} */}
         </span>
       </Space>
@@ -150,20 +150,20 @@ const LayerPanel = memo(({ layers = [] }) => {
 
       try {
         const response = await getLayerObjects({ layerId, portalId }).unwrap();
-
-        const layerMetaData = response?.metaData || {};
-        const orderNo =
-          layerOptions.find((opt) => opt.value === layerId)?.orderNo || "0";
-
-        handleLayerToggle(
-          layerId,
-          response.geojson,
-          layerMetaData,
-          true,
-          orderNo
-        );
-
         setCheckedState((prev) => {
+          if (!prev.checkedLayers.includes(layerId)) return prev;
+
+          const layerMetaData = response?.metaData || {};
+          const orderNo =
+            layerOptions.find((opt) => opt.value === layerId)?.orderNo || "0";
+
+          handleLayerToggle(
+            layerId,
+            response.geojson,
+            layerMetaData,
+            true,
+            orderNo
+          );
           const newLoading = new Set(prev.loadingLayers);
           newLoading.delete(layerId);
 
@@ -237,15 +237,29 @@ const LayerPanel = memo(({ layers = [] }) => {
       dispatch(setLoadingMessage("Loading default layers..."));
 
       try {
-        // Load layers individually - each handles its own success/error
-        const loadPromises = defaultLayers.map((layer) =>
-          fetchLayerData(layer.value)
+        const promises = defaultLayers.map((layer) =>
+          getLayerObjects({
+            layerId: layer.value,
+            portalId,
+          }).unwrap()
         );
 
-        // Wait for all requests to complete (success or failure)
-        await Promise.allSettled(loadPromises);
+        const results = await Promise.all(promises);
 
-        // Update checked state with all default layers
+        results.forEach((response, index) => {
+          const layerId = defaultLayers[index].value;
+          const layerMetaData = response?.metaData || {};
+          const orderNo = defaultLayers[index].orderNo || "0";
+
+          handleLayerToggle(
+            layerId,
+            response.geojson,
+            layerMetaData,
+            true,
+            orderNo
+          );
+        });
+
         setCheckedState((prev) => ({
           ...prev,
           checkedLayers: [
@@ -261,7 +275,14 @@ const LayerPanel = memo(({ layers = [] }) => {
     };
 
     loadDefaultLayers();
-  }, [layerOptions, layers, dispatch, fetchLayerData, portalId]);
+  }, [
+    layerOptions,
+    layers,
+    dispatch,
+    getLayerObjects,
+    handleLayerToggle,
+    portalId,
+  ]);
 
   // Select all visible options (keep others intact)
   const selectAllVisible = useCallback(() => {
@@ -374,7 +395,7 @@ const LayerPanel = memo(({ layers = [] }) => {
                 </List.Item>
               );
             }}
-            style={{ overflow: "auto" }}
+            style={{  overflow: "auto" }}
           />
         )}
       </Checkbox.Group>
