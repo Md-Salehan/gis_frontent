@@ -61,16 +61,17 @@ const GisDashboard = memo(() => {
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
-  const { portal_nm } = useParams();
-  const navigate = useNavigate();
+  
+  const { portal_url } = useParams();
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { sidebarCollapsed } = useSelector((state) => state.map);
 
   useEffect(() => {
-    if (portal_nm) {
-      dispatch(setPortalIdByName(portal_nm));
+    if (portal_url) {
+      dispatch(setPortalIdByName("/"+portal_url));
     }
-  }, [portal_nm]);
+  }, [portal_url]);
 
   useEffect(() => {
     document.title = "GIS Dashboard";

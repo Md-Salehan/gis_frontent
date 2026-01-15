@@ -1,4 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
+import { set } from 'lodash';
 
 const initialState = {
   portalId: null,
@@ -9,7 +10,8 @@ const initialState = {
     searchQuery: '',
     sortBy: 'name',
     filterBy: 'all'
-  }
+  },
+  activePortalDetails: null
 };
 
 const portalSlice = createSlice({
@@ -20,7 +22,7 @@ const portalSlice = createSlice({
       state.portalId = action.payload;
     },
     setPortalIdByName: (state, action) => {
-      const portal = state.portalList.find(p => p.portal_nm === action.payload);
+      const portal = state.portalList.find(p => p.portal_url === action.payload);
       state.portalId = portal ? portal.portal_id : null;
       // state.portalNm = action.payload;
     },
@@ -38,6 +40,9 @@ const portalSlice = createSlice({
     },
     resetFilters: (state) => {
       state.filters = initialState.filters;
+    },
+    setActivePortalDetails: (state, action) => {
+      state.activePortalDetails = action.payload;
     }
   }
 });
@@ -49,7 +54,8 @@ export const {
   setPortalList,
   setActiveTab,
   updateFilters,
-  resetFilters
+  resetFilters,
+  setActivePortalDetails
 } = portalSlice.actions;
 
 export default portalSlice.reducer;

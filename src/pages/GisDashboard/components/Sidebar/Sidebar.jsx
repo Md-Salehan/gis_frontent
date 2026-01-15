@@ -6,6 +6,7 @@ import LayerPanel from "./layerPanel";
 import { useGetLayersMutation } from "../../../../store/api/layerApi";
 import { useDispatch, useSelector } from "react-redux";
 import { updateViewport } from "../../../../store/slices/mapSlice";
+import { setActivePortalDetails } from "../../../../store/slices/portalSlice";
 
 const Sidebar = memo(({}) => {
   const dispatch = useDispatch();
@@ -16,7 +17,8 @@ const Sidebar = memo(({}) => {
   const fetchLayerlist = async (portalId) => {
     try {
       const response = await getLayers(portalId).unwrap();
-      
+      const portalDetails = response?.portalDetails;
+      dispatch(setActivePortalDetails(portalDetails));
     } catch (err) {
       console.error("Failed to fetch layers: ", err);
     }

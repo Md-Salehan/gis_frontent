@@ -575,7 +575,7 @@ function AttributeTable({
               style={{
                 display: "flex",
                 justifyContent: "space-between",
-                marginBottom: 8,
+                margin: "2px 0 2px",
               }}
             >
                 <Input.Search

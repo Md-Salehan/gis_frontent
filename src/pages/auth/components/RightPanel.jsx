@@ -65,7 +65,7 @@ const handleLogin = async () => {
       <div className="form-container">
         <Input
           size="large"
-          placeholder="Email"
+          placeholder="User Id"
           prefix={<UserOutlined />}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
