@@ -12,7 +12,7 @@ import BaseMapTileLayer from "./BaseMapTileLayer";
  */
 const OPTIONS = [
   { key: "openstreetmap", label: "OSM", title: "OpenStreetMap" },
-  // { key: "google_satellite", label: "Google", title: "Google Satellite" },
+  { key: "google_satellite", label: "Google", title: "Google Satellite" },
   { key: "esri_satellite", label: "ESRI Satellite", title: "ESRI Satellite" },
   { key: "carto", label: "Carto", title: "Carto Voyager" },
   { key: "open_topo_map", label: "Topo", title: "Open Topo Map" },

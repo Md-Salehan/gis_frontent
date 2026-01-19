@@ -13,6 +13,7 @@ const initialState = {
   isPrintModalOpen: false,
   isBufferOpen: false,
   loadingMessage: null,
+  isIdentifyOpen: false,
 };
 
 export const uiSlice = createSlice({
@@ -59,6 +60,10 @@ export const uiSlice = createSlice({
     setLoadingMessage: (state, action) => {
       state.loadingMessage = action.payload;
     },
+    toggleIdentify: (state, action) => {
+      if (action.payload) state.isIdentifyOpen = action.payload.state;
+      else state.isIdentifyOpen = !state.isIdentifyOpen;
+    },
   },
 });
 
@@ -73,5 +78,6 @@ export const {
   togglePrintModal,
   toggleBuffer,
   setLoadingMessage,
+  toggleIdentify,
 } = uiSlice.actions;
 export default uiSlice.reducer;

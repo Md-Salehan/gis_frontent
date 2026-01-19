@@ -13,13 +13,25 @@ const GisPortal = () => {
   const { data: portalList = [], isLoading, error } = useGetPortalsQuery();
   const [filteredPortals, setFilteredPortals] = useState([]);
   const [options, setOptions] = useState([]);
+  const asyncFun = async () => {
+    return 6;
+  };
+
+  const checkasync = async () => {
+    const a = asyncFun();
+    console.log("ss1 Async function result:", a);
+    const b = Promise.resolve(a);
+    console.log("ss1 Promise resolved value:", b);
+    const c = await asyncFun()
+    console.log("ss12 Value from async function using then (outside):", c);
+  };
 
   useEffect(() => {
     document.title = "GIS Portal";
+    checkasync();
     if (portalList.length) {
       dispatch(setPortalList(portalList));
       setFilteredPortals(portalList);
-      
     }
   }, [portalList, dispatch]);
 

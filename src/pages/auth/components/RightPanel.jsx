@@ -103,7 +103,7 @@ const handleLogin = async () => {
           Login
         </Button>
         <div className="divider">
-          <span>or</span>
+          {/* <span>or</span> */}
         </div>
         {/* <GoogleButton /> */}
       </div>

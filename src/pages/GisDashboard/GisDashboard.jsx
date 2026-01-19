@@ -49,6 +49,7 @@ import FooterBar from "./components/FooterBar";
 import {
   toggleAttributeTable,
   toggleBuffer,
+  toggleIdentify,
   toggleLegend,
   toggleMeasure,
   togglePrintModal,
@@ -135,6 +136,14 @@ const GisDashboard = memo(() => {
         // dispatch(togglePrintModal(false));
         // dispatch(toggleMeasure(false));
         dispatch(toggleBuffer({ state: true }));
+      },
+    },
+    {
+      key: "6",
+      icon: React.createElement(Proportions),
+      label: "Identify",
+      onClick: () => {
+        dispatch(toggleIdentify());
       },
     },
   ];

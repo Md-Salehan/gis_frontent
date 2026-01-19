@@ -17,6 +17,7 @@ import { meta } from "@eslint/js";
 const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane, isPrintModalOpen = false }) => {
   const dispatch = useDispatch();
   const viewport = useSelector((state) => state.map.viewport);
+  const isIdentifyOpen = useSelector((state) => state.ui.isIdentifyOpen);
   const map = useMap();
   // FIXED: Check if print modal is open
   // const isPrintModalOpen = useSelector((state) => state.ui.isPrintModalOpen);
@@ -89,7 +90,8 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane, isPrin
   // Simplified onEachFeature for print (no interactivity)
   const onEachFeature = useCallback(
     (feature, layer, layer_nm) => {
-      if (feature.properties && !isPrintModalOpen) {
+
+      if (feature.properties && !isPrintModalOpen && isIdentifyOpen) {
         const title = "Tooltip";
         const geometryType = feature.geometry?.type?.toLowerCase();
         let coordinates = null;
@@ -157,7 +159,7 @@ const GeoJsonLayerWrapper = memo(({ layerId, geoJsonData, metaData, pane, isPrin
       });
     },
     // }
-    [dispatch, style, viewport.zoom, isPrintModalOpen]
+    [dispatch, style, viewport.zoom, isPrintModalOpen, isIdentifyOpen]
   );
 
   const pointToLayer = useCallback(
