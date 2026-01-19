@@ -13,7 +13,7 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 import { useMap } from "react-leaflet";
 import L from "leaflet";
-import { toggleMeasure } from "../../store/slices/uiSlice";
+import { toggleIdentify, toggleMeasure } from "../../store/slices/uiSlice";
 import { setMeasureType, setMeasureUnit } from "../../store/slices/mapSlice";
 import CustomDrawer from "../common/CustomDrawer";
 import { Ruler, Square, X } from "lucide-react";
@@ -50,6 +50,7 @@ const MeasureControl = () => {
   };
 
   const handleStartMeasurement = () => {
+    dispatch(toggleIdentify({ state: false })); // close identify if open
     if (measure?.type === "line") {
       if (lineHook.isMeasuring) {
         lineHook.stopMeasuring();
@@ -150,6 +151,7 @@ const MeasureControl = () => {
                 type={isMeasuring ? "primary" : "default"}
                 onClick={handleStartMeasurement}
                 style={{ width: "100%" }}
+                
               >
                 {isMeasuring ? "Stop Measuring" : "Start Line Measurement"}
               </Button>
