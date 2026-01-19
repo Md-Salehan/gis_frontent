@@ -56,21 +56,25 @@ import {
 } from "../../store/slices/uiSlice";
 import { setPortalId, setPortalIdByName } from "../../store/slices/portalSlice";
 import { UserMenu } from "../../components";
+import { set } from "lodash";
 const { Sider, Content, Header, Footer } = Layout;
 
 const GisDashboard = memo(() => {
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
-  
+
   const { portal_url } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { sidebarCollapsed } = useSelector((state) => state.map);
+  const uiStates = useSelector((state) => state.ui);
+
+  const [selectedMenu, setSelectedMenu] = useState([]);
 
   useEffect(() => {
     if (portal_url) {
-      dispatch(setPortalIdByName("/"+portal_url));
+      dispatch(setPortalIdByName("/" + portal_url));
     }
   }, [portal_url]);
 
@@ -85,12 +89,27 @@ const GisDashboard = memo(() => {
     initGeoman();
   }, []);
 
+  const handleMenuSelect = useCallback(() => {
+    if(uiStates.isAttributeTableOpen) return (["0"]);
+    else if(uiStates.isMeasureOpen) return (["1"]);
+    else if(uiStates.isLegendVisible) return (["2"]);
+    else if(uiStates.isPrintModalOpen) return (["4"]);
+    else if(uiStates.isBufferOpen) return (["5"]);
+    else if(uiStates.isIdentifyOpen) return (["6"]);
+    else return ([]);
+  }, [uiStates]);
+  
+  useEffect(() => {
+    setSelectedMenu(handleMenuSelect());
+  }, [uiStates, handleMenuSelect]);
+
   const items = [
     {
       key: "0",
       icon: React.createElement(TableProperties),
       label: "Attributes",
       onClick: () => {
+        // handleMenuClick("0");
         // dispatch(toggleLegend(false));
         // dispatch(togglePrintModal(false));
         // dispatch(toggleMeasure(false));
@@ -102,13 +121,19 @@ const GisDashboard = memo(() => {
       key: "1",
       icon: React.createElement(DraftingCompass),
       label: "Measure",
-      onClick: () => dispatch(toggleMeasure()),
+      onClick: () => {
+        // handleMenuClick("1");
+        dispatch(toggleMeasure());
+      },
     },
     {
       key: "2",
       icon: React.createElement(Info),
       label: "Legends",
-      onClick: () => dispatch(toggleLegend()),
+      onClick: () => {
+        // handleMenuClick("2");
+        dispatch(toggleLegend());
+      },
     },
     {
       key: "3",
@@ -121,6 +146,7 @@ const GisDashboard = memo(() => {
       icon: React.createElement(Printer),
       label: "Print",
       onClick: () => {
+        // handleMenuClick("4");
         // dispatch(toggleAttributeTable(false));
         // dispatch(toggleMeasure(false));
         // dispatch(toggleBuffer(false));
@@ -132,6 +158,7 @@ const GisDashboard = memo(() => {
       icon: React.createElement(Proportions),
       label: "Buffer",
       onClick: () => {
+        // handleMenuClick("5");
         dispatch(toggleAttributeTable({ state: false }));
         // dispatch(togglePrintModal(false));
         // dispatch(toggleMeasure(false));
@@ -140,13 +167,16 @@ const GisDashboard = memo(() => {
     },
     {
       key: "6",
-      icon: React.createElement(Proportions),
+      icon: React.createElement(Info),
       label: "Identify",
       onClick: () => {
+        // handleMenuClick("6");
         dispatch(toggleIdentify());
       },
     },
   ];
+
+  
 
   const handleSiderCollapse = (collapsed) => {
     dispatch(toggleSidebar());
@@ -173,8 +203,15 @@ const GisDashboard = memo(() => {
             wrap={false}
             style={{ width: "100%" }}
           >
-            <Col>
-              <Space align="center" size={12}>
+            <Col span={22}>
+              <div
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  gap: "12px",
+                  alignItems: "center",
+                }}
+              >
                 <Tooltip title="Back">
                   <Button
                     type="text"
@@ -201,25 +238,23 @@ const GisDashboard = memo(() => {
                   />
                 </Tooltip>
 
-                <div>
-                  <Menu
-                    mode="horizontal"
-                    items={items}
-                    selectable={false}
-                    style={{
-                      borderBottom: "none",
-                      background: "transparent",
-                      // whiteSpace: "nowrap",
-                      // overflow: "visible",
-                      // display: "flex",
-                      // gap: 8,
-                    }}
-                  />
-                </div>
-              </Space>
+                <Menu
+                  mode="horizontal"
+                  items={items}
+                  selectable={true}
+                  selectedKeys={selectedMenu}
+                  // onSelect={(e) => setSelectedMenu([e.key])}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    borderBottom: "none",
+                    background: "transparent",
+                  }}
+                />
+              </div>
             </Col>
 
-            <Col>
+            <Col span={2} style={{ textAlign: "right" }}>
               <UserMenu />
             </Col>
           </Row>

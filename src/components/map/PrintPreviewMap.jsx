@@ -54,17 +54,7 @@ const MapResizer = ({ orientation, format, scaleValue }) => {
       map.invalidateSize();
     });
 
-    // Use setTimeout to ensure DOM has updated
-    // const timer = setTimeout(() => {
-    //   map.invalidateSize(); // Ensure the map container is properly resized
-    //   // Also trigger a re-render of tiles
-    //   map.eachLayer((layer) => {
-    //     if (layer.redraw) {
-    //       layer.redraw();
-    //     }
-    //   });
-    // }, 100);
-    // return () => clearTimeout(timer);
+
   }, [map, orientation, format, scaleValue]);
 
   return null;

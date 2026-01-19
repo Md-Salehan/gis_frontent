@@ -5,14 +5,14 @@ const initialState = {
   activeModal: null,
   theme: "light",
   loading: {},
+  loadingMessage: null,
 
+  //GIS DASHBOARD HEADER STATE
   isLegendVisible: false,
   isAttributeTableOpen: false,
-  // measure panel visibility
   isMeasureOpen: false,
   isPrintModalOpen: false,
   isBufferOpen: false,
-  loadingMessage: null,
   isIdentifyOpen: false,
 };
 
