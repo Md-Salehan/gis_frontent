@@ -91,17 +91,27 @@ const GeoJsonLayerWrapper = memo(
     // Simplified onEachFeature for print (no interactivity)
     const onEachFeature = useCallback(
       (feature, layer, layer_nm) => {
+        console.log(layer_nm, "layer_nm_1");
+        
         if (feature.properties && !isPrintModalOpen && isIdentifyOpen) {
           const title = "Tooltip";
           const geometryType = feature.geometry?.type?.toLowerCase();
           let coordinates = null;
-          // layerNm = metaData?.name || "Layer";
+          console.log(layer_nm, "layer_nm_2");
 
           // Extract coordinates for points
           if (geometryType === "point" && feature.geometry?.coordinates) {
             const [lng, lat] = feature.geometry.coordinates;
             coordinates = L.latLng(lat, lng);
           }
+
+          console.log(layer_nm, "layer_nm_3", {layer,
+            properties: { ...feature.properties },
+            title,
+            coordinates,
+            geometryType,
+            layer_nm,
+          });
           // Bind tooltip for identify mode
           bindTooltip(
             layer,

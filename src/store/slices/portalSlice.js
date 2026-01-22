@@ -43,6 +43,10 @@ const portalSlice = createSlice({
     },
     setActivePortalDetails: (state, action) => {
       state.activePortalDetails = action.payload;
+    },
+    resetActivePortalDetails: (state) => {
+      state.activePortalDetails = null;
+      state.portalId = null;
     }
   }
 });
@@ -55,7 +59,8 @@ export const {
   setActiveTab,
   updateFilters,
   resetFilters,
-  setActivePortalDetails
+  setActivePortalDetails,
+  resetActivePortalDetails
 } = portalSlice.actions;
 
 export default portalSlice.reducer;

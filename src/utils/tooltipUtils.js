@@ -303,6 +303,7 @@ export const bindTooltip = (
 ) => {
   if (properties && Object.keys(properties).length > 0) {
     const tooltipHtml = generateTooltipHTML(properties, latlng, geometryType, layer_nm);
+    console.log(tooltipHtml, "layer_nm_4");
     layer.bindPopup(tooltipHtml, {
       ...POPUP_CONFIG,
       className: "enhanced-tooltip",

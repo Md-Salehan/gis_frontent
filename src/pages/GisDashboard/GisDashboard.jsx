@@ -54,7 +54,7 @@ import {
   toggleMeasure,
   togglePrintModal,
 } from "../../store/slices/uiSlice";
-import { setPortalId, setPortalIdByName } from "../../store/slices/portalSlice";
+import { resetActivePortalDetails, setPortalId, setPortalIdByName } from "../../store/slices/portalSlice";
 import { UserMenu } from "../../components";
 import { set } from "lodash";
 const { Sider, Content, Header, Footer } = Layout;
@@ -81,6 +81,7 @@ const GisDashboard = memo(() => {
   useEffect(() => {
     document.title = "GIS Dashboard";
     return () => {
+      dispatch(resetActivePortalDetails());
       dispatch(resetMapState());
     };
   }, []);
