@@ -48,11 +48,11 @@ const generatePropertiesSection = (properties = {}) => {
 
   // Separate image properties (keys ending with _img_url) from others
   const imageEntries = entries.filter(([key]) =>
-    String(key).toLowerCase().endsWith("_img_url")
+    String(key).toLowerCase().endsWith("_img_url"),
   );
 
   const nonImageEntries = entries.filter(
-    ([key]) => !String(key).toLowerCase().endsWith("_img_url")
+    ([key]) => !String(key).toLowerCase().endsWith("_img_url"),
   );
 
   // Helper: format keys to human readable
@@ -133,10 +133,10 @@ const generatePropertiesSection = (properties = {}) => {
             i + 1
           }" style="flex:0 0 auto;border-radius:8px;overflow:hidden;box-shadow:0 6px 18px rgba(15,23,42,0.08);margin-right:8px;scroll-snap-align:start;">
             <img loading="lazy" src="${it.url}" alt="${it.key} ${
-            i + 1
-          }" style="display:block;height:120px;width:auto;max-width:220px;object-fit:cover;border:0;">
+              i + 1
+            }" style="display:block;height:120px;width:auto;max-width:220px;object-fit:cover;border:0;">
           </a>
-        `
+        `,
         )
         .join("");
 
@@ -196,9 +196,9 @@ const generatePropertiesSection = (properties = {}) => {
 
       const renderedValue = isUrlLike
         ? `<a href="${String(
-            value
+            value,
           ).trim()}" target="_blank" rel="noopener noreferrer" style="color:#2563eb;text-decoration:underline;">${String(
-            value
+            value,
           )}</a>`
         : displayValue;
 
@@ -260,7 +260,7 @@ const generateTooltipHTML = (
   properties = {},
   latlng = null,
   geometryType = "",
-  layer_nm = ""
+  layer_nm = "",
 ) => {
   const isPoint = geometryType === "point" || geometryType === "P";
 
@@ -299,14 +299,28 @@ export const bindTooltip = (
   title = "",
   latlng = null,
   geometryType = "",
-  layer_nm = ""
+  layer_nm = "",
 ) => {
   if (properties && Object.keys(properties).length > 0) {
-    const tooltipHtml = generateTooltipHTML(properties, latlng, geometryType, layer_nm);
-    console.log(tooltipHtml, "layer_nm_4");
+    const tooltipHtml = generateTooltipHTML(
+      properties,
+      latlng,
+      geometryType,
+      layer_nm,
+    );
+    // // Add stopPropagation to the tooltip events
+    // layer.on("tooltipopen", (e) => {
+    //   e.originalEvent?.stopPropagation();
+    // });
+
+    // layer.on("tooltipclose", (e) => {
+    //   e.originalEvent?.stopPropagation();
+    // });
     layer.bindPopup(tooltipHtml, {
       ...POPUP_CONFIG,
       className: "enhanced-tooltip",
+      // Stop propagation at the tooltip level
+      // bubblingMouseEvents: false, // IMPORTANT: This prevents event bubbling
     });
   }
 };

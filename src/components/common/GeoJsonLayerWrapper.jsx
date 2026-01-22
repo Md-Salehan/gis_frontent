@@ -81,13 +81,10 @@ const GeoJsonLayerWrapper = memo(
     // Simplified onEachFeature for print (no interactivity)
     const onEachFeature = useCallback(
       (feature, layer, layer_nm) => {
-        console.log(layer_nm, "layer_nm_1");
-
         if (feature.properties && !isPrintModalOpen && isIdentifyOpen) {
           const title = "Tooltip";
           const geometryType = feature.geometry?.type?.toLowerCase();
           let coordinates = null;
-          console.log(layer_nm, "layer_nm_2");
 
           // Extract coordinates for points
           if (geometryType === "point" && feature.geometry?.coordinates) {
@@ -95,14 +92,6 @@ const GeoJsonLayerWrapper = memo(
             coordinates = L.latLng(lat, lng);
           }
 
-          console.log(layer_nm, "layer_nm_3", {
-            layer,
-            properties: { ...feature.properties },
-            title,
-            coordinates,
-            geometryType,
-            layer_nm,
-          });
           // Bind tooltip for identify mode
           bindTooltip(
             layer,
@@ -122,6 +111,7 @@ const GeoJsonLayerWrapper = memo(
         // } else {
         // highlight on mouseover
         layer.on("mouseover", (e) => {
+          // e.originalEvent.stopPropagation();
           const currentStyle = style(feature);
           e.target.setStyle({
             ...currentStyle,
@@ -133,11 +123,17 @@ const GeoJsonLayerWrapper = memo(
         });
 
         layer.on("mouseout", (e) => {
+          // e.originalEvent.stopPropagation();
           e.target.setStyle(style(feature));
+        });
+
+        layer.on("contextmenu", (e) => {
+          // e.originalEvent.stopPropagation();
         });
 
         // click -> save selected feature and center map viewport on it
         layer.on("click", (e) => {
+          // e.originalEvent.stopPropagation();
           try {
             const bounds = layer.getBounds?.();
             console.log(bounds, "bounds");
@@ -228,7 +224,7 @@ const GeoJsonLayerWrapper = memo(
             onEachFeature(feature, layer, metaData?.layer?.layer_nm)
           }
           pane={pane}
-          renderer={svgRenderer} 
+          renderer={svgRenderer}
           interactive={!isPrintModalOpen} // Disable interactivity for print
         />
         {/* Label layer renders labels (centroid) for active layers using metadata styles */}
