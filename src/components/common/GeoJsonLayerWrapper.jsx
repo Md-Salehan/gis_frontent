@@ -20,23 +20,6 @@ const GeoJsonLayerWrapper = memo(
     const viewport = useSelector((state) => state.map.viewport);
     const isIdentifyOpen = useSelector((state) => state.ui.isIdentifyOpen);
     const map = useMap();
-    // FIXED: Check if print modal is open
-    // const isPrintModalOpen = useSelector((state) => state.ui.isPrintModalOpen);
-
-    // Optimized renderers per pane:
-    // - Canvas for normal view (fast)
-    // - SVG for print (scalable, sharp)
-    const canvasRenderer = useMemo(() => {
-      const key = `__canvas_renderer_for_${pane}`;
-      if (!map[key]) {
-        map[key] = L.canvas({
-          padding: 0.5,
-          pane,
-          tolerance: 0, // Higher precision for print-like rendering
-        });
-      }
-      return map[key];
-    }, [map, pane]);
 
     // Create a pane-aware SVG renderer and reuse it on the map object
     const svgRenderer = useMemo(() => {
@@ -54,45 +37,52 @@ const GeoJsonLayerWrapper = memo(
     };
 
     // Memoize style function
-    const style = useCallback((feature) => {
-      const props = metaData?.style || {};
+    const style = useCallback(
+      (feature) => {
+        const props = metaData?.style || {};
 
-      // Get styles from properties
-      const customStyle = {
-        color: props.stroke_color || DEFAULT_STYLES.color,
-        weight: normalizevalue(props.stroke_width || DEFAULT_STYLES.weight),
-        opacity: props.stroke_opacity || DEFAULT_STYLES.opacity,
-        fillOpacity: props.fill_opacity || DEFAULT_STYLES.fillOpacity,
-        fillColor: props.fill_color || DEFAULT_STYLES.fillColor,
-      };
+        // Get styles from properties
+        const customStyle = {
+          color: props.stroke_color || DEFAULT_STYLES.color,
+          weight: normalizevalue(props.stroke_width || DEFAULT_STYLES.weight),
+          opacity: props.stroke_opacity || DEFAULT_STYLES.opacity,
+          fillOpacity: props.fill_opacity || DEFAULT_STYLES.fillOpacity,
+          fillColor: props.fill_color || DEFAULT_STYLES.fillColor,
+        };
 
-      // Apply styles based on geometry type
-      switch (props.geom_typ) {
-        case GEOMETRY_TYPES.POLYGON: // Polygon
-          return customStyle;
-        case GEOMETRY_TYPES.LINE: // Line
-          return {
-            ...customStyle,
-            ...LINE_STYLE,
-          };
-        case GEOMETRY_TYPES.POINT: // Point
-          return {
-            radius: normalizevalue(props.marker_size || DEFAULT_STYLES.radius),
-            color: props.stroke_color || DEFAULT_STYLES.color,
-            fillColor: props.fill_color || DEFAULT_STYLES.markerFillColor,
-            fillOpacity: props.fill_opacity || DEFAULT_STYLES.fillOpacity,
-            weight: normalizevalue(props.stroke_width || DEFAULT_STYLES.weight),
-          };
-        default:
-          return DEFAULT_STYLES;
-      }
-    }, []);
+        // Apply styles based on geometry type
+        switch (props.geom_typ) {
+          case GEOMETRY_TYPES.POLYGON: // Polygon
+            return customStyle;
+          case GEOMETRY_TYPES.LINE: // Line
+            return {
+              ...customStyle,
+              ...LINE_STYLE,
+            };
+          case GEOMETRY_TYPES.POINT: // Point
+            return {
+              radius: normalizevalue(
+                props.marker_size || DEFAULT_STYLES.radius,
+              ),
+              color: props.stroke_color || DEFAULT_STYLES.color,
+              fillColor: props.fill_color || DEFAULT_STYLES.markerFillColor,
+              fillOpacity: props.fill_opacity || DEFAULT_STYLES.fillOpacity,
+              weight: normalizevalue(
+                props.stroke_width || DEFAULT_STYLES.weight,
+              ),
+            };
+          default:
+            return DEFAULT_STYLES;
+        }
+      },
+      [metaData, isPrintModalOpen],
+    );
 
     // Simplified onEachFeature for print (no interactivity)
     const onEachFeature = useCallback(
       (feature, layer, layer_nm) => {
         console.log(layer_nm, "layer_nm_1");
-        
+
         if (feature.properties && !isPrintModalOpen && isIdentifyOpen) {
           const title = "Tooltip";
           const geometryType = feature.geometry?.type?.toLowerCase();
@@ -105,7 +95,8 @@ const GeoJsonLayerWrapper = memo(
             coordinates = L.latLng(lat, lng);
           }
 
-          console.log(layer_nm, "layer_nm_3", {layer,
+          console.log(layer_nm, "layer_nm_3", {
+            layer,
             properties: { ...feature.properties },
             title,
             coordinates,
@@ -193,7 +184,8 @@ const GeoJsonLayerWrapper = memo(
             iconAnchor: [markerSize / 2, markerSize / 2],
             className: isPrintModalOpen ? "print-marker-icon" : "",
           });
-          return L.marker(latlng, { icon });
+          // ensure marker is created in the layer's pane
+          return L.marker(latlng, { icon, pane });
         }
 
         if (iconName) {
@@ -211,17 +203,18 @@ const GeoJsonLayerWrapper = memo(
               Math.round(markerSize / 2),
             ],
           });
-          return L.marker(latlng, { icon });
+          // ensure marker is created in the layer's pane
+          return L.marker(latlng, { icon, pane });
         }
 
         // Enhanced circle marker for print
         return L.circleMarker(latlng, {
           ...style(feature),
           radius: radius,
-          // className: isPrintModalOpen ? "print-circle-marker" : "",
+          pane,
         });
       },
-      [style, metaData, isPrintModalOpen],
+      [style, metaData, isPrintModalOpen, pane],
     );
 
     return (
@@ -235,8 +228,8 @@ const GeoJsonLayerWrapper = memo(
             onEachFeature(feature, layer, metaData?.layer?.layer_nm)
           }
           pane={pane}
-          renderer={isPrintModalOpen ? svgRenderer : canvasRenderer} // Force SVG for print
-          // interactive={!isPrintModalOpen} // Disable interactivity for print
+          renderer={svgRenderer} 
+          interactive={!isPrintModalOpen} // Disable interactivity for print
         />
         {/* Label layer renders labels (centroid) for active layers using metadata styles */}
         <LabelLayer
