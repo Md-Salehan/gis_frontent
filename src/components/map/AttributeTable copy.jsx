@@ -16,11 +16,7 @@ import {
   Tooltip,
   Input,
 } from "antd";
-import {
-  DownloadOutlined,
-  SearchOutlined,
-  CloseCircleOutlined,
-} from "@ant-design/icons";
+import { DownloadOutlined, SearchOutlined, CloseCircleOutlined } from "@ant-design/icons";
 import { useSelector, useDispatch } from "react-redux";
 import {
   setSelectedFeature,
@@ -29,13 +25,12 @@ import {
 } from "../../store/slices/mapSlice";
 import L from "leaflet";
 import { useMap } from "react-leaflet";
-import transformProperties from "../../utils/transformProperties";
 
 // Constants
 const DEBUG = process.env.NODE_ENV === "development";
 const MAP_FIT_OPTIONS = {
   padding: [10, 10],
-  maxZoom: 20,
+  maxZoom: 16,
   duration: 0.7,
 };
 
@@ -74,87 +69,27 @@ function AttributeTable({
       const idx = parseRowKeyToIndex(rowKey);
       return features[idx] || null;
     },
-    [geoJsonLayers, parseRowKeyToIndex],
-  );
-
-  // ============================================
-  // Helper: Check if value is an array of strings
-  // ============================================
-  const isArrayOfStrings = useCallback((value) => {
-    return (
-      Array.isArray(value) &&
-      value.length > 0 &&
-      value.every((item) => typeof item === "string")
-    );
-  }, []);
-
-  // ============================================
-  // Helper: Render value as button if it's an array of strings, otherwise as text
-  // ============================================
-  const renderCellValue = useCallback(
-    (value, record, dataIndex) => {
-      if (isArrayOfStrings(value)) {
-        return (
-          <Space direction="vertical" size="small">
-            {value.map((url, idx) => (
-              <Button
-                key={idx}
-                type="link"
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation(); // Prevent row click from triggering
-                  if (url && url.startsWith("http")) {
-                    window.open(url, "_blank", "noopener,noreferrer");
-                  } else if (url) {
-                    // If URL doesn't have protocol, add https://
-                    window.open(
-                      "https://" + url,
-                      "_blank",
-                      "noopener,noreferrer",
-                    );
-                  }
-                }}
-                style={{ padding: "0 4px" }}
-              >
-                {url.length > 50 ? `${url.substring(0, 47)}...` : url}
-              </Button>
-            ))}
-          </Space>
-        );
-      }
-
-      // Handle regular string/numbers/objects
-      if (typeof value === "object" && value !== null) {
-        return JSON.stringify(value);
-      }
-
-      return value;
-    },
-    [isArrayOfStrings],
+    [geoJsonLayers, parseRowKeyToIndex]
   );
 
   // ============================================
   // Table Utilities
   // ============================================
-  const getColumns = useCallback(
-    (properties) => {
-      if (!properties || Object.keys(properties).length === 0) return [];
+  const getColumns = useCallback((properties) => {
+    if (!properties || Object.keys(properties).length === 0) return [];
 
-      return Object.keys(properties).map((key) => ({
-        title: key.charAt(0).toUpperCase() + key.slice(1),
-        dataIndex: key,
-        key: key,
-        sorter: (a, b) => {
-          if (typeof a[key] === "number" && typeof b[key] === "number") {
-            return a[key] - b[key];
-          }
-          return String(a[key] ?? "").localeCompare(String(b[key] ?? ""));
-        },
-        render: (value, record) => renderCellValue(value, record, key),
-      }));
-    },
-    [renderCellValue],
-  );
+    return Object.keys(properties).map((key) => ({
+      title: key.charAt(0).toUpperCase() + key.slice(1),
+      dataIndex: key,
+      key: key,
+      sorter: (a, b) => {
+        if (typeof a[key] === "number" && typeof b[key] === "number") {
+          return a[key] - b[key];
+        }
+        return String(a[key] ?? "").localeCompare(String(b[key] ?? ""));
+      },
+    }));
+  }, []);
 
   // getTableData now accepts optionally an array of originalIndices to
   // ensure keys (layerId-index) use original indices even when filtered.
@@ -166,20 +101,10 @@ function AttributeTable({
         Array.isArray(originalIndices) && originalIndices[index] !== undefined
           ? originalIndices[index]
           : index;
-      const TransformedProperties = transformProperties(
-        feature.properties || {},
-        {
-          delimiter: "~",
-          processNestedArrays: false,
-        },
-      );
-
-      console.log(TransformedProperties, "TransformedProperties");
-
       return {
         key: `${layerId}-${originalIndex}`,
         featureIndex: originalIndex,
-        ...TransformedProperties,
+        ...feature.properties,
       };
     });
   }, []);
@@ -231,7 +156,7 @@ function AttributeTable({
         .filter(({ f }) => matchesQuery(f))
         .map(({ idx }) => idx);
     },
-    [searchQueries],
+    [searchQueries]
   );
 
   // ============================================
@@ -239,67 +164,56 @@ function AttributeTable({
   // ============================================
   const prevSelectedFeatureId = useRef("");
   const handleViewFeature = useCallback(
-  (record, layerId) => {
-    const selectedFeature =
-      geoJsonLayers[layerId]?.geoJsonData.features[record.featureIndex];
+    (record, layerId) => {
+      const selectedFeature =
+        geoJsonLayers[layerId]?.geoJsonData.features[record.featureIndex];
 
-    if (
-      selectedFeature &&
-      layerId + record.featureIndex !== prevSelectedFeatureId.current
-    ) {
-      dispatch(
-        setSelectedFeature({
-          feature: [selectedFeature],
-          metaData: {
-            ...geoJsonLayers[layerId]?.metaData,
-            selectedKeys: [record.key],
-          },
-        }),
-      );
+      if (
+        selectedFeature &&
+        layerId + record.featureIndex !== prevSelectedFeatureId.current
+      ) {
+        dispatch(
+          setSelectedFeature({
+            feature: [selectedFeature],
+            metaData: {
+              ...geoJsonLayers[layerId]?.metaData,
+              selectedKeys: [record.key],
+            },
+          })
+        );
 
-      if (map) {
-        try {
-          const layer = L.geoJSON(selectedFeature);
-          const bounds = layer.getBounds();
-          if (bounds && bounds.isValid && bounds.isValid()) {
-            const currentBounds = map.getBounds();
-            
-            // Calculate if the feature is already within or very close to current view
-            const isAlreadyInView = currentBounds.contains(bounds);
-            
-            if (isAlreadyInView) {
-              // Use instant fitBounds without animation for close features
-              map.fitBounds(bounds, MAP_FIT_OPTIONS);
-            } else {
-              // Use flyToBounds with animation for distant features
+        if (map) {
+          try {
+            const layer = L.geoJSON(selectedFeature);
+            const bounds = layer.getBounds();
+            if (bounds && bounds.isValid && bounds.isValid()) {
               map.flyToBounds(bounds, MAP_FIT_OPTIONS);
             }
+          } catch (error) {
+            console.error("Error fitting bounds:", error);
           }
-        } catch (error) {
-          console.error("Error fitting bounds:", error);
         }
+
+        // Update selected row keys
+        setSelectedRowKeys({
+          [layerId]: [record.key],
+        });
+
+        prevSelectedFeatureId.current = layerId + record.featureIndex;
+      } else {
+        // Deselect if the same feature is clicked again
+        dispatch(
+          setSelectedFeature({
+            feature: [],
+            metaData: null,
+          })
+        );
+        setSelectedRowKeys({});
+        prevSelectedFeatureId.current = "";
       }
-
-      // Update selected row keys
-      setSelectedRowKeys({
-        [layerId]: [record.key],
-      });
-
-      prevSelectedFeatureId.current = layerId + record.featureIndex;
-    } else {
-      // Deselect if the same feature is clicked again
-      dispatch(
-        setSelectedFeature({
-          feature: [],
-          metaData: null,
-        }),
-      );
-      setSelectedRowKeys({});
-      prevSelectedFeatureId.current = "";
-    }
-  },
-  [dispatch, geoJsonLayers, map],
-);
+    },
+    [dispatch, geoJsonLayers, map]
+  );
 
   const toggleMultiSelect = useCallback((layerId, rowKey, checked) => {
     setMultiSelected((prev) => {
@@ -331,14 +245,14 @@ function AttributeTable({
         if (checked) {
           // Add visible keys to the set (preserve other selections)
           const existing = new Set(
-            prev[layerId] ? Array.from(prev[layerId]) : [],
+            prev[layerId] ? Array.from(prev[layerId]) : []
           );
           allRowKeys.forEach((k) => existing.add(k));
           updated[layerId] = existing;
         } else {
           // Remove visible keys from selection
           const existing = new Set(
-            prev[layerId] ? Array.from(prev[layerId]) : [],
+            prev[layerId] ? Array.from(prev[layerId]) : []
           );
           allRowKeys.forEach((k) => existing.delete(k));
           updated[layerId] = existing;
@@ -346,7 +260,7 @@ function AttributeTable({
         return updated;
       });
     },
-    [geoJsonLayers, getFilteredFeatureIndices],
+    [geoJsonLayers, getFilteredFeatureIndices]
   );
 
   // ============================================
@@ -360,7 +274,7 @@ function AttributeTable({
       const visibleCount = visibleIndices.length;
       const visibleSelectedCount =
         visibleIndices.filter((idx) =>
-          (multiSelected[layerId] || new Set()).has(`${layerId}-${idx}`),
+          (multiSelected[layerId] || new Set()).has(`${layerId}-${idx}`)
         ).length || 0;
 
       if (visibleCount === 0) return false;
@@ -368,7 +282,7 @@ function AttributeTable({
       if (visibleSelectedCount === visibleCount) return true; // Checked
       return "indeterminate"; // Indeterminate (partial selection)
     },
-    [geoJsonLayers, multiSelected, getFilteredFeatureIndices],
+    [geoJsonLayers, multiSelected, getFilteredFeatureIndices]
   );
 
   // ============================================
@@ -513,13 +427,7 @@ function AttributeTable({
         if (h === "layerId") return escapeCell(s.layerId);
         if (h === "latitude") return escapeCell(s.latitude);
         if (h === "longitude") return escapeCell(s.longitude);
-
-        // Handle array of strings in CSV export
-        const value = s.properties[h];
-        if (Array.isArray(value)) {
-          return escapeCell(value.join(", "));
-        }
-        return escapeCell(value);
+        return escapeCell(s.properties[h]);
       });
       csvRows.push(row.join(","));
     });
@@ -551,7 +459,7 @@ function AttributeTable({
       if (isMultiSelected) return "#fff7cc";
       return "white";
     },
-    [multiSelected, selectedRowKeys],
+    [multiSelected, selectedRowKeys]
   );
 
   // ============================================
@@ -559,7 +467,7 @@ function AttributeTable({
   // ============================================
   const layerEntries = useMemo(() => {
     return Object.entries(geoJsonLayers || {}).filter(
-      ([_, layerData]) => layerData?.geoJsonData?.features,
+      ([_, layerData]) => layerData?.geoJsonData?.features
     );
   }, [geoJsonLayers]);
 
@@ -603,7 +511,7 @@ function AttributeTable({
         fixed: "left",
         render: (text, record) => {
           const isSingleSelected = selectedRowKeys[layerId]?.includes(
-            record.key,
+            record.key
           );
           return (
             <Tooltip
@@ -654,7 +562,7 @@ function AttributeTable({
       };
 
       const propertyColumns = getColumns(
-        layerData?.geoJsonData?.features[0]?.properties,
+        layerData?.geoJsonData?.features[0]?.properties
       );
 
       // ✅ Columns with updated select column
@@ -670,23 +578,24 @@ function AttributeTable({
                 margin: "2px 0 2px",
               }}
             >
-              <Input.Search
-                placeholder={`Search ${label}`}
-                enterButton={<SearchOutlined />}
-                allowClear
-                value={searchQueries[layerId] || ""}
-                onChange={(e) =>
-                  setSearchQueries((prev) => ({
-                    ...prev,
-                    [layerId]: e.target.value,
-                  }))
-                }
-                onSearch={(value) =>
-                  setSearchQueries((prev) => ({ ...prev, [layerId]: value }))
-                }
-                style={{ width: 400 }}
-              />
+                <Input.Search
+                  placeholder={`Search ${label}`}
+                  enterButton={<SearchOutlined />}
+                  allowClear
+                  value={searchQueries[layerId] || ""}
+                  onChange={(e) =>
+                    setSearchQueries((prev) => ({
+                      ...prev,
+                      [layerId]: e.target.value,
+                    }))
+                  }
+                  onSearch={(value) =>
+                    setSearchQueries((prev) => ({ ...prev, [layerId]: value }))
+                  }
+                  style={{ width: 400 }}
+                />
 
+                
               {csvDownloader && (
                 <Button
                   type="primary"
@@ -707,7 +616,7 @@ function AttributeTable({
                 dataSource={getTableData(
                   filteredFeatures,
                   layerId,
-                  visibleIndices,
+                  visibleIndices
                 )}
                 scroll={{ x: true, y: 600 }}
                 size="small"
@@ -743,7 +652,7 @@ function AttributeTable({
     handleSelectAllChange,
     searchQueries,
     getFilteredFeatureIndices,
-    csvDownloader,
+    csvDownloader, 
     exportSelectedToCSV,
   ]);
 
@@ -771,7 +680,7 @@ function AttributeTable({
         dispatch(setMultiSelectedFeatures([]));
       }
     },
-    [dispatch, clearDataOnTabChange],
+    [dispatch, clearDataOnTabChange]
   );
 
   const cleanUp = useCallback(() => {
@@ -793,6 +702,7 @@ function AttributeTable({
   // ============================================
   return (
     <>
+
       {tabs.length === 0 ? (
         <div>No active layers with attributes to display</div>
       ) : (

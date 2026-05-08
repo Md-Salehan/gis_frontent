@@ -87,16 +87,16 @@ const LayerPanel = memo(({ layers = [] }) => {
     const sortedLayers = [...sortedList, ...unsortedList];
     return (
       sortedLayers?.map((item, idx) => ({
-        label: item.layer_mst.layer_nm,
-        value: item.layer_mst.layer_id,
+        label: item.layer_mst?.layer_nm || 'unknown',
+        value: item.layer_mst?.layer_id,
         styleInfo: {
-          geom_typ: item.geomStyle_mst.geom_typ,
-          fill_color: item.geomStyle_mst.fill_color,
-          stroke_color: item.geomStyle_mst.stroke_color,
-          marker_fa_icon_name: item.geomStyle_mst.marker_fa_icon_name,
-          marker_color: item.geomStyle_mst.marker_color,
-          marker_size: item.geomStyle_mst.marker_size,
-          marker_img_url: item.geomStyle_mst.marker_img_url,
+          geom_typ: item.geomStyle_mst?.geom_typ,
+          fill_color: item.geomStyle_mst?.fill_color,
+          stroke_color: item.geomStyle_mst?.stroke_color,
+          marker_fa_icon_name: item.geomStyle_mst?.marker_fa_icon_name,
+          marker_color: item.geomStyle_mst?.marker_color,
+          marker_size: item.geomStyle_mst?.marker_size,
+          marker_img_url: item.geomStyle_mst?.marker_img_url,
         },
         orderNo: idx.toString(),
       })) || []

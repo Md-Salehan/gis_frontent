@@ -15,7 +15,7 @@ export const layerApi = baseApi.injectEndpoints({
 
     getLayerObjects: builder.mutation({
       query: ({ layerId, portalId }) => ({
-        url: "object/layer-object/",
+        url: "object/layer-object-filtered/",
         method: "POST",
         body: {
           layer_id: layerId,
