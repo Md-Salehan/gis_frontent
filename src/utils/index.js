@@ -10,3 +10,4 @@ export * from './extractLeafletSVG';
 export * from './mapScaleCalculations';
 export * from './helper';
 export * from './transformProperties';
+export * from './queryBuilder.util';

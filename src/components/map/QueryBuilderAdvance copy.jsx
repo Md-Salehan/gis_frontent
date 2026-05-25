@@ -1,4 +1,4 @@
-// QueryBuilder.jsx
+// QueryBuilderAdvance.jsx
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Card,
@@ -21,14 +21,8 @@ import {
   CheckOutlined,
   ClearOutlined,
 } from "@ant-design/icons";
-import {
-  evaluateCondition,
-  getColumnInfo,
-  getDistinctValues,
-  getLabelTypeColor,
-} from "../../utils";
 
-const { Text } = Typography;
+const { Text, Paragraph } = Typography;
 const { Option } = Select;
 
 // Operator definitions by column type
@@ -58,6 +52,52 @@ const OPERATORS_BY_TYPE = {
     { label: "=", value: "=", sql: "=" },
     { label: "≠", value: "!=", sql: "!=" },
   ],
+};
+
+// Helper to get column info from features
+const getColumnInfo = (features) => {
+  if (!features || !features.length) return [];
+
+  const sampleFeature = features[0];
+  const columns = Object.keys(sampleFeature.properties || {});
+
+  return columns.map((col) => {
+    let type = "string";
+    const sampleValue = sampleFeature.properties[col];
+
+    if (typeof sampleValue === "number") {
+      type = "number";
+    } else if (typeof sampleValue === "boolean") {
+      type = "boolean";
+    } else if (sampleValue !== null && sampleValue !== undefined) {
+      // Try to detect numbers stored as strings
+      const num = parseFloat(sampleValue);
+      if (!isNaN(num) && isFinite(num) && String(sampleValue).trim() !== "") {
+        type = "number";
+      }
+    }
+
+    // Get distinct values (limit for performance)
+    const distinctValues = new Set();
+    features.forEach((feature) => {
+      const value = feature.properties?.[col];
+      if (value !== undefined && value !== null && value !== "") {
+        let val = value;
+        if (type === "number") {
+          val = parseFloat(value);
+          if (!isNaN(val)) distinctValues.add(val);
+        } else {
+          distinctValues.add(String(val));
+        }
+      }
+    });
+
+    return {
+      name: col,
+      type,
+      distinctValues: Array.from(distinctValues).slice(0, 500), // Limit to 500 for performance
+    };
+  });
 };
 
 // Generate SQL-like expression from conditions
@@ -115,7 +155,7 @@ const generateExpression = (conditions, matchType) => {
   return expressions.filter(Boolean).join(joinOperator);
 };
 
-// Condition Row Component with column type display
+// Condition Row Component
 const ConditionRow = ({
   condition,
   index,
@@ -149,6 +189,13 @@ const ConditionRow = ({
     onUpdate(index, { value });
   };
 
+  const isValid =
+    condition.column &&
+    condition.operator &&
+    condition.value !== undefined &&
+    condition.value !== "";
+
+  // Determine if value input should be number type
   const isNumberType = currentColumn?.type === "number";
 
   return (
@@ -165,19 +212,14 @@ const ConditionRow = ({
         placeholder="Column"
         value={condition.column || undefined}
         onChange={handleColumnChange}
-        style={{ width: "30%", minWidth: "140px" }}
+        style={{ width: "30%", minWidth: "120px" }}
         showSearch
         optionFilterProp="children"
-        // size="small"
+        size="small"
       >
         {columns.map((col) => (
           <Option key={col.name} value={col.name}>
-            <Space>
-              <span>{col.name}</span>
-              <Tag color={getLabelTypeColor(col.type)} style={{ fontSize: 10, }}>
-                {col.type}
-              </Tag>
-            </Space>
+            {col.name}
           </Option>
         ))}
       </Select>
@@ -187,7 +229,7 @@ const ConditionRow = ({
         value={condition.operator || undefined}
         onChange={handleOperatorChange}
         style={{ width: "25%", minWidth: "100px" }}
-        // size="small"
+        size="small"
         disabled={!condition.column}
       >
         {operators.map((op) => (
@@ -203,7 +245,7 @@ const ConditionRow = ({
           value={condition.value}
           onChange={handleValueChange}
           style={{ width: "30%" }}
-          // size="small"
+          size="small"
           disabled={!condition.operator}
         />
       ) : (
@@ -214,6 +256,7 @@ const ConditionRow = ({
           style={{ width: "30%" }}
           showSearch
           allowClear
+          mode={condition.operator === "IN" ? "multiple" : undefined}
           size="small"
           disabled={!condition.operator}
           dropdownRender={(menu) => (
@@ -273,7 +316,7 @@ const ConditionRow = ({
 };
 
 // Main QueryBuilderAdvance Component
-const QueryBuilder = ({
+const QueryBuilderAdvance = ({
   activeTab,
   layerData,
   onApplyFilters,
@@ -287,7 +330,7 @@ const QueryBuilder = ({
   const [validationErrors, setValidationErrors] = useState([]);
   const [appliedExpression, setAppliedExpression] = useState("");
 
-  // Extract features and column info using the updated getColumnInfo
+  // Extract features and column info
   const features = useMemo(() => {
     return layerData?.geoJsonData?.features || [];
   }, [layerData]);
@@ -412,7 +455,19 @@ const QueryBuilder = ({
   }, [validationErrors, expression]);
 
   return (
-    <div className="query-builder" style={{}}>
+    <div
+      className="query-builder"
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        backgroundColor: "#fafafa",
+        borderRadius: "8px",
+        overflow: "hidden",
+        border: "1px solid #f0f0f0",
+      }}
+    >
       <Card
         title={
           <Space>
@@ -538,18 +593,22 @@ const QueryBuilder = ({
         )}
 
         {/* Action Buttons */}
-        <Divider style={{ margin: "12px 0" }} />
+        <Divider style={{ margin: "8px 0" }} />
 
-        
         <Space style={{ width: "100%", justifyContent: "flex-end" }}>
-          <Button onClick={handleClearAll} icon={<DeleteOutlined />}>
+          <Button
+            size="small"
+            onClick={handleClearAll}
+            icon={<ClearOutlined />}
+          >
             Clear
           </Button>
           <Button
             type="primary"
+            size="small"
             onClick={handleApply}
             icon={<CheckOutlined />}
-            disabled={!expression.trim()}
+            disabled={isApplyDisabled}
           >
             Apply Filter
           </Button>
@@ -559,4 +618,159 @@ const QueryBuilder = ({
   );
 };
 
-export default QueryBuilder;
+// Export the evaluateQuery function for external use
+export const evaluateQuery = (expression, feature) => {
+  if (!expression || expression.trim() === "") return true;
+
+  // Parse the SQL-like expression
+  // Pattern: "column" operator value
+  const parseCondition = (expr) => {
+    // Match patterns like: "column" = 'value', "column" > 100, "column" LIKE '%value%'
+    const patterns = [
+      { regex: /^"([^"]+)"\s*=\s*'([^']*)'$/, operator: "=", type: "string" },
+      { regex: /^"([^"]+)"\s*!=\s*'([^']*)'$/, operator: "!=", type: "string" },
+      {
+        regex: /^"([^"]+)"\s*=\s*(\\d+(?:\\.\\d+)?)$/,
+        operator: "=",
+        type: "number",
+      },
+      {
+        regex: /^"([^"]+)"\s*!=\s*(\\d+(?:\\.\\d+)?)$/,
+        operator: "!=",
+        type: "number",
+      },
+      {
+        regex: /^"([^"]+)"\s*>\s*(\\d+(?:\\.\\d+)?)$/,
+        operator: ">",
+        type: "number",
+      },
+      {
+        regex: /^"([^"]+)"\s*<\s*(\\d+(?:\\.\\d+)?)$/,
+        operator: "<",
+        type: "number",
+      },
+      {
+        regex: /^"([^"]+)"\s*>=\s*(\\d+(?:\\.\\d+)?)$/,
+        operator: ">=",
+        type: "number",
+      },
+      {
+        regex: /^"([^"]+)"\s*<=\s*(\\d+(?:\\.\\d+)?)$/,
+        operator: "<=",
+        type: "number",
+      },
+      {
+        regex: /^"([^"]+)"\s+LIKE\s+'([^']+)'$/i,
+        operator: "LIKE",
+        type: "string",
+      },
+    ];
+
+    for (const pattern of patterns) {
+      const match = expr.match(pattern.regex);
+      if (match) {
+        const [, field, value] = match;
+        let parsedValue = value;
+        if (pattern.type === "number") {
+          parsedValue = parseFloat(value);
+        }
+        return { field, operator: pattern.operator, value: parsedValue };
+      }
+    }
+    return null;
+  };
+
+  // Handle AND/OR logic
+  const evaluateExpression = (expr) => {
+    expr = expr.trim();
+
+    // Remove outer parentheses
+    if (expr.startsWith("(") && expr.endsWith(")")) {
+      expr = expr.slice(1, -1).trim();
+    }
+
+    // Split by OR first (lower precedence)
+    let orIndex = -1;
+    let parenCount = 0;
+    for (let i = 0; i < expr.length; i++) {
+      if (expr[i] === "(") parenCount++;
+      if (expr[i] === ")") parenCount--;
+      if (
+        parenCount === 0 &&
+        i > 0 &&
+        expr.substring(i).toUpperCase().startsWith(" OR ")
+      ) {
+        orIndex = i;
+        break;
+      }
+    }
+
+    if (orIndex !== -1) {
+      const left = expr.substring(0, orIndex);
+      const right = expr.substring(orIndex + 4);
+      return evaluateExpression(left) || evaluateExpression(right);
+    }
+
+    // Split by AND (higher precedence)
+    let andIndex = -1;
+    parenCount = 0;
+    for (let i = 0; i < expr.length; i++) {
+      if (expr[i] === "(") parenCount++;
+      if (expr[i] === ")") parenCount--;
+      if (
+        parenCount === 0 &&
+        i > 0 &&
+        expr.substring(i).toUpperCase().startsWith(" AND ")
+      ) {
+        andIndex = i;
+        break;
+      }
+    }
+
+    if (andIndex !== -1) {
+      const left = expr.substring(0, andIndex);
+      const right = expr.substring(andIndex + 5);
+      return evaluateExpression(left) && evaluateExpression(right);
+    }
+
+    // Single condition
+    const condition = parseCondition(expr);
+    if (condition) {
+      const fieldValue = feature.properties?.[condition.field];
+
+      if (fieldValue === undefined || fieldValue === null) return false;
+
+      switch (condition.operator) {
+        case "=":
+          return fieldValue == condition.value;
+        case "!=":
+          return fieldValue != condition.value;
+        case ">":
+          return fieldValue > condition.value;
+        case "<":
+          return fieldValue < condition.value;
+        case ">=":
+          return fieldValue >= condition.value;
+        case "<=":
+          return fieldValue <= condition.value;
+        case "LIKE":
+          const pattern = condition.value.replace(/%/g, ".*");
+          const regex = new RegExp(`^${pattern}$`, "i");
+          return regex.test(String(fieldValue));
+        default:
+          return false;
+      }
+    }
+
+    return false;
+  };
+
+  try {
+    return evaluateExpression(expression);
+  } catch (error) {
+    console.error("Error evaluating query:", error);
+    return false;
+  }
+};
+
+export default QueryBuilderAdvance;

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Card,
   Select,
+  Space,
   Button,
   Input,
   Alert,
@@ -10,325 +11,165 @@ import {
   Tooltip,
   Divider,
   Typography,
-  Space,
-  InputNumber,
-  message,
 } from "antd";
 import {
   DeleteOutlined,
-  PlusOutlined,
-  CopyOutlined,
   CheckOutlined,
   ClearOutlined,
+  PlusOutlined,
+  CodeOutlined,
+  DatabaseOutlined,
 } from "@ant-design/icons";
+import { message } from "antd";
+import { evaluateCondition, getColumnInfo, getDistinctValues } from "../../utils";
 
-const { Text, Paragraph } = Typography;
-const { Option } = Select;
+const { TextArea } = Input;
+const {  Text } = Typography;
 
-// Operator definitions by column type
-const OPERATORS_BY_TYPE = {
-  string: [
-    { label: "=", value: "=", sql: "=" },
-    { label: "≠", value: "!=", sql: "!=" },
-    { label: "LIKE", value: "LIKE", sql: "LIKE" },
-    { label: "contains", value: "contains", sql: "LIKE", isPattern: true },
+// Operator definitions matching QGIS style
+const OPERATORS = {
+  comparison: [
+    { label: "=", value: "=", type: "comparison", description: "Equal to" },
     {
-      label: "starts with",
-      value: "starts_with",
-      sql: "LIKE",
-      isPattern: true,
+      label: "≠",
+      value: "!=",
+      type: "comparison",
+      description: "Not equal to",
     },
-    { label: "ends with", value: "ends_with", sql: "LIKE", isPattern: true },
+    { label: ">", value: ">", type: "comparison", description: "Greater than" },
+    { label: "<", value: "<", type: "comparison", description: "Less than" },
+    {
+      label: "≥",
+      value: ">=",
+      type: "comparison",
+      description: "Greater than or equal",
+    },
+    {
+      label: "≤",
+      value: "<=",
+      type: "comparison",
+      description: "Less than or equal",
+    },
   ],
-  number: [
-    { label: "=", value: "=", sql: "=" },
-    { label: "≠", value: "!=", sql: "!=" },
-    { label: ">", value: ">", sql: ">" },
-    { label: "<", value: "<", sql: "<" },
-    { label: "≥", value: ">=", sql: ">=" },
-    { label: "≤", value: "<=", sql: "<=" },
+  logical: [
+    {
+      label: "AND",
+      value: " AND ",
+      type: "logical",
+      description: "Logical AND",
+    },
+    { label: "OR", value: " OR ", type: "logical", description: "Logical OR" },
+    {
+      label: "NOT",
+      value: " NOT ",
+      type: "logical",
+      description: "Logical NOT",
+    },
   ],
-  boolean: [
-    { label: "=", value: "=", sql: "=" },
-    { label: "≠", value: "!=", sql: "!=" },
+  other: [
+    {
+      label: "LIKE",
+      value: " LIKE ",
+      type: "other",
+      description: "Pattern matching",
+    },
+    { label: "IN", value: " IN ", type: "other", description: "Value in set" },
+    {
+      label: "IS NULL",
+      value: " IS NULL",
+      type: "other",
+      description: "Check for null",
+    },
+    {
+      label: "IS NOT NULL",
+      value: " IS NOT NULL",
+      type: "other",
+      description: "Check for not null",
+    },
+  ],
+  parentheses: [
+    {
+      label: "(",
+      value: "( ",
+      type: "parentheses",
+      description: "Open parenthesis",
+    },
+    {
+      label: ")",
+      value: " )",
+      type: "parentheses",
+      description: "Close parenthesis",
+    },
   ],
 };
 
-// Helper to get column info from features
-const getColumnInfo = (features) => {
-  if (!features || !features.length) return [];
 
-  const sampleFeature = features[0];
-  const columns = Object.keys(sampleFeature.properties || {});
 
-  return columns.map((col) => {
-    let type = "string";
-    const sampleValue = sampleFeature.properties[col];
 
-    if (typeof sampleValue === "number") {
-      type = "number";
-    } else if (typeof sampleValue === "boolean") {
-      type = "boolean";
-    } else if (sampleValue !== null && sampleValue !== undefined) {
-      // Try to detect numbers stored as strings
-      const num = parseFloat(sampleValue);
-      if (!isNaN(num) && isFinite(num) && String(sampleValue).trim() !== "") {
-        type = "number";
-      }
+// Expression validator
+const validateExpression = (expression) => {
+  const errors = [];
+
+  if (!expression || expression.trim() === "") {
+    errors.push("Expression cannot be empty");
+    return { isValid: false, errors };
+  }
+
+  // Check for unbalanced parentheses
+  let parenthesesCount = 0;
+  for (let char of expression) {
+    if (char === "(") parenthesesCount++;
+    else if (char === ")") parenthesesCount--;
+    if (parenthesesCount < 0) {
+      errors.push(
+        "Unbalanced parentheses: closing parenthesis without opening",
+      );
+      break;
     }
-
-    // Get distinct values (limit for performance)
-    const distinctValues = new Set();
-    features.forEach((feature) => {
-      const value = feature.properties?.[col];
-      if (value !== undefined && value !== null && value !== "") {
-        let val = value;
-        if (type === "number") {
-          val = parseFloat(value);
-          if (!isNaN(val)) distinctValues.add(val);
-        } else {
-          distinctValues.add(String(val));
-        }
-      }
-    });
-
-    return {
-      name: col,
-      type,
-      distinctValues: Array.from(distinctValues).slice(0, 500), // Limit to 500 for performance
-    };
-  });
-};
-
-// Generate SQL-like expression from conditions
-const generateExpression = (conditions, matchType) => {
-  if (!conditions.length) return "";
-
-  const validConditions = conditions.filter(
-    (c) => c.column && c.operator && c.value !== undefined && c.value !== "",
-  );
-
-  if (!validConditions.length) return "";
-
-  const expressions = validConditions.map((condition) => {
-    const { column, operator, value, columnType } = condition;
-    const quotedColumn = `"${column}"`;
-    const opDef = OPERATORS_BY_TYPE[columnType]?.find(
-      (op) => op.value === operator,
+  }
+  if (parenthesesCount !== 0) {
+    errors.push(
+      `Unbalanced parentheses: ${parenthesesCount} unmatched opening parentheses`,
     );
+  }
 
-    if (!opDef) return "";
-
-    let formattedValue = value;
-
-    if (columnType === "string") {
-      if (operator === "LIKE") {
-        formattedValue = `'%${value}%'`;
-      } else if (operator === "starts_with") {
-        formattedValue = `'${value}%'`;
-      } else if (operator === "ends_with") {
-        formattedValue = `'%${value}'`;
-      } else if (operator === "contains") {
-        formattedValue = `'%${value}%'`;
-      } else {
-        formattedValue = `'${String(value).replace(/'/g, "''")}'`;
-      }
-    } else if (columnType === "number") {
-      formattedValue = value;
-    } else {
-      formattedValue = `'${String(value)}'`;
-    }
-
-    let sqlOp = opDef.sql;
+  // Check for missing quotes around string values (basic check)
+  const stringPattern = /=\s*([^'"\s][^\s)]+)/gi;
+  let match;
+  while ((match = stringPattern.exec(expression)) !== null) {
+    const value = match[1];
     if (
-      operator === "contains" ||
-      operator === "starts_with" ||
-      operator === "ends_with"
+      !value.match(/^['"].*['"]$/) &&
+      !value.match(/^\d+$/) &&
+      value !== "NULL" &&
+      value !== "null"
     ) {
-      sqlOp = "LIKE";
+      errors.push(
+        `Value "${value}" might need quotes. Use '${value}' or "${value}"`,
+      );
     }
+  }
 
-    return `${quotedColumn} ${sqlOp} ${formattedValue}`;
-  });
+  // Check for LIKE operator syntax
+  if (expression.includes("LIKE") && !expression.match(/LIKE\s+['"].+['"]/i)) {
+    errors.push(
+      "LIKE operator requires a quoted pattern (e.g., LIKE '%value%')",
+    );
+  }
 
-  const joinOperator = matchType === "any" ? " OR " : " AND ";
-  return expressions.filter(Boolean).join(joinOperator);
+  return { isValid: errors.length === 0, errors };
 };
 
-// Condition Row Component
-const ConditionRow = ({
-  condition,
-  index,
-  columns,
-  onUpdate,
-  onRemove,
-  onAdd,
-  isLast,
-}) => {
-  const currentColumn = columns.find((c) => c.name === condition.column);
-  const operators = currentColumn
-    ? OPERATORS_BY_TYPE[currentColumn.type] || OPERATORS_BY_TYPE.string
-    : OPERATORS_BY_TYPE.string;
-  const distinctValues = currentColumn?.distinctValues || [];
 
-  const handleColumnChange = (value) => {
-    const newColumn = columns.find((c) => c.name === value);
-    onUpdate(index, {
-      column: value,
-      columnType: newColumn?.type || "string",
-      operator: OPERATORS_BY_TYPE[newColumn?.type || "string"][0]?.value || "=",
-      value: "",
-    });
-  };
 
-  const handleOperatorChange = (value) => {
-    onUpdate(index, { operator: value });
-  };
 
-  const handleValueChange = (value) => {
-    onUpdate(index, { value });
-  };
 
-  const isValid =
-    condition.column &&
-    condition.operator &&
-    condition.value !== undefined &&
-    condition.value !== "";
-
-  // Determine if value input should be number type
-  const isNumberType = currentColumn?.type === "number";
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "8px",
-        marginBottom: "8px",
-        padding: "4px 0",
-      }}
-    >
-      <Select
-        placeholder="Column"
-        value={condition.column || undefined}
-        onChange={handleColumnChange}
-        style={{ width: "30%", minWidth: "120px" }}
-        showSearch
-        optionFilterProp="children"
-        size="small"
-      >
-        {columns.map((col) => (
-          <Option key={col.name} value={col.name}>
-            {col.name}
-          </Option>
-        ))}
-      </Select>
-
-      <Select
-        placeholder="Operator"
-        value={condition.operator || undefined}
-        onChange={handleOperatorChange}
-        style={{ width: "25%", minWidth: "100px" }}
-        size="small"
-        disabled={!condition.column}
-      >
-        {operators.map((op) => (
-          <Option key={op.value} value={op.value}>
-            {op.label}
-          </Option>
-        ))}
-      </Select>
-
-      {isNumberType ? (
-        <InputNumber
-          placeholder="Value"
-          value={condition.value}
-          onChange={handleValueChange}
-          style={{ width: "30%" }}
-          size="small"
-          disabled={!condition.operator}
-        />
-      ) : (
-        <Select
-          placeholder="Value"
-          value={condition.value || undefined}
-          onChange={handleValueChange}
-          style={{ width: "30%" }}
-          showSearch
-          allowClear
-          mode={condition.operator === "IN" ? "multiple" : undefined}
-          size="small"
-          disabled={!condition.operator}
-          dropdownRender={(menu) => (
-            <>
-              {menu}
-              <Divider style={{ margin: "8px 0" }} />
-              <div style={{ padding: "0 8px 8px" }}>
-                <Input
-                  placeholder="Type custom value..."
-                  onPressEnter={(e) => {
-                    if (e.target.value) {
-                      handleValueChange(e.target.value);
-                    }
-                  }}
-                  onBlur={(e) => {
-                    if (e.target.value && !condition.value) {
-                      handleValueChange(e.target.value);
-                    }
-                  }}
-                  size="small"
-                />
-              </div>
-            </>
-          )}
-        >
-          {distinctValues.map((val) => (
-            <Option key={String(val)} value={val}>
-              {String(val)}
-            </Option>
-          ))}
-        </Select>
-      )}
-
-      <Tooltip title="Remove condition">
-        <Button
-          type="text"
-          danger
-          icon={<DeleteOutlined />}
-          onClick={() => onRemove(index)}
-          size="small"
-        />
-      </Tooltip>
-
-      {isLast && (
-        <Tooltip title="Add condition">
-          <Button
-            type="text"
-            style={{ color: "#52c41a" }}
-            icon={<PlusOutlined />}
-            onClick={onAdd}
-            size="small"
-          />
-        </Tooltip>
-      )}
-    </div>
-  );
-};
-
-// Main QueryBuilderAdvance Component
-const QueryBuilderAdvance = ({
-  activeTab,
-  layerData,
-  onApplyFilters,
-  initialMatchType = "any",
-}) => {
-  const [matchType, setMatchType] = useState(initialMatchType);
-  const [conditions, setConditions] = useState([
-    { column: null, operator: null, value: "", columnType: "string" },
-  ]);
+const QueryBuilderAdvance = ({ activeTab, layerData, onApplyFilters }) => {
+  const [selectedColumn, setSelectedColumn] = useState(null);
+  const [selectedValue, setSelectedValue] = useState(null);
   const [expression, setExpression] = useState("");
-  const [validationErrors, setValidationErrors] = useState([]);
-  const [appliedExpression, setAppliedExpression] = useState("");
+  const [validation, setValidation] = useState({ isValid: true, errors: [] });
+  const [searchValue, setSearchValue] = useState("");
 
   // Extract features and column info
   const features = useMemo(() => {
@@ -339,138 +180,162 @@ const QueryBuilderAdvance = ({
     return getColumnInfo(features);
   }, [features]);
 
-  // Validate conditions
-  const validateConditions = useCallback((conds, expr) => {
-    const errors = [];
+  // Current column details
+  const currentColumn = useMemo(() => {
+    if (!selectedColumn) return null;
+    return columns.find((col) => col.name === selectedColumn);
+  }, [columns, selectedColumn]);
 
-    const validConditions = conds.filter(
-      (c) => c.column && c.operator && c.value !== undefined && c.value !== "",
-    );
+  // Get column type for proper formatting
+  const getColumnType = useCallback(
+    (columnName) => {
+      const col = columns.find((c) => c.name === columnName);
+      return col?.type || "string";
+    },
+    [columns],
+  );
 
-    if (validConditions.length === 0) {
-      errors.push("At least one complete condition is required");
+  // Insert text at cursor position
+  const insertAtCursor = useCallback(
+    (text) => {
+      const textarea = document.querySelector(".expression-textarea");
+
+      if (!textarea) {
+        setExpression((prev) => prev + text);
+        return;
+      }
+
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newValue =
+        expression.substring(0, start) + text + expression.substring(end);
+      setExpression(newValue);
+
+      // Set cursor position after inserted text
+      setTimeout(() => {
+        textarea.focus();
+        const newCursorPos = start + text.length;
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      }, 10);
+    },
+    [expression],
+  );
+
+  // Insert quoted field name
+  const insertField = useCallback(() => {
+    if (!selectedColumn) {
+      message.warning("Please select a column first");
+      return;
+    }
+    insertAtCursor(`"${selectedColumn}"`);
+  }, [selectedColumn, insertAtCursor]);
+
+  const insertFieldValue = useCallback(() => {
+    if (!selectedColumn) {
+      message.warning("Please select a column first");
+      return;
+    }
+    if (!selectedValue) {
+      message.warning("Please select a value first");
+      return;
     }
 
-    validConditions.forEach((condition, idx) => {
-      if (condition.columnType === "number") {
-        const numValue = parseFloat(condition.value);
-        if (isNaN(numValue)) {
-          errors.push(
-            `Condition ${idx + 1}: Value must be a number for column "${condition.column}"`,
-          );
-        }
-      }
 
-      if (condition.columnType === "string" && condition.value) {
-        if (condition.operator === "LIKE" && condition.value.length < 2) {
-          errors.push(
-            `Condition ${idx + 1}: LIKE pattern should have at least 2 characters`,
-          );
-        }
-      }
-    });
+    const columnType = getColumnType(selectedColumn);
+    let formattedValue = selectedValue;
 
-    if (expr && !expr.trim()) {
-      errors.push("Generated expression is empty");
+    if (columnType === "string") {
+      formattedValue = `'${selectedValue.replace(/'/g, "\\'")}'`;
+    } else if (columnType === "date") {
+      formattedValue = `'${selectedValue}'`;
     }
 
-    return errors;
+    insertAtCursor(formattedValue);
+  }, [selectedColumn, selectedValue, insertAtCursor, getColumnType]);
+
+  // Insert operator
+  const insertOperator = useCallback(
+    (operator) => {
+      insertAtCursor(operator);
+    },
+    [insertAtCursor],
+  );
+
+  // Handle column change
+  const handleColumnChange = useCallback((value) => {
+    setSelectedColumn(value);
+    setSelectedValue(null);
   }, []);
 
-  // Generate expression when conditions change
-  useEffect(() => {
-    const newExpression = generateExpression(conditions, matchType);
-    setExpression(newExpression);
-
-    const errors = validateConditions(conditions, newExpression);
-    setValidationErrors(errors);
-  }, [conditions, matchType, validateConditions]);
-
-  // Condition handlers
-  const handleAddCondition = useCallback(() => {
-    setConditions((prev) => [
-      ...prev,
-      { column: null, operator: null, value: "", columnType: "string" },
-    ]);
+  // Handle value selection
+  const handleValueChange = useCallback((value) => {
+    setSelectedValue(value);
   }, []);
 
-  const handleRemoveCondition = useCallback((index) => {
-    setConditions((prev) => {
-      if (prev.length === 1) {
-        return [
-          { column: null, operator: null, value: "", columnType: "string" },
-        ];
-      }
-      return prev.filter((_, i) => i !== index);
-    });
-  }, []);
-
-  const handleUpdateCondition = useCallback((index, updates) => {
-    setConditions((prev) =>
-      prev.map((cond, i) => (i === index ? { ...cond, ...updates } : cond)),
-    );
-  }, []);
-
+  // Clear all
   const handleClearAll = useCallback(() => {
-    setConditions([
-      { column: null, operator: null, value: "", columnType: "string" },
-    ]);
-    setMatchType("any");
-    setAppliedExpression("");
-    setValidationErrors([]);
+    setExpression("");
+    setSelectedColumn(null);
+    setSelectedValue(null);
+    setValidation({ isValid: true, errors: [] });
+    setSearchValue("");
+    message.info("Query builder cleared");
   }, []);
 
+  // Apply filter
   const handleApply = useCallback(() => {
-    if (validationErrors.length > 0) {
-      message.error(validationErrors[0]);
+    const validationResult = validateExpression(expression);
+    setValidation(validationResult);
+
+    if (!validationResult.isValid) {
+      message.error("Invalid expression. Please fix errors before applying.");
       return;
     }
 
-    const validConditions = conditions.filter(
-      (c) => c.column && c.operator && c.value !== undefined && c.value !== "",
-    );
-
-    if (validConditions.length === 0) {
-      message.error("Please add at least one complete condition");
-      return;
-    }
-
-    setAppliedExpression(expression);
     if (onApplyFilters) {
       onApplyFilters(expression, activeTab);
       message.success("Filter applied successfully");
     }
-  }, [conditions, expression, validationErrors, onApplyFilters, activeTab]);
+  }, [expression, onApplyFilters, activeTab]);
 
-  const handleCopyExpression = useCallback(() => {
+  const loadExample = useCallback((exampleValue) => {
+    setExpression(exampleValue);
+    setValidation({ isValid: true, errors: [] });
+  }, []);
+
+  // Auto-validate on expression change
+  useEffect(() => {
     if (expression) {
-      navigator.clipboard.writeText(expression);
-      message.success("Expression copied to clipboard");
+      const validationResult = validateExpression(expression);
+      setValidation(validationResult);
+    } else {
+      setValidation({ isValid: true, errors: [] });
     }
   }, [expression]);
 
-  // Check if expression is valid to apply
-  const isApplyDisabled = useMemo(() => {
-    return validationErrors.length > 0 || !expression.trim();
-  }, [validationErrors, expression]);
+  // Load distinct values for current column
+  const distinctValues = useMemo(() => {
+    if (!currentColumn) return [];
+    return currentColumn.distinctValues || [];
+  }, [currentColumn]);
+
+  // Filtered distinct values based on search
+  const filteredDistinctValues = useMemo(() => {
+    if (!searchValue) return distinctValues.slice(0, 100); // Limit to first 100 for performance
+    return distinctValues
+      .filter((v) => v.toLowerCase().includes(searchValue.toLowerCase()))
+      .slice(0, 100);
+  }, [distinctValues, searchValue]);
 
   return (
     <div
       className="query-builder"
-      style={{
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        backgroundColor: "#fafafa",
-        borderRadius: "8px",
-        overflow: "hidden",
-        border: "1px solid #f0f0f0",
-      }}
+      
     >
       <Card
         title={
           <Space>
+            <DatabaseOutlined />
             <span>Query Builder</span>
             {activeTab && (
               <Tag color="blue" style={{ marginLeft: 8 }}>
@@ -488,50 +353,207 @@ const QueryBuilderAdvance = ({
           overflow: "auto",
         }}
       >
-        {/* Match Type Selector */}
-        <div
-          style={{
-            marginBottom: 16,
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-          }}
-        >
-          <Text strong style={{ fontSize: "12px" }}>
-            Match
+        {/* Column and Value Selection */}
+        <div style={{ marginBottom: 16 }}>
+          <Text strong style={{ display: "block", marginBottom: 8 }}>
+            Fields & Values
           </Text>
-          <Select
-            value={matchType}
-            onChange={setMatchType}
-            style={{ width: "80px" }}
-            size="small"
-          >
-            <Option value="any">any</Option>
-            <Option value="all">all</Option>
-          </Select>
-          <Text style={{ fontSize: "12px" }}>of the following:</Text>
+          <Space direction="vertical" style={{ width: "100%" }} size="middle">
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <Select
+                placeholder="Select column"
+                style={{ width: "70%" }}
+                value={selectedColumn}
+                onChange={handleColumnChange}
+                showSearch
+                optionFilterProp="children"
+                allowClear
+                options={columns.map((col) => ({
+                  label: (
+                    <Space>
+                      <span>{col.name}</span>
+                      <Tag
+                        color={col.type === "number" ? "green" : "blue"}
+                        style={{ fontSize: 10 }}
+                      >
+                        {col.type}
+                      </Tag>
+                    </Space>
+                  ),
+                  value: col.name,
+                }))}
+              />
+              <Button
+                size="medium"
+                onClick={insertField}
+                disabled={!selectedColumn}
+                icon={<CodeOutlined />}
+              >
+                Insert
+              </Button>
+            </div>
+
+            {currentColumn && (
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <Select
+                  placeholder="Select or search value"
+                  style={{ width: "70%" }}
+                  value={selectedValue}
+                  onChange={handleValueChange}
+                  onSearch={setSearchValue}
+                  showSearch
+                  filterOption={false}
+                  allowClear
+                  dropdownRender={(menu) => (
+                    <>
+                      {searchValue && (
+                        <div style={{ padding: "8px 12px" }}>
+                          <Button
+                            type="link"
+                            size="small"
+                            onClick={() => handleValueChange(searchValue)}
+                            icon={<PlusOutlined />}
+                          >
+                            Use "{searchValue}"
+                          </Button>
+                          <Divider style={{ margin: "8px 0" }} />
+                        </div>
+                      )}
+                      {menu}
+                      {distinctValues.length > 100 && (
+                        <div
+                          style={{ padding: "8px 12px", textAlign: "center" }}
+                        >
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            Showing first 100 of {distinctValues.length} values
+                          </Text>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  options={filteredDistinctValues.map((v) => ({
+                    label: v.length > 50 ? `${v.substring(0, 47)}...` : v,
+                    value: v,
+                  }))}
+                />
+
+                <Button
+                  size="medium"
+                  onClick={insertFieldValue}
+                  disabled={!selectedColumn || !selectedValue}
+                  icon={<CodeOutlined />}
+                >
+                  Insert
+                </Button>
+              </div>
+            )}
+          </Space>
         </div>
 
-        {/* Condition Rows */}
-        <div style={{ flex: 1, marginBottom: 16 }}>
-          {conditions.map((condition, index) => (
-            <ConditionRow
-              key={index}
-              condition={condition}
-              index={index}
-              columns={columns}
-              onUpdate={handleUpdateCondition}
-              onRemove={handleRemoveCondition}
-              onAdd={handleAddCondition}
-              isLast={index === conditions.length - 1}
-            />
-          ))}
+        {/* Operator Buttons */}
+        <div style={{ marginBottom: 16 }}>
+          <Text strong style={{ display: "block", marginBottom: 8 }}>
+            Operators
+          </Text>
+
+          {/* Comparison Operators */}
+          <div style={{ marginBottom: 12 }}>
+            <Text
+              type="secondary"
+              style={{ fontSize: 12, display: "block", marginBottom: 4 }}
+            >
+              Comparison
+            </Text>
+            <Space wrap size="small">
+              {OPERATORS.comparison.map((op) => (
+                <Tooltip key={op.value} title={op.description}>
+                  <Button
+                    size="small"
+                    onClick={() => insertOperator(op.value)}
+                    style={{ fontFamily: "monospace", minWidth: 50 }}
+                  >
+                    {op.label}
+                  </Button>
+                </Tooltip>
+              ))}
+            </Space>
+          </div>
+
+          {/* Logical Operators */}
+          <div style={{ marginBottom: 12 }}>
+            <Text
+              type="secondary"
+              style={{ fontSize: 12, display: "block", marginBottom: 4 }}
+            >
+              Logical
+            </Text>
+            <Space wrap size="small">
+              {OPERATORS.logical.map((op) => (
+                <Tooltip key={op.value} title={op.description}>
+                  <Button
+                    size="small"
+                    onClick={() => insertOperator(op.value)}
+                    style={{
+                      fontFamily: "monospace",
+                      backgroundColor: "#e6f7ff",
+                    }}
+                  >
+                    {op.label}
+                  </Button>
+                </Tooltip>
+              ))}
+            </Space>
+          </div>
+
+          {/* Other Operators */}
+          <div style={{ marginBottom: 12 }}>
+            <Text
+              type="secondary"
+              style={{ fontSize: 12, display: "block", marginBottom: 4 }}
+            >
+              Other
+            </Text>
+            <Space wrap size="small">
+              {OPERATORS.other.map((op) => (
+                <Tooltip key={op.value} title={op.description}>
+                  <Button
+                    size="small"
+                    onClick={() => insertOperator(op.value)}
+                    style={{ fontFamily: "monospace" }}
+                  >
+                    {op.label}
+                  </Button>
+                </Tooltip>
+              ))}
+            </Space>
+          </div>
+
+          {/* Parentheses */}
+          <div>
+            <Text
+              type="secondary"
+              style={{ fontSize: 12, display: "block", marginBottom: 4 }}
+            >
+              Grouping
+            </Text>
+            <Space wrap size="small">
+              {OPERATORS.parentheses.map((op) => (
+                <Tooltip key={op.value} title={op.description}>
+                  <Button
+                    size="small"
+                    onClick={() => insertOperator(op.value)}
+                    style={{ fontFamily: "monospace", fontWeight: "bold" }}
+                  >
+                    {op.label}
+                  </Button>
+                </Tooltip>
+              ))}
+            </Space>
+          </div>
         </div>
 
-        {/* Expression Preview Section */}
-        <Divider style={{ margin: "8px 0" }} />
-
-        <div style={{ marginBottom: 12 }}>
+        {/* Expression Editor */}
+        <div style={{ marginBottom: 16, flex: 1 }}>
           <Space
             style={{
               justifyContent: "space-between",
@@ -539,76 +561,74 @@ const QueryBuilderAdvance = ({
               marginBottom: 8,
             }}
           >
-            <Text strong style={{ fontSize: "12px" }}>
-              Generated Expression:
-            </Text>
-            <Tooltip title="Copy expression">
+            <Text strong>Expression Editor</Text>
+            <Tooltip title="Clear expression">
               <Button
                 type="text"
                 size="small"
-                icon={<CopyOutlined />}
-                onClick={handleCopyExpression}
-                disabled={!expression}
+                icon={<ClearOutlined />}
+                onClick={() => setExpression("")}
+                danger
               />
             </Tooltip>
           </Space>
 
-          <div
+          <TextArea
+            className="expression-textarea"
+            value={expression}
+            onChange={(e) => setExpression(e.target.value)}
+            placeholder='Build your query expression here...&#10;&#10;Example:&#10;"district" = &#39;Patna&#39; AND "population" > 5000'
+            rows={6}
             style={{
-              backgroundColor: "#1e1e1e",
-              borderRadius: "6px",
-              padding: "10px 12px",
               fontFamily: "monospace",
-              fontSize: "12px",
+              fontSize: "13px",
+              backgroundColor: "#1e1e1e",
               color: "#d4d4d4",
-              overflowX: "auto",
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
+              resize: "vertical",
             }}
-          >
-            {expression || (
-              <span style={{ color: "#6a9955", fontStyle: "italic" }}>
-                Build your query by adding conditions above...
-              </span>
-            )}
-          </div>
+          />
+
+          {/* Validation Errors */}
+          {!validation.isValid && validation.errors.length > 0 && (
+            <Alert
+              message="Validation Errors"
+              description={
+                <ul style={{ margin: 0, paddingLeft: 20 }}>
+                  {validation.errors.map((err, idx) => (
+                    <li key={idx}>{err}</li>
+                  ))}
+                </ul>
+              }
+              type="error"
+              showIcon
+              style={{ marginTop: 12 }}
+              size="small"
+            />
+          )}
+
+          {expression && validation.isValid && (
+            <Alert
+              message="Expression is valid"
+              type="success"
+              showIcon
+              style={{ marginTop: 12 }}
+              size="small"
+            />
+          )}
         </div>
 
-        {/* Validation Errors */}
-        {validationErrors.length > 0 && (
-          <Alert
-            message="Validation Errors"
-            description={
-              <ul style={{ margin: 0, paddingLeft: 20, fontSize: "12px" }}>
-                {validationErrors.map((err, idx) => (
-                  <li key={idx}>{err}</li>
-                ))}
-              </ul>
-            }
-            type="warning"
-            showIcon
-            size="small"
-            style={{ marginBottom: 12 }}
-          />
-        )}
-
         {/* Action Buttons */}
-        <Divider style={{ margin: "8px 0" }} />
+        <Divider style={{ margin: "12px 0" }} />
 
         <Space style={{ width: "100%", justifyContent: "flex-end" }}>
-          <Button
-            size="small"
-            onClick={handleClearAll}
-            icon={<ClearOutlined />}
-          >
+          <Button onClick={handleClearAll} icon={<DeleteOutlined />}>
             Clear
           </Button>
           <Button
             type="primary"
-            size="small"
             onClick={handleApply}
             icon={<CheckOutlined />}
-            disabled={isApplyDisabled}
+            disabled={!expression.trim()}
           >
             Apply Filter
           </Button>
@@ -616,161 +636,6 @@ const QueryBuilderAdvance = ({
       </Card>
     </div>
   );
-};
-
-// Export the evaluateQuery function for external use
-export const evaluateQuery = (expression, feature) => {
-  if (!expression || expression.trim() === "") return true;
-
-  // Parse the SQL-like expression
-  // Pattern: "column" operator value
-  const parseCondition = (expr) => {
-    // Match patterns like: "column" = 'value', "column" > 100, "column" LIKE '%value%'
-    const patterns = [
-      { regex: /^"([^"]+)"\s*=\s*'([^']*)'$/, operator: "=", type: "string" },
-      { regex: /^"([^"]+)"\s*!=\s*'([^']*)'$/, operator: "!=", type: "string" },
-      {
-        regex: /^"([^"]+)"\s*=\s*(\\d+(?:\\.\\d+)?)$/,
-        operator: "=",
-        type: "number",
-      },
-      {
-        regex: /^"([^"]+)"\s*!=\s*(\\d+(?:\\.\\d+)?)$/,
-        operator: "!=",
-        type: "number",
-      },
-      {
-        regex: /^"([^"]+)"\s*>\s*(\\d+(?:\\.\\d+)?)$/,
-        operator: ">",
-        type: "number",
-      },
-      {
-        regex: /^"([^"]+)"\s*<\s*(\\d+(?:\\.\\d+)?)$/,
-        operator: "<",
-        type: "number",
-      },
-      {
-        regex: /^"([^"]+)"\s*>=\s*(\\d+(?:\\.\\d+)?)$/,
-        operator: ">=",
-        type: "number",
-      },
-      {
-        regex: /^"([^"]+)"\s*<=\s*(\\d+(?:\\.\\d+)?)$/,
-        operator: "<=",
-        type: "number",
-      },
-      {
-        regex: /^"([^"]+)"\s+LIKE\s+'([^']+)'$/i,
-        operator: "LIKE",
-        type: "string",
-      },
-    ];
-
-    for (const pattern of patterns) {
-      const match = expr.match(pattern.regex);
-      if (match) {
-        const [, field, value] = match;
-        let parsedValue = value;
-        if (pattern.type === "number") {
-          parsedValue = parseFloat(value);
-        }
-        return { field, operator: pattern.operator, value: parsedValue };
-      }
-    }
-    return null;
-  };
-
-  // Handle AND/OR logic
-  const evaluateExpression = (expr) => {
-    expr = expr.trim();
-
-    // Remove outer parentheses
-    if (expr.startsWith("(") && expr.endsWith(")")) {
-      expr = expr.slice(1, -1).trim();
-    }
-
-    // Split by OR first (lower precedence)
-    let orIndex = -1;
-    let parenCount = 0;
-    for (let i = 0; i < expr.length; i++) {
-      if (expr[i] === "(") parenCount++;
-      if (expr[i] === ")") parenCount--;
-      if (
-        parenCount === 0 &&
-        i > 0 &&
-        expr.substring(i).toUpperCase().startsWith(" OR ")
-      ) {
-        orIndex = i;
-        break;
-      }
-    }
-
-    if (orIndex !== -1) {
-      const left = expr.substring(0, orIndex);
-      const right = expr.substring(orIndex + 4);
-      return evaluateExpression(left) || evaluateExpression(right);
-    }
-
-    // Split by AND (higher precedence)
-    let andIndex = -1;
-    parenCount = 0;
-    for (let i = 0; i < expr.length; i++) {
-      if (expr[i] === "(") parenCount++;
-      if (expr[i] === ")") parenCount--;
-      if (
-        parenCount === 0 &&
-        i > 0 &&
-        expr.substring(i).toUpperCase().startsWith(" AND ")
-      ) {
-        andIndex = i;
-        break;
-      }
-    }
-
-    if (andIndex !== -1) {
-      const left = expr.substring(0, andIndex);
-      const right = expr.substring(andIndex + 5);
-      return evaluateExpression(left) && evaluateExpression(right);
-    }
-
-    // Single condition
-    const condition = parseCondition(expr);
-    if (condition) {
-      const fieldValue = feature.properties?.[condition.field];
-
-      if (fieldValue === undefined || fieldValue === null) return false;
-
-      switch (condition.operator) {
-        case "=":
-          return fieldValue == condition.value;
-        case "!=":
-          return fieldValue != condition.value;
-        case ">":
-          return fieldValue > condition.value;
-        case "<":
-          return fieldValue < condition.value;
-        case ">=":
-          return fieldValue >= condition.value;
-        case "<=":
-          return fieldValue <= condition.value;
-        case "LIKE":
-          const pattern = condition.value.replace(/%/g, ".*");
-          const regex = new RegExp(`^${pattern}$`, "i");
-          return regex.test(String(fieldValue));
-        default:
-          return false;
-      }
-    }
-
-    return false;
-  };
-
-  try {
-    return evaluateExpression(expression);
-  } catch (error) {
-    console.error("Error evaluating query:", error);
-    return false;
-  }
 };
 
 export default QueryBuilderAdvance;

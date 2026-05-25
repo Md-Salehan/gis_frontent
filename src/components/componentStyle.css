@@ -318,9 +318,9 @@
 .query-builder{
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  width: 25%;
+  width: 30%;
   height: 100%;
+  overflow: "hidden",
 }
 
 .expression-textarea::placeholder {
