@@ -18,3 +18,4 @@ export { default as PrintControl } from './map/PrintControl';
 export { default as PaneCreator } from './map/PaneCreator';
 export { default as AttributeTableDrawer } from './map/AttributeTableDrawer';
 export { default as BufferToolDrawer } from './map/BufferToolDrawer';
+export { default as QueryBuilder } from './map/QueryBuilder';

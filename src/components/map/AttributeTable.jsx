@@ -30,6 +30,8 @@ import {
 import L from "leaflet";
 import { useMap } from "react-leaflet";
 import transformProperties from "../../utils/transformProperties";
+import QueryBuilder, { evaluateQuery } from "./QueryBuilder";
+import QueryBuilderAdvance from "./QueryBuilderAdvance";
 
 // Constants
 const DEBUG = process.env.NODE_ENV === "development";
@@ -174,7 +176,6 @@ function AttributeTable({
         },
       );
 
-      console.log(TransformedProperties, "TransformedProperties");
 
       return {
         key: `${layerId}-${originalIndex}`,
@@ -234,73 +235,109 @@ function AttributeTable({
     [searchQueries],
   );
 
+  const parseQueryToRowKeys = useCallback((query, layerId) => {
+    console.log('log 0: parseQueryToRowKeys called');
+    
+  if (!query || !layerId) return [];
+      console.log('log 0.1: parseQueryToRowKeys called');
+
+  const layerData = geoJsonLayers[layerId];
+  console.log('log 0.2: parseQueryToRowKeys called', {layerData, layerId, geoJsonLayers});
+  if (!layerData?.geoJsonData?.features) return [];
+  console.log('log 0.2.1: parseQueryToRowKeys called', { });
+  const features = layerData.geoJsonData.features;
+  const matchingIndices = [];
+  
+  features.forEach((feature, idx) => {
+    try {
+      // Evaluate the query against this feature
+      console.log('log 0.3: called evaluateQuery with query:', query, 'and feature:', feature, evaluateQuery);
+      
+      const matches = evaluateQuery(query, feature);
+      console.log(`log 1: Evaluating feature ${idx}: matches = ${matches} for query "${query}"`, { feature });
+      if (matches) {
+        matchingIndices.push(idx);
+      }
+    } catch (error) {
+      console.error(`Error evaluating query for feature ${idx}:`, error);
+    }
+  });
+  
+  // Convert indices to row keys
+  const rowKeys = matchingIndices.map(idx => `${layerId}-${idx}`);
+  
+  console.log(`Query "${query}" matched ${rowKeys.length} features`);
+  
+  return rowKeys;
+}, [geoJsonLayers]);
+
   // ============================================
   // Selection Handlers
   // ============================================
   const prevSelectedFeatureId = useRef("");
   const handleViewFeature = useCallback(
-  (record, layerId) => {
-    const selectedFeature =
-      geoJsonLayers[layerId]?.geoJsonData.features[record.featureIndex];
+    (record, layerId) => {
+      const selectedFeature =
+        geoJsonLayers[layerId]?.geoJsonData.features[record.featureIndex];
 
-    if (
-      selectedFeature &&
-      layerId + record.featureIndex !== prevSelectedFeatureId.current
-    ) {
-      dispatch(
-        setSelectedFeature({
-          feature: [selectedFeature],
-          metaData: {
-            ...geoJsonLayers[layerId]?.metaData,
-            selectedKeys: [record.key],
-          },
-        }),
-      );
+      if (
+        selectedFeature &&
+        layerId + record.featureIndex !== prevSelectedFeatureId.current
+      ) {
+        dispatch(
+          setSelectedFeature({
+            feature: [selectedFeature],
+            metaData: {
+              ...geoJsonLayers[layerId]?.metaData,
+              selectedKeys: [record.key],
+            },
+          }),
+        );
 
-      if (map) {
-        try {
-          const layer = L.geoJSON(selectedFeature);
-          const bounds = layer.getBounds();
-          if (bounds && bounds.isValid && bounds.isValid()) {
-            const currentBounds = map.getBounds();
-            
-            // Calculate if the feature is already within or very close to current view
-            const isAlreadyInView = currentBounds.contains(bounds);
-            
-            if (isAlreadyInView) {
-              // Use instant fitBounds without animation for close features
-              map.fitBounds(bounds, MAP_FIT_OPTIONS);
-            } else {
-              // Use flyToBounds with animation for distant features
-              map.flyToBounds(bounds, MAP_FIT_OPTIONS);
+        if (map) {
+          try {
+            const layer = L.geoJSON(selectedFeature);
+            const bounds = layer.getBounds();
+            if (bounds && bounds.isValid && bounds.isValid()) {
+              const currentBounds = map.getBounds();
+
+              // Calculate if the feature is already within or very close to current view
+              const isAlreadyInView = currentBounds.contains(bounds);
+
+              if (isAlreadyInView) {
+                // Use instant fitBounds without animation for close features
+                map.fitBounds(bounds, MAP_FIT_OPTIONS);
+              } else {
+                // Use flyToBounds with animation for distant features
+                map.flyToBounds(bounds, MAP_FIT_OPTIONS);
+              }
             }
+          } catch (error) {
+            console.error("Error fitting bounds:", error);
           }
-        } catch (error) {
-          console.error("Error fitting bounds:", error);
         }
+
+        // Update selected row keys
+        setSelectedRowKeys({
+          [layerId]: [record.key],
+        });
+
+        prevSelectedFeatureId.current = layerId + record.featureIndex;
+      } else {
+        // Deselect if the same feature is clicked again
+        dispatch(
+          setSelectedFeature({
+            feature: [],
+            metaData: null,
+          }),
+        );
+        setSelectedRowKeys({});
+        prevSelectedFeatureId.current = "";
       }
-
-      // Update selected row keys
-      setSelectedRowKeys({
-        [layerId]: [record.key],
-      });
-
-      prevSelectedFeatureId.current = layerId + record.featureIndex;
-    } else {
-      // Deselect if the same feature is clicked again
-      dispatch(
-        setSelectedFeature({
-          feature: [],
-          metaData: null,
-        }),
-      );
-      setSelectedRowKeys({});
-      prevSelectedFeatureId.current = "";
-    }
-  },
-  [dispatch, geoJsonLayers, map],
-);
-
+    },
+    [dispatch, geoJsonLayers, map],
+  );
+  // Toggle multi-select for a specific row
   const toggleMultiSelect = useCallback((layerId, rowKey, checked) => {
     setMultiSelected((prev) => {
       const layerSet = new Set(prev[layerId] ? Array.from(prev[layerId]) : []);
@@ -312,6 +349,18 @@ function AttributeTable({
       return { ...prev, [layerId]: layerSet };
     });
   }, []);
+
+  const applyQuerySelection = useCallback((query, layerId) => {
+    const allRowKeys = parseQueryToRowKeys(query, layerId) || [];
+    console.log(`log 2: Applying query selection for tab ${layerId} with query "${query}". Matching row keys:`, allRowKeys);
+    setMultiSelected((prev) => {
+      const updated = { ...prev };
+      updated[layerId] = new Set(allRowKeys);
+      return updated;
+    });
+
+    console.log("Applying query selection:", query, layerId);
+  }, [ parseQueryToRowKeys]);
 
   // ============================================
   // Select All / Unselect All Handler (respects filtering)
@@ -586,6 +635,9 @@ function AttributeTable({
     });
   }, [activeTab, defaultSelectAll, geoJsonLayers, hasInitialized]);
 
+  // ============================================
+  // Build tabs with tables based on geoJsonLayers
+  // ============================================
   const tabs = useMemo(() => {
     return layerEntries.map(([layerId, layerData]) => {
       const label = layerData?.metaData?.layer?.layer_nm || layerId;
@@ -759,6 +811,7 @@ function AttributeTable({
     }
   }, [tabs, activeTab]);
 
+  // Handle tab change with optional data clearing
   const handleTabChange = useCallback(
     (activeKey) => {
       setActiveTab(activeKey);
@@ -774,6 +827,7 @@ function AttributeTable({
     [dispatch, clearDataOnTabChange],
   );
 
+  // Clean up on component unmount if clearDataOnClose is enabled
   const cleanUp = useCallback(() => {
     setSelectedRowKeys({});
     setMultiSelected({});
@@ -792,20 +846,31 @@ function AttributeTable({
   // Render
   // ============================================
   return (
-    <>
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        boxSizing: "border-box",
+        display: "flex",
+        gap: "16px",
+      }}
+    >
       {tabs.length === 0 ? (
         <div>No active layers with attributes to display</div>
       ) : (
-        <Tabs
-          type="card"
-          items={tabs}
-          onChange={handleTabChange}
-          activeKey={activeTab}
-          destroyOnHidden={true}
-          animated={false}
-        />
+        <div style={{ width: "75%", overflowY: "scroll" }}>
+          <Tabs
+            type="card"
+            items={tabs}
+            onChange={handleTabChange}
+            activeKey={activeTab}
+            destroyOnHidden={true}
+            animated={false}
+          />
+        </div>
       )}
-    </>
+      <QueryBuilderAdvance activeTab={activeTab} onApplyFilters={applyQuerySelection} layerData={geoJsonLayers[activeTab]} />
+    </div>
   );
 }
 

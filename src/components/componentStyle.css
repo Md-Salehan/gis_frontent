@@ -314,6 +314,23 @@
 
 
 
+/* query-builder */
+.query-builder{
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 25%;
+  height: 100%;
+}
+
+.expression-textarea::placeholder {
+  color: lightGray; /* Pink color */
+  /* font-style: italic; */
+  opacity: 1; /* Overrides default translucency in some browsers */
+}
+
+
+
 
 
 
