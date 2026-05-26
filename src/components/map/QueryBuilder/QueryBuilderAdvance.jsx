@@ -21,7 +21,7 @@ import {
   DatabaseOutlined,
 } from "@ant-design/icons";
 import { message } from "antd";
-import { evaluateCondition, getColumnInfo, getDistinctValues } from "../../utils";
+import { evaluateCondition, getColumnInfo, getDistinctValues } from "../../../utils";
 
 const { TextArea } = Input;
 const {  Text } = Typography;

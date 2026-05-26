@@ -124,6 +124,8 @@ const ConditionRow = ({
   onRemove,
   onAdd,
   isLast,
+  isFirst,
+  length,
 }) => {
   const currentColumn = columns.find((c) => c.name === condition.column);
   const operators = currentColumn
@@ -247,15 +249,16 @@ const ConditionRow = ({
         </Select>
       )}
 
-      <Tooltip title="Remove condition">
-        <Button
-          type="text"
-          danger
-          icon={<DeleteOutlined />}
-          onClick={() => onRemove(index)}
+      {isFirst && length <= 1 ? null : (
+        <Tooltip title="Remove condition">
+          <Button
+            type="text"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => onRemove(index)}
           size="small"
         />
-      </Tooltip>
+      </Tooltip>)}
 
       {isLast && (
         <Tooltip title="Add condition">
@@ -412,27 +415,8 @@ const QueryBuilder = ({
   }, [validationErrors, expression]);
 
   return (
-    <div className="query-builder" style={{}}>
-      <Card
-        title={
-          <Space>
-            <span>Query Builder</span>
-            {activeTab && (
-              <Tag color="blue" style={{ marginLeft: 8 }}>
-                {layerData?.metaData?.layer?.layer_nm || activeTab}
-              </Tag>
-            )}
-          </Space>
-        }
-        size="small"
-        style={{ height: "100%", display: "flex", flexDirection: "column" }}
-        bodyStyle={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "auto",
-        }}
-      >
+    <div className="query-builder" >
+      
         {/* Match Type Selector */}
         <div
           style={{
@@ -469,6 +453,8 @@ const QueryBuilder = ({
               onRemove={handleRemoveCondition}
               onAdd={handleAddCondition}
               isLast={index === conditions.length - 1}
+              isFirst={index === 0}
+              length={conditions.length}
             />
           ))}
         </div>
@@ -520,7 +506,7 @@ const QueryBuilder = ({
         </div>
 
         {/* Validation Errors */}
-        {validationErrors.length > 0 && (
+        {/* {validationErrors.length > 0 && (
           <Alert
             message="Validation Errors"
             description={
@@ -535,13 +521,13 @@ const QueryBuilder = ({
             size="small"
             style={{ marginBottom: 12 }}
           />
-        )}
+        )} */}
 
         {/* Action Buttons */}
         <Divider style={{ margin: "12px 0" }} />
 
         
-        <Space style={{ width: "100%", justifyContent: "flex-end" }}>
+        <Space style={{ width: "100%", justifyContent: "flex-end" , paddingBottom: 12,}}>
           <Button onClick={handleClearAll} icon={<DeleteOutlined />}>
             Clear
           </Button>
@@ -554,7 +540,6 @@ const QueryBuilder = ({
             Apply Filter
           </Button>
         </Space>
-      </Card>
     </div>
   );
 };

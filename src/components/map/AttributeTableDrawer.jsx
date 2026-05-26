@@ -28,7 +28,7 @@ function AttributeTableDrawer() {
       minimized={true}
       // maximized={true}
     >
-      {isAttributeTableOpen && <AttributeTable csvDownloader={true} clearDataOnTabChange={true} clearDataOnClose={true} defaultSelectAll={false} />}
+      {isAttributeTableOpen && <AttributeTable csvDownloader={true} clearDataOnTabChange={true} clearDataOnClose={true} defaultSelectAll={false} showQueryBuilder={true} />}
     </CustomDrawer>
   );
 }

@@ -30,9 +30,8 @@ import {
 import L from "leaflet";
 import { useMap } from "react-leaflet";
 import transformProperties from "../../utils/transformProperties";
-import QueryBuilderAdvance from "./QueryBuilderAdvance";
-import QueryBuilder from "./QueryBuilder";
 import { evaluateQuery } from "../../utils";
+import { QueryBuilder } from "..";
 
 // Constants
 const DEBUG = process.env.NODE_ENV === "development";
@@ -47,6 +46,7 @@ function AttributeTable({
   clearDataOnTabChange = true,
   clearDataOnClose = true,
   defaultSelectAll = false,
+  showQueryBuilder = true,
 }) {
   const dispatch = useDispatch();
   const map = useMap();
@@ -870,7 +870,9 @@ function AttributeTable({
           />
         </div>
       )}
-      <QueryBuilder activeTab={activeTab} onApplyFilters={applyQuerySelection} layerData={geoJsonLayers[activeTab]} />
+      {showQueryBuilder && (
+        <QueryBuilder activeTab={activeTab} onApplyFilters={applyQuerySelection} layerData={geoJsonLayers[activeTab]} />
+      )}
     </div>
   );
 }
