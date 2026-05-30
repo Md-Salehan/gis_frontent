@@ -15,11 +15,16 @@ import {
   Space,
   Tooltip,
   Input,
+  Dropdown,
+  Tag,
 } from "antd";
 import {
   DownloadOutlined,
   SearchOutlined,
   CloseCircleOutlined,
+  DownOutlined,
+  EllipsisOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
 import { useSelector, useDispatch } from "react-redux";
 import {
@@ -40,13 +45,29 @@ const MAP_FIT_OPTIONS = {
   maxZoom: 20,
   duration: 0.7,
 };
+const TABLE_VISIBILITY_TYPES = [
+  {
+    label: "All",
+    key: "1",
+    // icon: <UserOutlined />,
+  },
+  {
+    label: "Selected",
+    key: "2",
+    // icon: <UserOutlined />,
+  },
+  {
+    label: "Unselected",
+    key: "3",
+    // icon: <UserOutlined />,
+  },
+];
 
 function AttributeTable({
   csvDownloader = true,
   clearDataOnTabChange = true,
   clearDataOnClose = true,
   defaultSelectAll = false,
-  showQueryBuilder = true,
 }) {
   const dispatch = useDispatch();
   const map = useMap();
@@ -56,12 +77,20 @@ function AttributeTable({
   const [multiSelected, setMultiSelected] = useState([]);
   const [hasInitialized, setHasInitialized] = useState(false);
   const [searchQueries, setSearchQueries] = useState({});
+  const [tableVisibilityType, setTableVisibilityType] = useState("All");
+  const [showQueryBuilder, setShowQueryBuilder] = useState(true);
+  const [numOfItems, setNumOfItems] = useState(0);
 
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
+
+  console.log("xxw:", geoJsonLayers);
 
   // ============================================
   // Utility: Parse row key to feature index
   // ============================================
+  const generateRowKey = useCallback((layerId, featureIndex) => {
+    return `${layerId}-${featureIndex}`;
+  }, []);
   const parseRowKeyToIndex = useCallback((rowKey) => {
     const parts = rowKey.split("-");
     const idxStr = parts[parts.length - 1];
@@ -177,9 +206,8 @@ function AttributeTable({
         },
       );
 
-
       return {
-        key: `${layerId}-${originalIndex}`,
+        key: generateRowKey(layerId, originalIndex),
         featureIndex: originalIndex,
         ...TransformedProperties,
       };
@@ -194,7 +222,23 @@ function AttributeTable({
       if (!features || features.length === 0) return [];
 
       const q = (searchQueries[layerId] || "").trim().toLowerCase();
-      if (!q) return features.map((_, idx) => idx);
+      const filterType = tableVisibilityType;
+      if (!q && filterType === "All") return features.map((_, idx) => idx);
+
+      const matchesFilterType = (feature) => {
+        const rowKey = generateRowKey(layerId, features.indexOf(feature));
+        const isMultiSelected = multiSelected[layerId]?.has(rowKey);
+
+        if (filterType === "Selected") {
+          // return isMultiSelected || isSingleSelected;
+          return isMultiSelected;
+        }
+        if (filterType === "Unselected") {
+          // return !isMultiSelected && !isSingleSelected;
+          return !isMultiSelected;
+        }
+        return true; // "All"
+      };
 
       const matchesQuery = (feature) => {
         // Search properties
@@ -228,49 +272,56 @@ function AttributeTable({
         return false;
       };
 
-      return features
+      const result = features
         .map((f, idx) => ({ f, idx }))
+        .filter(({ f }) => matchesFilterType(f))
         .filter(({ f }) => matchesQuery(f))
         .map(({ idx }) => idx);
+
+      return result;
     },
-    [searchQueries],
+    [searchQueries, tableVisibilityType, multiSelected, generateRowKey],
   );
 
-  const parseQueryToRowKeys = useCallback((query, layerId) => {
-    console.log('log 0: parseQueryToRowKeys called');
-    
-  if (!query || !layerId) return [];
-      console.log('log 0.1: parseQueryToRowKeys called');
+  const parseQueryToRowKeys = useCallback(
+    (query, layerId) => {
+      if (!query || !layerId) return [];
 
-  const layerData = geoJsonLayers[layerId];
-  console.log('log 0.2: parseQueryToRowKeys called', {layerData, layerId, geoJsonLayers});
-  if (!layerData?.geoJsonData?.features) return [];
-  console.log('log 0.2.1: parseQueryToRowKeys called', { });
-  const features = layerData.geoJsonData.features;
-  const matchingIndices = [];
-  
-  features.forEach((feature, idx) => {
-    try {
-      // Evaluate the query against this feature
-      console.log('log 0.3: called evaluateQuery with query:', query, 'and feature:', feature, evaluateQuery);
-      
-      const matches = evaluateQuery(query, feature);
-      console.log(`log 1: Evaluating feature ${idx}: matches = ${matches} for query "${query}"`, { feature });
-      if (matches) {
-        matchingIndices.push(idx);
-      }
-    } catch (error) {
-      console.error(`Error evaluating query for feature ${idx}:`, error);
-    }
-  });
-  
-  // Convert indices to row keys
-  const rowKeys = matchingIndices.map(idx => `${layerId}-${idx}`);
-  
-  console.log(`Query "${query}" matched ${rowKeys.length} features`);
-  
-  return rowKeys;
-}, [geoJsonLayers]);
+      const layerData = geoJsonLayers[layerId];
+
+      if (!layerData?.geoJsonData?.features) return [];
+      const features = layerData.geoJsonData.features;
+      const matchingIndices = [];
+
+      features.forEach((feature, idx) => {
+        try {
+          // Evaluate the query against this feature
+
+          const matches = evaluateQuery(query, feature);
+
+          if (matches) {
+            matchingIndices.push(idx);
+          }
+        } catch (error) {
+          console.error(`Error evaluating query for feature ${idx}:`, error);
+        }
+      });
+
+      // Convert indices to row keys
+      const rowKeys = matchingIndices.map((idx) =>
+        generateRowKey(layerId, idx),
+      );
+
+      return rowKeys;
+    },
+    [geoJsonLayers],
+  );
+
+  const handleTableVisibilityChange = useCallback((type) => {
+    setTableVisibilityType(
+      TABLE_VISIBILITY_TYPES.find((t) => t.key === type.key)?.label || "All",
+    );
+  }, []);
 
   // ============================================
   // Selection Handlers
@@ -351,17 +402,19 @@ function AttributeTable({
     });
   }, []);
 
-  const applyQuerySelection = useCallback((query, layerId) => {
-    const allRowKeys = parseQueryToRowKeys(query, layerId) || [];
-    console.log(`log 2: Applying query selection for tab ${layerId} with query "${query}". Matching row keys:`, allRowKeys);
-    setMultiSelected((prev) => {
-      const updated = { ...prev };
-      updated[layerId] = new Set(allRowKeys);
-      return updated;
-    });
+  const applyQuerySelection = useCallback(
+    (query, layerId) => {
+      const allRowKeys = parseQueryToRowKeys(query, layerId) || [];
 
-    console.log("Applying query selection:", query, layerId);
-  }, [ parseQueryToRowKeys]);
+      setMultiSelected((prev) => {
+        const updated = { ...prev };
+        updated[layerId] = new Set(allRowKeys);
+        return updated;
+      });
+      handleTableVisibilityChange({ key: "2" }); // Switch to "Selected" view after applying query
+    },
+    [parseQueryToRowKeys, handleTableVisibilityChange],
+  );
 
   // ============================================
   // Select All / Unselect All Handler (respects filtering)
@@ -374,7 +427,9 @@ function AttributeTable({
       const features = layerData.geoJsonData.features;
       const visibleIndices = getFilteredFeatureIndices(features, layerId);
 
-      const allRowKeys = visibleIndices.map((idx) => `${layerId}-${idx}`);
+      const allRowKeys = visibleIndices.map((idx) =>
+        generateRowKey(layerId, idx),
+      );
 
       setMultiSelected((prev) => {
         const updated = { ...prev };
@@ -410,7 +465,9 @@ function AttributeTable({
       const visibleCount = visibleIndices.length;
       const visibleSelectedCount =
         visibleIndices.filter((idx) =>
-          (multiSelected[layerId] || new Set()).has(`${layerId}-${idx}`),
+          (multiSelected[layerId] || new Set()).has(
+            generateRowKey(layerId, idx),
+          ),
         ).length || 0;
 
       if (visibleCount === 0) return false;
@@ -645,6 +702,7 @@ function AttributeTable({
 
       // Build filtered set for this layer according to search query
       const features = layerData?.geoJsonData?.features || [];
+      // const availableFeatures =
       const visibleIndices = getFilteredFeatureIndices(features, layerId);
       const filteredFeatures = visibleIndices.map((idx) => features[idx]);
 
@@ -713,38 +771,77 @@ function AttributeTable({
       // ✅ Columns with updated select column
       const columns = [selectColumn, actionColumn, ...propertyColumns];
 
+      activeTab === layerId && setNumOfItems(filteredFeatures.length);
+
       const children =
         activeTab === layerId ? (
           <>
             <Space
               style={{
                 display: "flex",
-                justifyContent: "space-between",
+                justifyContent: "start",
+                gap: "8px",
                 margin: "2px 0 2px",
+                // position: "sticky",
+                // top: 0,
+                // zIndex: 9999,
+                // left: 0,
+                // backgroundColor: "white",
+                // padding: "4px",
               }}
             >
-              <Input.Search
-                placeholder={`Search ${label}`}
-                enterButton={<SearchOutlined />}
-                allowClear
-                value={searchQueries[layerId] || ""}
-                onChange={(e) =>
-                  setSearchQueries((prev) => ({
-                    ...prev,
-                    [layerId]: e.target.value,
-                  }))
-                }
-                onSearch={(value) =>
-                  setSearchQueries((prev) => ({ ...prev, [layerId]: value }))
-                }
-                style={{ width: 400 }}
-              />
+              <Space direction="horizontal" size="small">
+                <Input.Search
+                  placeholder={`Search ${label}`}
+                  enterButton={<SearchOutlined />}
+                  allowClear
+                  value={searchQueries[layerId] || ""}
+                  onChange={(e) =>
+                    setSearchQueries((prev) => ({
+                      ...prev,
+                      [layerId]: e.target.value,
+                    }))
+                  }
+                  onSearch={(value) =>
+                    setSearchQueries((prev) => ({ ...prev, [layerId]: value }))
+                  }
+                  style={{ width: 400 }}
+                  size="small"
+                />
+                <Space.Compact size="small">
+                  <Button
+                    size="small"
+                    style={{
+                      width: "100px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "start",
+                    }}
+                    onClick={() => {}}
+                  >
+                    {tableVisibilityType} {numOfItems}
+                  </Button>
+                  <Dropdown
+                    menu={{
+                      items: TABLE_VISIBILITY_TYPES,
+                      onClick: (e) => handleTableVisibilityChange(e),
+                    }}
+                    placement="bottomRight"
+                  >
+                    <Button icon={<EllipsisOutlined />} />
+                  </Dropdown>
+                </Space.Compact>
+              </Space>
 
               {csvDownloader && (
                 <Button
+                  size="small"
                   type="primary"
                   icon={<DownloadOutlined />}
                   onClick={exportSelectedToCSV}
+                  disabled={
+                    !multiSelected[layerId] || multiSelected[layerId].size === 0
+                  }
                 >
                   Download CSV
                 </Button>
@@ -762,7 +859,7 @@ function AttributeTable({
                   layerId,
                   visibleIndices,
                 )}
-                scroll={{ x: true, y: 600 }}
+                scroll={{ x: true }}
                 size="small"
                 pagination={{ pageSize: 5 }}
                 onRow={(record) => ({
@@ -798,6 +895,9 @@ function AttributeTable({
     getFilteredFeatureIndices,
     csvDownloader,
     exportSelectedToCSV,
+    tableVisibilityType,
+    handleTableVisibilityChange,
+    numOfItems,
   ]);
 
   // ============================================
@@ -853,13 +953,25 @@ function AttributeTable({
         height: "100%",
         boxSizing: "border-box",
         display: "flex",
-        gap: "16px",
+        // gap: "10px",
       }}
     >
       {tabs.length === 0 ? (
-        <div>No active layers with attributes to display</div>
+        <div className="table-container">
+          <Space
+            direction="vertical"
+            size="large"
+            wrap="nowrap"
+            style={{ width: "100%", textAlign: "center", marginTop: 20 }}
+          >
+            <Tag color="red" style={{}}>
+              No layers with features available
+            </Tag>
+          </Space>
+        </div>
       ) : (
-        <div style={{ width: "75%", overflowY: "scroll" }}>
+        <div className="table-container">
+          {/* hide vertical scroll bar */}
           <Tabs
             type="card"
             items={tabs}
@@ -871,7 +983,11 @@ function AttributeTable({
         </div>
       )}
       {showQueryBuilder && (
-        <QueryBuilder activeTab={activeTab} onApplyFilters={applyQuerySelection} layerData={geoJsonLayers[activeTab]} />
+        <QueryBuilder
+          activeTab={activeTab}
+          onApplyFilters={applyQuerySelection}
+          layerData={geoJsonLayers[activeTab]}
+        />
       )}
     </div>
   );

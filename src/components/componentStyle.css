@@ -68,7 +68,7 @@
   margin-right: 8px;
   margin-left: 8px;
   vertical-align: middle;
-   background-color: transparent;
+  background-color: transparent;
   border: 1px solid black;
   display: inline-block;
   box-shadow: 3px 3px 3px rgba(43, 42, 42, 0.2);
@@ -135,7 +135,7 @@
 
 /* map Feature Popup ///////////////////////////////////////////////////////////////////////// */
 /* Custom Popup Styles */
-.leaflet-popup-close-button{
+.leaflet-popup-close-button {
   color: white !important;
 }
 .custom-popup .leaflet-popup-content-wrapper {
@@ -177,7 +177,6 @@
   background-color: #f0f1f3;
 }
 
-
 .leaflet-popup {
   z-index: 10001 !important;
 }
@@ -200,15 +199,10 @@
   max-width: 450px;
 }
 
-
-
 /* Custom Drawer  //////////////////////////////////////////////////////////////////////////////////////// */
-.ant-drawer-close{
+.ant-drawer-close {
   display: none !important;
 }
-
-
-
 
 /* PrintControl.jsx  //////////////////////////////////////////////////////////////////////////////////////// */
 /* Print Modal Styles */
@@ -260,32 +254,6 @@
   }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /* Add at the end of componentStyle.css */
 
 /* Print Quality Fixes */
@@ -312,22 +280,28 @@
   transition: none !important;
 }
 
-
-
-/* query-builder */
+/* Attribute Table Styles /////////////////////////////////////////////////////// */
+.table-container {
+  display: flex;
+  flex: 1;
+  overflow-y: scroll;
+  padding-right: 4px;
+}
+/* query-builder ////////////////////////////////////////////////////////////////*/
 .query-builder-container {
   display: flex;
   flex-direction: column;
   width: 30%;
+  min-width: 30%;
   height: 100%;
-  overflow: "hidden",
+  overflow: "hidden";
 }
-.query-builder{
+.query-builder {
   display: flex;
   flex-direction: column;
   width: 100%;
   height: 100%;
-  overflow: "hidden",
+  overflow: "hidden";
 }
 
 .expression-textarea::placeholder {
@@ -335,10 +309,3 @@
   /* font-style: italic; */
   opacity: 1; /* Overrides default translucency in some browsers */
 }
-
-
-
-
-
-
-

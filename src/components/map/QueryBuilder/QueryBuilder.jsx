@@ -13,6 +13,7 @@ import {
   Space,
   InputNumber,
   message,
+  DatePicker,
 } from "antd";
 import {
   DeleteOutlined,
@@ -27,6 +28,7 @@ import {
   getDistinctValues,
   getLabelTypeColor,
 } from "../../../utils";
+import dayjs from "dayjs";
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -57,6 +59,14 @@ const OPERATORS_BY_TYPE = {
   boolean: [
     { label: "=", value: "=", sql: "=" },
     { label: "≠", value: "!=", sql: "!=" },
+  ],
+  date: [
+    { label: "=", value: "=", sql: "=" },
+    { label: "≠", value: "!=", sql: "!=" },
+    { label: ">", value: ">", sql: ">" },
+    { label: "<", value: "<", sql: "<" },
+    { label: "≥", value: ">=", sql: ">=" },
+    { label: "≤", value: "<=", sql: "<=" },
   ],
 };
 
@@ -93,6 +103,9 @@ const generateExpression = (conditions, matchType) => {
       } else {
         formattedValue = `'${String(value).replace(/'/g, "''")}'`;
       }
+    } else if (columnType === "date") {
+      // Format date value for SQL
+      formattedValue = `'${value}'`;
     } else if (columnType === "number") {
       formattedValue = value;
     } else {
@@ -151,7 +164,21 @@ const ConditionRow = ({
     onUpdate(index, { value });
   };
 
+  const handleDateChange = (date, dateString) => {
+    // dateString will be in DD/MM/YYYY format based on format prop
+    onUpdate(index, { value: dateString });
+  };
+
   const isNumberType = currentColumn?.type === "number";
+  const isDateType = currentColumn?.type === "date";
+
+  // Format date for display
+  const getDateValue = () => {
+    if (!condition.value) return null;
+    // Parse DD/MM/YYYY to dayjs
+    const [day, month, year] = condition.value.split("/");
+    return dayjs(`${year}-${month}-${day}`);
+  };
 
   return (
     <div
@@ -170,13 +197,12 @@ const ConditionRow = ({
         style={{ width: "30%", minWidth: "140px" }}
         showSearch
         optionFilterProp="children"
-        // size="small"
       >
         {columns.map((col) => (
           <Option key={col.name} value={col.name}>
             <Space>
               <span>{col.name}</span>
-              <Tag color={getLabelTypeColor(col.type)} style={{ fontSize: 10, }}>
+              <Tag color={getLabelTypeColor(col.type)} style={{ fontSize: 10 }}>
                 {col.type}
               </Tag>
             </Space>
@@ -189,7 +215,6 @@ const ConditionRow = ({
         value={condition.operator || undefined}
         onChange={handleOperatorChange}
         style={{ width: "25%", minWidth: "100px" }}
-        // size="small"
         disabled={!condition.column}
       >
         {operators.map((op) => (
@@ -205,8 +230,16 @@ const ConditionRow = ({
           value={condition.value}
           onChange={handleValueChange}
           style={{ width: "30%" }}
-          // size="small"
           disabled={!condition.operator}
+        />
+      ) : isDateType ? (
+        <DatePicker
+          value={getDateValue()}
+          onChange={handleDateChange}
+          format="DD/MM/YYYY"
+          style={{ width: "30%" }}
+          disabled={!condition.operator}
+          placeholder="DD/MM/YYYY"
         />
       ) : (
         <Select
@@ -218,7 +251,7 @@ const ConditionRow = ({
           allowClear
           size="small"
           disabled={!condition.operator}
-          dropdownRender={(menu) => (
+          popupRender={(menu) => (
             <>
               {menu}
               <Divider style={{ margin: "8px 0" }} />
@@ -256,9 +289,10 @@ const ConditionRow = ({
             danger
             icon={<DeleteOutlined />}
             onClick={() => onRemove(index)}
-          size="small"
-        />
-      </Tooltip>)}
+            size="small"
+          />
+        </Tooltip>
+      )}
 
       {isLast && (
         <Tooltip title="Add condition">
@@ -317,6 +351,15 @@ const QueryBuilder = ({
         if (isNaN(numValue)) {
           errors.push(
             `Condition ${idx + 1}: Value must be a number for column "${condition.column}"`,
+          );
+        }
+      }
+
+      if (condition.columnType === "date") {
+        const datePattern = /^\d{2}\/\d{2}\/\d{4}$/;
+        if (!datePattern.test(condition.value)) {
+          errors.push(
+            `Condition ${idx + 1}: Value must be a date in DD/MM/YYYY format for column "${condition.column}"`,
           );
         }
       }
@@ -415,98 +458,97 @@ const QueryBuilder = ({
   }, [validationErrors, expression]);
 
   return (
-    <div className="query-builder" >
-      
-        {/* Match Type Selector */}
-        <div
+    <div className="query-builder">
+      {/* Match Type Selector */}
+      <div
+        style={{
+          marginBottom: 16,
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+        }}
+      >
+        <Text strong style={{ fontSize: "12px" }}>
+          Match
+        </Text>
+        <Select
+          value={matchType}
+          onChange={setMatchType}
+          style={{ width: "80px" }}
+          size="small"
+        >
+          <Option value="any">any</Option>
+          <Option value="all">all</Option>
+        </Select>
+        <Text style={{ fontSize: "12px" }}>of the following:</Text>
+      </div>
+
+      {/* Condition Rows */}
+      <div style={{ flex: 1, marginBottom: 16 }}>
+        {conditions.map((condition, index) => (
+          <ConditionRow
+            key={index}
+            condition={condition}
+            index={index}
+            columns={columns}
+            onUpdate={handleUpdateCondition}
+            onRemove={handleRemoveCondition}
+            onAdd={handleAddCondition}
+            isLast={index === conditions.length - 1}
+            isFirst={index === 0}
+            length={conditions.length}
+          />
+        ))}
+      </div>
+
+      {/* Expression Preview Section */}
+      <Divider style={{ margin: "8px 0" }} />
+
+      <div style={{ marginBottom: 12 }}>
+        <Space
           style={{
-            marginBottom: 16,
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
+            justifyContent: "space-between",
+            width: "100%",
+            marginBottom: 8,
           }}
         >
           <Text strong style={{ fontSize: "12px" }}>
-            Match
+            Generated Expression:
           </Text>
-          <Select
-            value={matchType}
-            onChange={setMatchType}
-            style={{ width: "80px" }}
-            size="small"
-          >
-            <Option value="any">any</Option>
-            <Option value="all">all</Option>
-          </Select>
-          <Text style={{ fontSize: "12px" }}>of the following:</Text>
-        </div>
-
-        {/* Condition Rows */}
-        <div style={{ flex: 1, marginBottom: 16 }}>
-          {conditions.map((condition, index) => (
-            <ConditionRow
-              key={index}
-              condition={condition}
-              index={index}
-              columns={columns}
-              onUpdate={handleUpdateCondition}
-              onRemove={handleRemoveCondition}
-              onAdd={handleAddCondition}
-              isLast={index === conditions.length - 1}
-              isFirst={index === 0}
-              length={conditions.length}
+          <Tooltip title="Copy expression">
+            <Button
+              type="text"
+              size="small"
+              icon={<CopyOutlined />}
+              onClick={handleCopyExpression}
+              disabled={!expression}
             />
-          ))}
+          </Tooltip>
+        </Space>
+
+        <div
+          style={{
+            backgroundColor: "#1e1e1e",
+            borderRadius: "6px",
+            padding: "10px 12px",
+            fontFamily: "monospace",
+            fontSize: "12px",
+            color: "#d4d4d4",
+            overflowX: "auto",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+          }}
+        >
+          {expression || (
+            <span style={{ color: "#6a9955", fontStyle: "italic" }}>
+              Build your query by adding conditions above...
+            </span>
+          )}
         </div>
+      </div>
 
-        {/* Expression Preview Section */}
-        <Divider style={{ margin: "8px 0" }} />
-
-        <div style={{ marginBottom: 12 }}>
-          <Space
-            style={{
-              justifyContent: "space-between",
-              width: "100%",
-              marginBottom: 8,
-            }}
-          >
-            <Text strong style={{ fontSize: "12px" }}>
-              Generated Expression:
-            </Text>
-            <Tooltip title="Copy expression">
-              <Button
-                type="text"
-                size="small"
-                icon={<CopyOutlined />}
-                onClick={handleCopyExpression}
-                disabled={!expression}
-              />
-            </Tooltip>
-          </Space>
-
-          <div
-            style={{
-              backgroundColor: "#1e1e1e",
-              borderRadius: "6px",
-              padding: "10px 12px",
-              fontFamily: "monospace",
-              fontSize: "12px",
-              color: "#d4d4d4",
-              overflowX: "auto",
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-            }}
-          >
-            {expression || (
-              <span style={{ color: "#6a9955", fontStyle: "italic" }}>
-                Build your query by adding conditions above...
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Validation Errors */}
-        {/* {validationErrors.length > 0 && (
+      {/* Validation Errors */}
+      {/* {validationErrors.length > 0 && (
           <Alert
             message="Validation Errors"
             description={
@@ -523,23 +565,24 @@ const QueryBuilder = ({
           />
         )} */}
 
-        {/* Action Buttons */}
-        <Divider style={{ margin: "12px 0" }} />
+      {/* Action Buttons */}
+      <Divider style={{ margin: "12px 0" }} />
 
-        
-        <Space style={{ width: "100%", justifyContent: "flex-end" , paddingBottom: 12,}}>
-          <Button onClick={handleClearAll} icon={<DeleteOutlined />}>
-            Clear
-          </Button>
-          <Button
-            type="primary"
-            onClick={handleApply}
-            icon={<CheckOutlined />}
-            disabled={!expression.trim()}
-          >
-            Apply Filter
-          </Button>
-        </Space>
+      <Space
+        style={{ width: "100%", justifyContent: "flex-end", paddingBottom: 12 }}
+      >
+        <Button onClick={handleClearAll} icon={<DeleteOutlined />}>
+          Clear
+        </Button>
+        <Button
+          type="primary"
+          onClick={handleApply}
+          icon={<CheckOutlined />}
+          disabled={!expression.trim()}
+        >
+          Apply Filter
+        </Button>
+      </Space>
     </div>
   );
 };

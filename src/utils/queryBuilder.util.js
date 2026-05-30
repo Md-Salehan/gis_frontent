@@ -1,19 +1,49 @@
 export const getLabelTypeColor = (type) => {
-    switch (type) {
-      case "number":
-        return "green";
-      case "string":
-        return "blue";
-      case "boolean":
-        return "orange";
-      case "date":
-        return "purple";
-      default:
-        return "gray";
-    }
-  };
+  switch (type) {
+    case "number":
+      return "green";
+    case "string":
+      return "blue";
+    case "boolean":
+      return "orange";
+    case "date":
+      return "purple";
+    default:
+      return "gray";
+  }
+};
 
-  export const getDistinctValues = (features, columnName) => {
+export const parseDateValue = (value) => {
+  if (!value || typeof value !== "string") return null;
+
+  // Handle DD/MM/YYYY format
+  const datePattern = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+  const match = value.match(datePattern);
+
+  if (match) {
+    const [_, day, month, year] = match;
+    // Create date object (month is 0-indexed in JS)
+    return new Date(year, month - 1, day);
+  }
+
+  // Try standard Date parsing as fallback
+  const date = new Date(value);
+  return isNaN(date.getTime()) ? null : date;
+};
+
+// Helper to format date for display
+export const formatDateValue = (date) => {
+  if (!date) return "";
+  if (date instanceof Date && !isNaN(date.getTime())) {
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+  return String(date);
+};
+
+export const getDistinctValues = (features, columnName) => {
   if (!features || !features.length) return [];
 
   const values = new Set();
@@ -43,8 +73,12 @@ export const getColumnInfo = (features) => {
       type = "boolean";
     } else if (sampleValue instanceof Date) {
       type = "date";
-    } else if (!isNaN(parseFloat(sampleValue)) && isFinite(sampleValue)) {
-      type = "number";
+    } else if (typeof sampleValue === "string") {
+      // Check if it's a date string in DD/MM/YYYY format
+      const datePattern = /^\d{2}\/\d{2}\/\d{4}$/;
+      if (datePattern.test(sampleValue)) {
+        type = "date";
+      }
     }
 
     return {
@@ -55,7 +89,12 @@ export const getColumnInfo = (features) => {
   });
 };
 
-export const evaluateCondition = (field, operator, value, featureProperties) => {
+export const evaluateCondition = (
+  field,
+  operator,
+  value,
+  featureProperties,
+) => {
   const fieldValue = featureProperties[field];
 
   // Handle NULL checks
@@ -80,22 +119,79 @@ export const evaluateCondition = (field, operator, value, featureProperties) => 
     return regex.test(fieldValue);
   }
 
-  // Handle comparison operators
   if (fieldValue === null || fieldValue === undefined) return false;
 
+  // Handle date comparisons
+  const isDateValue =
+    value && typeof value === "string" && /^\d{2}\/\d{2}\/\d{4}$/.test(value);
+  const isFieldDate =
+    fieldValue &&
+    typeof fieldValue === "string" &&
+    /^\d{2}\/\d{2}\/\d{4}$/.test(fieldValue);
+
+  if (isDateValue || isFieldDate) {
+    const fieldDate = parseDateValue(fieldValue);
+    const compareDate = parseDateValue(value);
+
+    if (!fieldDate || !compareDate) return false;
+
+    switch (operator) {
+      case "=":
+        return fieldDate.getTime() === compareDate.getTime();
+      case "!=":
+        return fieldDate.getTime() !== compareDate.getTime();
+      case ">":
+        return fieldDate.getTime() > compareDate.getTime();
+      case "<":
+        return fieldDate.getTime() < compareDate.getTime();
+      case ">=":
+        return fieldDate.getTime() >= compareDate.getTime();
+      case "<=":
+        return fieldDate.getTime() <= compareDate.getTime();
+      default:
+        return false;
+    }
+  }
+
+  // Handle number comparisons
+  if (typeof fieldValue === "number" || !isNaN(parseFloat(fieldValue))) {
+    const numField = parseFloat(fieldValue);
+    const numValue = parseFloat(value);
+
+    if (isNaN(numValue)) return false;
+
+    switch (operator) {
+      case "=":
+        return numField === numValue;
+      case "!=":
+        return numField !== numValue;
+      case ">":
+        return numField > numValue;
+      case "<":
+        return numField < numValue;
+      case ">=":
+        return numField >= numValue;
+      case "<=":
+        return numField <= numValue;
+      default:
+        return false;
+    }
+  }
+
+  // Handle string comparisons
   switch (operator) {
     case "=":
-      return fieldValue == value;
+      return String(fieldValue) === String(value);
     case "!=":
-      return fieldValue != value;
+      return String(fieldValue) !== String(value);
     case ">":
-      return fieldValue > value;
+      return String(fieldValue) > String(value);
     case "<":
-      return fieldValue < value;
+      return String(fieldValue) < String(value);
     case ">=":
-      return fieldValue >= value;
+      return String(fieldValue) >= String(value);
     case "<=":
-      return fieldValue <= value;
+      return String(fieldValue) <= String(value);
     default:
       return false;
   }

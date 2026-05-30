@@ -13,14 +13,14 @@ import {
 
 const SelectedFeaturesLayer = () => {
   const selectedFeature = useSelector(
-    (state) => state.map.selectedFeature.feature
+    (state) => state.map.selectedFeature.feature,
   );
   const selectedFeatureMetadata = useSelector(
-    (state) => state.map.selectedFeature.metaData
+    (state) => state.map.selectedFeature.metaData,
   );
 
   const multiSelectedFeatures = useSelector(
-    (state) => state.map.multiSelectedFeatures || []
+    (state) => state.map.multiSelectedFeatures || [],
   );
 
   const pointToLayer = useCallback((feature, latlng) => {
@@ -49,11 +49,11 @@ const SelectedFeaturesLayer = () => {
           feature.properties,
           title,
           coordinates,
-          geometryType
+          geometryType,
         );
       }
     },
-    [selectedFeatureMetadata]
+    [selectedFeatureMetadata],
   );
 
   const hasSingle = selectedFeature && selectedFeature.length > 0;
@@ -61,13 +61,16 @@ const SelectedFeaturesLayer = () => {
 
   const singleKey = useMemo(
     () => `selected-single-${selectedFeatureMetadata?.selectedKeys}`,
-    [selectedFeatureMetadata]
+    [selectedFeatureMetadata],
   );
 
-  const multiKey = useMemo(
-    () => `selected-multi-${multiSelectedFeatures.length}`,
-    [multiSelectedFeatures.length]
-  );
+  const multiKey = useMemo(() => {
+    const uniqueKeys = multiSelectedFeatures
+      .map((f) => f.feature?.properties?.gid)
+      .filter(Boolean)
+      .join("-");
+    return `selected-multi-${uniqueKeys}`;
+  }, [multiSelectedFeatures]);
 
   return (
     <>

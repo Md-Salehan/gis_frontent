@@ -21,10 +21,14 @@ import {
   DatabaseOutlined,
 } from "@ant-design/icons";
 import { message } from "antd";
-import { evaluateCondition, getColumnInfo, getDistinctValues } from "../../utils";
+import {
+  evaluateCondition,
+  getColumnInfo,
+  getDistinctValues,
+} from "../../../utils";
 
 const { TextArea } = Input;
-const {  Text } = Typography;
+const { Text } = Typography;
 
 // Operator definitions matching QGIS style
 const OPERATORS = {
@@ -103,9 +107,6 @@ const OPERATORS = {
   ],
 };
 
-
-
-
 // Expression validator
 const validateExpression = (expression) => {
   const errors = [];
@@ -159,10 +160,6 @@ const validateExpression = (expression) => {
 
   return { isValid: errors.length === 0, errors };
 };
-
-
-
-
 
 const QueryBuilderAdvance = ({ activeTab, layerData, onApplyFilters }) => {
   const [selectedColumn, setSelectedColumn] = useState(null);
@@ -239,7 +236,6 @@ const QueryBuilderAdvance = ({ activeTab, layerData, onApplyFilters }) => {
       message.warning("Please select a value first");
       return;
     }
-
 
     const columnType = getColumnType(selectedColumn);
     let formattedValue = selectedValue;
@@ -328,291 +324,287 @@ const QueryBuilderAdvance = ({ activeTab, layerData, onApplyFilters }) => {
   }, [distinctValues, searchValue]);
 
   return (
-    <div
-      className="query-builder"
-      
-    >
-      
-        {/* Column and Value Selection */}
-        <div style={{ marginBottom: 16 }}>
-          <Text strong style={{ display: "block", marginBottom: 8 }}>
-            Fields & Values
-          </Text>
-          <Space direction="vertical" style={{ width: "100%" }} size="middle">
+    <div className="query-builder">
+      {/* Column and Value Selection */}
+      <div style={{ marginBottom: 16 }}>
+        <Text strong style={{ display: "block", marginBottom: 8 }}>
+          Fields & Values
+        </Text>
+        <Space direction="vertical" style={{ width: "100%" }} size="middle">
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <Select
+              placeholder="Select column"
+              style={{ width: "70%" }}
+              value={selectedColumn}
+              onChange={handleColumnChange}
+              showSearch
+              optionFilterProp="children"
+              allowClear
+              options={columns.map((col) => ({
+                label: (
+                  <Space>
+                    <span>{col.name}</span>
+                    <Tag
+                      color={col.type === "number" ? "green" : "blue"}
+                      style={{ fontSize: 10 }}
+                    >
+                      {col.type}
+                    </Tag>
+                  </Space>
+                ),
+                value: col.name,
+              }))}
+            />
+            <Button
+              size="medium"
+              onClick={insertField}
+              disabled={!selectedColumn}
+              icon={<CodeOutlined />}
+            >
+              Insert
+            </Button>
+          </div>
+
+          {currentColumn && (
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <Select
-                placeholder="Select column"
+                placeholder="Select or search value"
                 style={{ width: "70%" }}
-                value={selectedColumn}
-                onChange={handleColumnChange}
+                value={selectedValue}
+                onChange={handleValueChange}
+                onSearch={setSearchValue}
                 showSearch
-                optionFilterProp="children"
+                filterOption={false}
                 allowClear
-                options={columns.map((col) => ({
-                  label: (
-                    <Space>
-                      <span>{col.name}</span>
-                      <Tag
-                        color={col.type === "number" ? "green" : "blue"}
-                        style={{ fontSize: 10 }}
-                      >
-                        {col.type}
-                      </Tag>
-                    </Space>
-                  ),
-                  value: col.name,
+                popupRender={(menu) => (
+                  <>
+                    {searchValue && (
+                      <div style={{ padding: "8px 12px" }}>
+                        <Button
+                          type="link"
+                          size="small"
+                          onClick={() => handleValueChange(searchValue)}
+                          icon={<PlusOutlined />}
+                        >
+                          Use "{searchValue}"
+                        </Button>
+                        <Divider style={{ margin: "8px 0" }} />
+                      </div>
+                    )}
+                    {menu}
+                    {distinctValues.length > 100 && (
+                      <div style={{ padding: "8px 12px", textAlign: "center" }}>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          Showing first 100 of {distinctValues.length} values
+                        </Text>
+                      </div>
+                    )}
+                  </>
+                )}
+                options={filteredDistinctValues.map((v) => ({
+                  label: v.length > 50 ? `${v.substring(0, 47)}...` : v,
+                  value: v,
                 }))}
               />
+
               <Button
                 size="medium"
-                onClick={insertField}
-                disabled={!selectedColumn}
+                onClick={insertFieldValue}
+                disabled={!selectedColumn || !selectedValue}
                 icon={<CodeOutlined />}
               >
                 Insert
               </Button>
             </div>
-
-            {currentColumn && (
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <Select
-                  placeholder="Select or search value"
-                  style={{ width: "70%" }}
-                  value={selectedValue}
-                  onChange={handleValueChange}
-                  onSearch={setSearchValue}
-                  showSearch
-                  filterOption={false}
-                  allowClear
-                  dropdownRender={(menu) => (
-                    <>
-                      {searchValue && (
-                        <div style={{ padding: "8px 12px" }}>
-                          <Button
-                            type="link"
-                            size="small"
-                            onClick={() => handleValueChange(searchValue)}
-                            icon={<PlusOutlined />}
-                          >
-                            Use "{searchValue}"
-                          </Button>
-                          <Divider style={{ margin: "8px 0" }} />
-                        </div>
-                      )}
-                      {menu}
-                      {distinctValues.length > 100 && (
-                        <div
-                          style={{ padding: "8px 12px", textAlign: "center" }}
-                        >
-                          <Text type="secondary" style={{ fontSize: 12 }}>
-                            Showing first 100 of {distinctValues.length} values
-                          </Text>
-                        </div>
-                      )}
-                    </>
-                  )}
-                  options={filteredDistinctValues.map((v) => ({
-                    label: v.length > 50 ? `${v.substring(0, 47)}...` : v,
-                    value: v,
-                  }))}
-                />
-
-                <Button
-                  size="medium"
-                  onClick={insertFieldValue}
-                  disabled={!selectedColumn || !selectedValue}
-                  icon={<CodeOutlined />}
-                >
-                  Insert
-                </Button>
-              </div>
-            )}
-          </Space>
-        </div>
-
-        {/* Operator Buttons */}
-        <div style={{ marginBottom: 16 }}>
-          <Text strong style={{ display: "block", marginBottom: 8 }}>
-            Operators
-          </Text>
-
-          {/* Comparison Operators */}
-          <div style={{ marginBottom: 12 }}>
-            <Text
-              type="secondary"
-              style={{ fontSize: 12, display: "block", marginBottom: 4 }}
-            >
-              Comparison
-            </Text>
-            <Space wrap size="small">
-              {OPERATORS.comparison.map((op) => (
-                <Tooltip key={op.value} title={op.description}>
-                  <Button
-                    size="small"
-                    onClick={() => insertOperator(op.value)}
-                    style={{ fontFamily: "monospace", minWidth: 50 }}
-                  >
-                    {op.label}
-                  </Button>
-                </Tooltip>
-              ))}
-            </Space>
-          </div>
-
-          {/* Logical Operators */}
-          <div style={{ marginBottom: 12 }}>
-            <Text
-              type="secondary"
-              style={{ fontSize: 12, display: "block", marginBottom: 4 }}
-            >
-              Logical
-            </Text>
-            <Space wrap size="small">
-              {OPERATORS.logical.map((op) => (
-                <Tooltip key={op.value} title={op.description}>
-                  <Button
-                    size="small"
-                    onClick={() => insertOperator(op.value)}
-                    style={{
-                      fontFamily: "monospace",
-                      backgroundColor: "#e6f7ff",
-                    }}
-                  >
-                    {op.label}
-                  </Button>
-                </Tooltip>
-              ))}
-            </Space>
-          </div>
-
-          {/* Other Operators */}
-          <div style={{ marginBottom: 12 }}>
-            <Text
-              type="secondary"
-              style={{ fontSize: 12, display: "block", marginBottom: 4 }}
-            >
-              Other
-            </Text>
-            <Space wrap size="small">
-              {OPERATORS.other.map((op) => (
-                <Tooltip key={op.value} title={op.description}>
-                  <Button
-                    size="small"
-                    onClick={() => insertOperator(op.value)}
-                    style={{ fontFamily: "monospace" }}
-                  >
-                    {op.label}
-                  </Button>
-                </Tooltip>
-              ))}
-            </Space>
-          </div>
-
-          {/* Parentheses */}
-          <div>
-            <Text
-              type="secondary"
-              style={{ fontSize: 12, display: "block", marginBottom: 4 }}
-            >
-              Grouping
-            </Text>
-            <Space wrap size="small">
-              {OPERATORS.parentheses.map((op) => (
-                <Tooltip key={op.value} title={op.description}>
-                  <Button
-                    size="small"
-                    onClick={() => insertOperator(op.value)}
-                    style={{ fontFamily: "monospace", fontWeight: "bold" }}
-                  >
-                    {op.label}
-                  </Button>
-                </Tooltip>
-              ))}
-            </Space>
-          </div>
-        </div>
-
-        {/* Expression Editor */}
-        <div style={{ marginBottom: 16, flex: 1 }}>
-          <Space
-            style={{
-              justifyContent: "space-between",
-              width: "100%",
-              marginBottom: 8,
-            }}
-          >
-            <Text strong>Expression Editor</Text>
-            <Tooltip title="Clear expression">
-              <Button
-                type="text"
-                size="small"
-                icon={<ClearOutlined />}
-                onClick={() => setExpression("")}
-                danger
-              />
-            </Tooltip>
-          </Space>
-
-          <TextArea
-            className="expression-textarea"
-            value={expression}
-            onChange={(e) => setExpression(e.target.value)}
-            placeholder='Build your query expression here...&#10;&#10;Example:&#10;"district" = &#39;Patna&#39; AND "population" > 5000'
-            rows={6}
-            style={{
-              fontFamily: "monospace",
-              fontSize: "13px",
-              backgroundColor: "#1e1e1e",
-              color: "#d4d4d4",
-              resize: "vertical",
-            }}
-          />
-
-          {/* Validation Errors */}
-          {!validation.isValid && validation.errors.length > 0 && (
-            <Alert
-              message="Validation Errors"
-              description={
-                <ul style={{ margin: 0, paddingLeft: 20 }}>
-                  {validation.errors.map((err, idx) => (
-                    <li key={idx}>{err}</li>
-                  ))}
-                </ul>
-              }
-              type="error"
-              showIcon
-              style={{ marginTop: 12 }}
-              size="small"
-            />
           )}
-
-          {expression && validation.isValid && (
-            <Alert
-              message="Expression is valid"
-              type="success"
-              showIcon
-              style={{ marginTop: 12 }}
-              size="small"
-            />
-          )}
-        </div>
-
-        {/* Action Buttons */}
-        <Divider style={{ margin: "12px 0" }} />
-
-        <Space style={{ width: "100%", justifyContent: "flex-end", paddingBottom: 8 }}>
-          <Button onClick={handleClearAll} icon={<DeleteOutlined />}>
-            Clear
-          </Button>
-          <Button
-            type="primary"
-            onClick={handleApply}
-            icon={<CheckOutlined />}
-            disabled={!expression.trim()}
-          >
-            Apply Filter
-          </Button>
         </Space>
+      </div>
+
+      {/* Operator Buttons */}
+      <div style={{ marginBottom: 16 }}>
+        <Text strong style={{ display: "block", marginBottom: 8 }}>
+          Operators
+        </Text>
+
+        {/* Comparison Operators */}
+        <div style={{ marginBottom: 12 }}>
+          <Text
+            type="secondary"
+            style={{ fontSize: 12, display: "block", marginBottom: 4 }}
+          >
+            Comparison
+          </Text>
+          <Space wrap size="small">
+            {OPERATORS.comparison.map((op) => (
+              <Tooltip key={op.value} title={op.description}>
+                <Button
+                  size="small"
+                  onClick={() => insertOperator(op.value)}
+                  style={{ fontFamily: "monospace", minWidth: 50 }}
+                >
+                  {op.label}
+                </Button>
+              </Tooltip>
+            ))}
+          </Space>
+        </div>
+
+        {/* Logical Operators */}
+        <div style={{ marginBottom: 12 }}>
+          <Text
+            type="secondary"
+            style={{ fontSize: 12, display: "block", marginBottom: 4 }}
+          >
+            Logical
+          </Text>
+          <Space wrap size="small">
+            {OPERATORS.logical.map((op) => (
+              <Tooltip key={op.value} title={op.description}>
+                <Button
+                  size="small"
+                  onClick={() => insertOperator(op.value)}
+                  style={{
+                    fontFamily: "monospace",
+                    backgroundColor: "#e6f7ff",
+                  }}
+                >
+                  {op.label}
+                </Button>
+              </Tooltip>
+            ))}
+          </Space>
+        </div>
+
+        {/* Other Operators */}
+        <div style={{ marginBottom: 12 }}>
+          <Text
+            type="secondary"
+            style={{ fontSize: 12, display: "block", marginBottom: 4 }}
+          >
+            Other
+          </Text>
+          <Space wrap size="small">
+            {OPERATORS.other.map((op) => (
+              <Tooltip key={op.value} title={op.description}>
+                <Button
+                  size="small"
+                  onClick={() => insertOperator(op.value)}
+                  style={{ fontFamily: "monospace" }}
+                >
+                  {op.label}
+                </Button>
+              </Tooltip>
+            ))}
+          </Space>
+        </div>
+
+        {/* Parentheses */}
+        <div>
+          <Text
+            type="secondary"
+            style={{ fontSize: 12, display: "block", marginBottom: 4 }}
+          >
+            Grouping
+          </Text>
+          <Space wrap size="small">
+            {OPERATORS.parentheses.map((op) => (
+              <Tooltip key={op.value} title={op.description}>
+                <Button
+                  size="small"
+                  onClick={() => insertOperator(op.value)}
+                  style={{ fontFamily: "monospace", fontWeight: "bold" }}
+                >
+                  {op.label}
+                </Button>
+              </Tooltip>
+            ))}
+          </Space>
+        </div>
+      </div>
+
+      {/* Expression Editor */}
+      <div style={{ marginBottom: 16, flex: 1 }}>
+        <Space
+          style={{
+            justifyContent: "space-between",
+            width: "100%",
+            marginBottom: 8,
+          }}
+        >
+          <Text strong>Expression Editor</Text>
+          <Tooltip title="Clear expression">
+            <Button
+              type="text"
+              size="small"
+              icon={<ClearOutlined />}
+              onClick={() => setExpression("")}
+              danger
+            />
+          </Tooltip>
+        </Space>
+
+        <TextArea
+          className="expression-textarea"
+          value={expression}
+          onChange={(e) => setExpression(e.target.value)}
+          placeholder='Build your query expression here...&#10;&#10;Example:&#10;"district" = &#39;Patna&#39; AND "population" > 5000'
+          rows={6}
+          style={{
+            fontFamily: "monospace",
+            fontSize: "13px",
+            backgroundColor: "#1e1e1e",
+            color: "#d4d4d4",
+            resize: "vertical",
+          }}
+        />
+
+        {/* Validation Errors */}
+        {!validation.isValid && validation.errors.length > 0 && (
+          <Alert
+            message="Validation Errors"
+            description={
+              <ul style={{ margin: 0, paddingLeft: 20 }}>
+                {validation.errors.map((err, idx) => (
+                  <li key={idx}>{err}</li>
+                ))}
+              </ul>
+            }
+            type="error"
+            showIcon
+            style={{ marginTop: 12 }}
+            size="small"
+          />
+        )}
+
+        {expression && validation.isValid && (
+          <Alert
+            message="Expression is valid"
+            type="success"
+            showIcon
+            style={{ marginTop: 12 }}
+            size="small"
+          />
+        )}
+      </div>
+
+      {/* Action Buttons */}
+      <Divider style={{ margin: "12px 0" }} />
+
+      <Space
+        style={{ width: "100%", justifyContent: "flex-end", paddingBottom: 8 }}
+      >
+        <Button onClick={handleClearAll} icon={<DeleteOutlined />}>
+          Clear
+        </Button>
+        <Button
+          type="primary"
+          onClick={handleApply}
+          icon={<CheckOutlined />}
+          disabled={!expression.trim()}
+        >
+          Apply Filter
+        </Button>
+      </Space>
     </div>
   );
 };
