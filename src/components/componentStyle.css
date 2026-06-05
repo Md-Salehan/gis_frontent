@@ -282,8 +282,8 @@
 
 /* Attribute Table Styles /////////////////////////////////////////////////////// */
 .table-container {
-  display: flex;
-  flex: 1;
+  /* flex: 1; */
+  /* display: "flex"; */
   overflow-y: scroll;
   padding-right: 4px;
 }

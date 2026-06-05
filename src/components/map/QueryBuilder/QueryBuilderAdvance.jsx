@@ -95,6 +95,36 @@ const OPERATORS = {
       type: "other",
       description: "Check for not null",
     },
+    {
+      label: "(",
+      value: "( ",
+      type: "other",
+      description: "Open parenthesis",
+    },
+    {
+      label: ")",
+      value: " )",
+      type: "other",
+      description: "Close parenthesis",
+    },
+    {
+      label: ",",
+      value: ", ",
+      type: "other",
+      description: "Comma",
+    },
+    {
+      label: '"',
+      value: '"',
+      type: "other",
+      description: "Double Quote",
+    },
+    {
+      label: "'",
+      value: "'",
+      type: "other",
+      description: "Single Quote",
+    }
   ],
   parentheses: [
     {
@@ -196,7 +226,7 @@ const validateExpression = (expression, columns) => {
   return { isValid: errors.length === 0, errors };
 };
 
-const QueryBuilderAdvance = ({ activeTab, layerData, onApplyFilters }) => {
+const QueryBuilderAdvance = ({ activeTab, layerData, onApplyFilters, onClear }) => {
   const [selectedColumn, setSelectedColumn] = useState(null);
   const [selectedValue, setSelectedValue] = useState(null);
   const [expression, setExpression] = useState("");
@@ -337,6 +367,8 @@ const QueryBuilderAdvance = ({ activeTab, layerData, onApplyFilters }) => {
     setValidation({ isValid: true, errors: [] });
     setSearchValue("");
     message.info("Query builder cleared");
+
+    onClear && onClear();
   }, []);
 
   // Apply filter
@@ -564,29 +596,6 @@ const QueryBuilderAdvance = ({ activeTab, layerData, onApplyFilters }) => {
                   size="small"
                   onClick={() => insertOperator(op.value)}
                   style={{ fontFamily: "monospace" }}
-                >
-                  {op.label}
-                </Button>
-              </Tooltip>
-            ))}
-          </Space>
-        </div>
-
-        {/* Parentheses */}
-        <div>
-          <Text
-            type="secondary"
-            style={{ fontSize: 12, display: "block", marginBottom: 4 }}
-          >
-            Grouping
-          </Text>
-          <Space wrap size="small">
-            {OPERATORS.parentheses.map((op) => (
-              <Tooltip key={op.value} title={op.description}>
-                <Button
-                  size="small"
-                  onClick={() => insertOperator(op.value)}
-                  style={{ fontFamily: "monospace", fontWeight: "bold" }}
                 >
                   {op.label}
                 </Button>

@@ -139,6 +139,7 @@ const ConditionRow = ({
   isLast,
   isFirst,
   length,
+
 }) => {
   const currentColumn = columns.find((c) => c.name === condition.column);
   const operators = currentColumn
@@ -314,7 +315,8 @@ const QueryBuilder = ({
   activeTab,
   layerData,
   onApplyFilters,
-  initialMatchType = "any",
+  initialMatchType = "all",
+  onClear,
 }) => {
   const [matchType, setMatchType] = useState(initialMatchType);
   const [conditions, setConditions] = useState([
@@ -421,6 +423,7 @@ const QueryBuilder = ({
     setMatchType("any");
     setAppliedExpression("");
     setValidationErrors([]);
+    onClear && onClear();
   }, []);
 
   const handleApply = useCallback(() => {

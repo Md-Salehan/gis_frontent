@@ -1,10 +1,10 @@
-import { Card, Space, Switch, Tag } from "antd";
+import { Button, Card, Space, Switch, Tag } from "antd";
 import React, { useState } from "react";
-import { DatabaseOutlined } from "@ant-design/icons";
+import { CloseOutlined, DatabaseOutlined } from "@ant-design/icons";
 import QueryBuilder from "./QueryBuilder";
 import QueryBuilderAdvance from "./QueryBuilderAdvance";
 
-export default function QueryMain({ activeTab, layerData, onApplyFilters }) {
+export default function QueryMain({ activeTab, layerData, onApplyFilters, onClose, onClear }) {
   const [type, setType] = useState("basic");
   return (
     <div className="query-builder-container">
@@ -19,19 +19,42 @@ export default function QueryMain({ activeTab, layerData, onApplyFilters }) {
           >
             <span>
               <DatabaseOutlined />
-              <span>Query Builder</span>
-              {activeTab && (
+              <span> Query Builder</span>
+              {/* {activeTab && (
                 <Tag color="blue" style={{ marginLeft: 8 }}>
                   {layerData?.metaData?.layer?.layer_nm || activeTab}
                 </Tag>
-              )}
+              )} */}
             </span>
-            <Switch
-              size="medium"
-              style={{ backgroundColor: "#0bbd26" }}
-              checked={type === "advanced"}
-              onChange={(checked) => setType(checked ? "advanced" : "basic")}
-            />
+          
+
+            <span>
+              <Tag
+                size="small"
+                color={type === "basic" ? "green" : "default"}
+                style={{ marginLeft: 0, cursor: "pointer", userSelect: "none" }}
+                onClick={() => setType("basic")}
+              >
+                Basic
+              </Tag>
+              <Tag
+                size="small"
+                color={type === "advanced" ? "red" : "default"}
+                style={{ marginLeft: 0, cursor: "pointer", userSelect: "none" }}
+                onClick={() => setType("advanced")}
+              >
+                Advanced
+              </Tag>
+
+              <Tag
+                size="small"
+                color={"red"}
+                style={{ marginLeft: 0, cursor: "pointer", userSelect: "none" }}
+                onClick={onClose}
+              >
+                <CloseOutlined />
+              </Tag>
+            </span>
           </Space>
         }
         size="small"
@@ -54,6 +77,7 @@ export default function QueryMain({ activeTab, layerData, onApplyFilters }) {
             activeTab={activeTab}
             onApplyFilters={onApplyFilters}
             layerData={layerData}
+            onClear={onClear}
           />
         )}
         {type === "advanced" && activeTab && (
@@ -62,6 +86,7 @@ export default function QueryMain({ activeTab, layerData, onApplyFilters }) {
             activeTab={activeTab}
             onApplyFilters={onApplyFilters}
             layerData={layerData}
+            onClear={onClear}
           />
         )}
       </Card>

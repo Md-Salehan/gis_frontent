@@ -422,27 +422,6 @@ function AttributeTable({
     return "+proj=longlat +datum=WGS84 +no_defs";
   }, []);
 
-  const transformCoords = useCallback(
-    (coords) => {
-      if (typeof coords[0] === "number") {
-        // Point coordinate
-        const [lng, lat] = coords;
-        // Handle potential 3D coordinates (keep z if present)
-        const transformed = proj4(sourceProj, targetSrid, [lng, lat]);
-        if (coords.length > 2) {
-          // If original had z coordinate, append it back
-          return [transformed[0], transformed[1], coords[2]];
-        }
-        return transformed;
-      } else if (Array.isArray(coords[0])) {
-        // LineString or Polygon (array of coordinates)
-        return coords.map(transformCoords);
-      }
-      return coords;
-    },
-    [getProj4Definition],
-  );
-
   // Transform geometry from WGS84 to target SRID
   const transformGeometry = useCallback(
     (geometry, targetSrid, targetProjString = null) => {
@@ -459,6 +438,23 @@ function AttributeTable({
           proj4.defs(targetSrid, targetProj);
         }
 
+        const transformCoords = (coords) => {
+          if (typeof coords[0] === "number") {
+            // Point coordinate
+            const [lng, lat] = coords;
+            // Handle potential 3D coordinates (keep z if present)
+            const transformed = proj4(sourceProj, targetSrid, [lng, lat]);
+            if (coords.length > 2) {
+              return [transformed[0], transformed[1], coords[2]];
+            }
+            return transformed;
+          } else if (Array.isArray(coords[0])) {
+            // LineString or Polygon (array of coordinates)
+            return coords.map(transformCoords);
+          }
+          return coords;
+        };
+
         const transformedGeometry = {
           ...geometry,
           coordinates: transformCoords(geometry.coordinates),
@@ -473,7 +469,7 @@ function AttributeTable({
         return geometry;
       }
     },
-    [getProj4Definition, transformCoords],
+    [getProj4Definition],
   );
 
   // ============================================
@@ -1408,7 +1404,7 @@ function AttributeTable({
                 required
               >
                 <Input
-                  placeholder="e.g: 3857, 32648, 27700"
+                  placeholder="e.g., 3857, 32648, 27700"
                   value={customSridInput}
                   onChange={(e) => setCustomSridInput(e.target.value)}
                 />
@@ -1419,7 +1415,7 @@ function AttributeTable({
                 required
               >
                 <Input.TextArea
-                  placeholder="e.g: +proj=merc +a=6378137 +b=6378137 +lat_ts=0 +lon_0=0 +x_0=0 +y_0=0 +k=1 +units=m +nadgrids=@null +wktext +no_defs"
+                  placeholder="e.g., +proj=merc +a=6378137 +b=6378137 +lat_ts=0 +lon_0=0 +x_0=0 +y_0=0 +k=1 +units=m +nadgrids=@null +wktext +no_defs"
                   rows={3}
                   value={customProjString}
                   onChange={(e) => setCustomProjString(e.target.value)}
