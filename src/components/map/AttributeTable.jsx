@@ -46,7 +46,6 @@ import shpWrite from "@mapbox/shp-write";
 import proj4 from "proj4";
 import wkt from "wkt";
 import { COMMON_SRID_OPTIONS, SRID_4326_proj } from "../../constants";
-import { useNotification } from "../common/notifications";
 
 // Constants
 const DEBUG = process.env.NODE_ENV === "development";
@@ -98,7 +97,6 @@ function AttributeTable({
 }) {
   const dispatch = useDispatch();
   const map = useMap();
-  const notify = useNotification();
 
   const [activeTab, setActiveTab] = useState(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState({});
@@ -930,25 +928,10 @@ function AttributeTable({
     [multiSelectedFeatures, transformGeometry],
   );
 
-  useEffect(() => {
-    console.log("Notification service available:", !!notify);
-    console.log("Notif methods:", Object.keys(notify));
 
-    // Test notification
-    notify.info({
-      message: "Test Notification",
-      description: "If you see this, notifications are working!",
-    });
-  }, []);
 
   const showSridSelectionModal = useCallback(() => {
-    if (multiSelectedFeatures.length === 0) {
-      console.log("xxw: hjj");
-
-      notify.info({ message: "No features selected for download" });
-      return;
-    }
-
+    
     if (downloadType === "CSV") {
       // CSV doesn't need SRID transformation
       exportSelectedToCSV();
