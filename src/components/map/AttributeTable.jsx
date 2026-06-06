@@ -45,6 +45,8 @@ import { QueryBuilder } from "..";
 import shpWrite from "@mapbox/shp-write";
 import proj4 from "proj4";
 import wkt from "wkt";
+import { COMMON_SRID_OPTIONS, SRID_4326_proj } from "../../constants";
+import { useNotification } from "../common/notifications";
 
 // Constants
 const DEBUG = process.env.NODE_ENV === "development";
@@ -87,48 +89,6 @@ const DOWNLOAD_TYPES = [
 ];
 
 // Common SRID options
-const COMMON_SRID_OPTIONS = [
-  {
-    value: "4326",
-    label: "WGS 84 (EPSG:4326)",
-    proj: "+proj=longlat +datum=WGS84 +no_defs",
-  },
-  {
-    value: "3857",
-    label: "Web Mercator (EPSG:3857)",
-    proj: "+proj=merc +a=6378137 +b=6378137 +lat_ts=0 +lon_0=0 +x_0=0 +y_0=0 +k=1 +units=m +nadgrids=@null +wktext +no_defs",
-  },
-  {
-    value: "32645",
-    label: "UTM Zone 45N (EPSG:32645)",
-    proj: "+proj=utm +zone=45 +datum=WGS84 +units=m +no_defs",
-  },
-  {
-    value: "32646",
-    label: "UTM Zone 46N (EPSG:32646)",
-    proj: "+proj=utm +zone=46 +datum=WGS84 +units=m +no_defs",
-  },
-  {
-    value: "32647",
-    label: "UTM Zone 47N (EPSG:32647)",
-    proj: "+proj=utm +zone=47 +datum=WGS84 +units=m +no_defs",
-  },
-  {
-    value: "32648",
-    label: "UTM Zone 48N (EPSG:32648)",
-    proj: "+proj=utm +zone=48 +datum=WGS84 +units=m +no_defs",
-  },
-  {
-    value: "32649",
-    label: "UTM Zone 49N (EPSG:32649)",
-    proj: "+proj=utm +zone=49 +datum=WGS84 +units=m +no_defs",
-  },
-  {
-    value: "32650",
-    label: "UTM Zone 50N (EPSG:32650)",
-    proj: "+proj=utm +zone=50 +datum=WGS84 +units=m +no_defs",
-  },
-];
 
 function AttributeTable({
   csvDownloader = true,
@@ -138,6 +98,7 @@ function AttributeTable({
 }) {
   const dispatch = useDispatch();
   const map = useMap();
+  const notify = useNotification();
 
   const [activeTab, setActiveTab] = useState(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState({});
@@ -403,24 +364,27 @@ function AttributeTable({
   // ============================================
 
   // Get proj4 definition for a given SRID
-  const getProj4Definition = useCallback((srid, customProj = null) => {
-    if (srid === "custom" && customProj) {
-      return customProj;
-    }
+  const getProj4Definition = useCallback(
+    (srid, customProj = null) => {
+      if (srid === "custom" && customProj) {
+        return customProj;
+      }
 
-    const found = COMMON_SRID_OPTIONS.find((opt) => opt.value === srid);
-    if (found && found.proj) {
-      return found.proj;
-    }
+      const found = COMMON_SRID_OPTIONS.find((opt) => opt.value === srid);
+      if (found && found.proj) {
+        return found.proj;
+      }
 
-    // Try to fetch from epsg.io API if not in common list
-    if (srid && srid !== "4326") {
-      // Return a placeholder, actual fetching would happen async
-      return `+init=epsg:${srid}`;
-    }
+      // Try to fetch from epsg.io API if not in common list
+      if (srid && srid !== "4326") {
+        // Return a placeholder, actual fetching would happen async
+        return `+init=epsg:${srid}`;
+      }
 
-    return "+proj=longlat +datum=WGS84 +no_defs";
-  }, []);
+      return SRID_4326_proj; // Default to WGS 84
+    },
+    [SRID_4326_proj],
+  );
 
   const transformCoords = useCallback(
     (coords) => {
@@ -451,7 +415,7 @@ function AttributeTable({
       }
 
       try {
-        const sourceProj = "+proj=longlat +datum=WGS84 +no_defs";
+        const sourceProj = SRID_4326_proj;
         const targetProj = targetProjString || getProj4Definition(targetSrid);
 
         // Register the projection if not already registered
@@ -473,7 +437,7 @@ function AttributeTable({
         return geometry;
       }
     },
-    [getProj4Definition, transformCoords],
+    [getProj4Definition, transformCoords, SRID_4326_proj],
   );
 
   // ============================================
@@ -728,7 +692,7 @@ function AttributeTable({
   ]);
 
   // ============================================
-  // Export with SRID Support
+  // Export Functions
   // ============================================
 
   const exportSelectedToGeoJSON = useCallback(
@@ -908,15 +872,6 @@ function AttributeTable({
 
           feature.geometry = transformedGeometry;
 
-          if (feature.properties) {
-            feature.properties._layerId = item.layerId;
-            if (srid !== "4326") {
-              feature.properties._original_srid = "4326";
-              feature.properties._target_srid = srid;
-            }
-          } else {
-            feature.properties = { _layerId: item.layerId };
-          }
           return feature;
         });
 
@@ -975,7 +930,25 @@ function AttributeTable({
     [multiSelectedFeatures, transformGeometry],
   );
 
+  useEffect(() => {
+    console.log("Notification service available:", !!notify);
+    console.log("Notif methods:", Object.keys(notify));
+
+    // Test notification
+    notify.info({
+      message: "Test Notification",
+      description: "If you see this, notifications are working!",
+    });
+  }, []);
+
   const showSridSelectionModal = useCallback(() => {
+    if (multiSelectedFeatures.length === 0) {
+      console.log("xxw: hjj");
+
+      notify.info({ message: "No features selected for download" });
+      return;
+    }
+
     if (downloadType === "CSV") {
       // CSV doesn't need SRID transformation
       exportSelectedToCSV();
