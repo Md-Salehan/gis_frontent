@@ -5,6 +5,7 @@ import React, {
   useEffect,
   memo,
   useRef,
+  useContext,
 } from "react";
 import {
   Table,
@@ -46,6 +47,7 @@ import shpWrite from "@mapbox/shp-write";
 import proj4 from "proj4";
 import wkt from "wkt";
 import { COMMON_SRID_OPTIONS, SRID_4326_proj } from "../../constants";
+import { MessageContext } from "../../context";
 
 // Constants
 const DEBUG = process.env.NODE_ENV === "development";
@@ -97,6 +99,8 @@ function AttributeTable({
 }) {
   const dispatch = useDispatch();
   const map = useMap();
+    const { messageApi } = useContext(MessageContext);
+  
 
   const [activeTab, setActiveTab] = useState(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState({});
@@ -762,6 +766,7 @@ function AttributeTable({
 
   const exportSelectedToCSV = useCallback(() => {
     const selected = [];
+    console.log(multiSelectedFeatures);
 
     multiSelectedFeatures.forEach(({ layerId, feature }) => {
       if (feature) {
@@ -793,6 +798,7 @@ function AttributeTable({
       message.info("No features selected for download");
       return;
     }
+    console.log("xxw1 Selected features for CSV export:", selected);
 
     const hasPointFeatures = selected.some((s) => s.isPoint);
 
@@ -843,6 +849,7 @@ function AttributeTable({
       .toISOString()
       .replace(/[:.]/g, "-")}.csv`;
     document.body.appendChild(a);
+    a.click();
     a.remove();
     URL.revokeObjectURL(url);
 
@@ -928,10 +935,14 @@ function AttributeTable({
     [multiSelectedFeatures, transformGeometry],
   );
 
-
-
   const showSridSelectionModal = useCallback(() => {
-    
+    if (multiSelectedFeatures.length === 0) {
+      messageApi.open({
+        type: "warning",
+        content: "No features selected for download",
+      });
+      return;
+    }
     if (downloadType === "CSV") {
       // CSV doesn't need SRID transformation
       exportSelectedToCSV();
