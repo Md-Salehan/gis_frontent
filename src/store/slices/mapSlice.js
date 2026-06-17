@@ -3,6 +3,7 @@ import { createSlice } from "@reduxjs/toolkit";
 
 const initialState = {
   geoJsonLayers: {}, // layerId: { geoJsonData, metaData, orderNo }
+  tempGeoJsonLayers: {}, // layerId: { geoJsonData, metaData, orderNo, isActive }
   multiSelectedFeatures: [],
   viewport: {
     center: [28.7041, 77.1025],
@@ -42,6 +43,20 @@ const mapSlice = createSlice({
       } else {
         delete state.geoJsonLayers[layerId];
         state.layerOrder = state.layerOrder.filter((id) => id !== layerId);
+      }
+    },
+    setTempGeoJsonLayer: (state, action) => {
+      const { layerId, isActive } = action.payload;
+      if (isActive) {
+        state.tempGeoJsonLayers[layerId] = {
+          ...state.tempGeoJsonLayers[layerId],
+          isActive: true,
+        };
+      } else {
+        state.tempGeoJsonLayers[layerId] = {
+          ...state.tempGeoJsonLayers[layerId],
+          isActive: false,
+        };
       }
     },
     setBufferLayer: (state, action) => {
@@ -95,12 +110,12 @@ const mapSlice = createSlice({
     resetMapState: (state) => {
       return initialState;
     },
-
   },
 });
 
 export const {
   setGeoJsonLayer,
+  setTempGeoJsonLayer,
   setBufferLayer,
   setMultiSelectedFeatures,
   clearSelectedFeature,

@@ -7,6 +7,7 @@ import { useGetLayersMutation } from "../../../../store/api/layerApi";
 import { useDispatch, useSelector } from "react-redux";
 import { updateViewport } from "../../../../store/slices/mapSlice";
 import { setActivePortalDetails } from "../../../../store/slices/portalSlice";
+import TempLayerPannel from "./TempLayerPannel";
 
 const Sidebar = memo(({}) => {
   const dispatch = useDispatch();
@@ -23,7 +24,6 @@ const Sidebar = memo(({}) => {
       console.error("Failed to fetch layers: ", err);
     }
   };
-
 
   useEffect(() => {
     if (portalId) {
@@ -46,6 +46,7 @@ const Sidebar = memo(({}) => {
     <div className="sider-inner">
       <TopLocationCard portalDetails={layerInfo?.portalDetails} />
       <LayerPanel layers={layerInfo?.layers} />
+      <TempLayerPannel layers={layerInfo?.layers} />
     </div>
   );
 });

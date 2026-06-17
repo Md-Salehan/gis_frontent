@@ -168,7 +168,7 @@ const MapPanel = memo(() => {
 
         <GeomanControl />
         <MiniMapControl />
-        <Legend visible={isLegendVisible} />
+        <Legend visible={isLegendVisible} isMovable={true} />
         <AttributeTableDrawer />
         <MeasureControl />
         {isPrintModalOpen && <PrintControl />}

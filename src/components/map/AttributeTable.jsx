@@ -31,6 +31,7 @@ import {
   UserOutlined,
   DatabaseOutlined,
   SettingOutlined,
+  LoadingOutlined,
 } from "@ant-design/icons";
 import { useSelector, useDispatch } from "react-redux";
 import {
@@ -45,9 +46,10 @@ import { evaluateQuery } from "../../utils";
 import { QueryBuilder } from "..";
 import shpWrite from "@mapbox/shp-write";
 import proj4 from "proj4";
-import wkt from "wkt";
 import { COMMON_SRID_OPTIONS, SRID_4326_proj } from "../../constants";
-import { MessageContext } from "../../context";
+import { useMessage } from "../../hooks";
+import { useLazyGetProj4StringQuery, useLazyGetWktStringQuery } from "../../store/api/layerApi";
+
 
 // Constants
 const DEBUG = process.env.NODE_ENV === "development";
@@ -89,8 +91,6 @@ const DOWNLOAD_TYPES = [
   },
 ];
 
-// Common SRID options
-
 function AttributeTable({
   csvDownloader = true,
   clearDataOnTabChange = true,
@@ -99,8 +99,7 @@ function AttributeTable({
 }) {
   const dispatch = useDispatch();
   const map = useMap();
-    const { messageApi } = useContext(MessageContext);
-  
+  const { success, error, warning, info } = useMessage();
 
   const [activeTab, setActiveTab] = useState(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState({});
@@ -114,12 +113,27 @@ function AttributeTable({
   const [showSridModal, setShowSridModal] = useState(false);
   const [selectedSrid, setSelectedSrid] = useState("4326");
   const [customSridInput, setCustomSridInput] = useState("");
-  const [customProjString, setCustomProjString] = useState("");
+  const [isFetchingProjection, setIsFetchingProjection] = useState(false);
+
+  // RTK Query hooks for lazy fetching
+  const [triggerGetProj4String, { 
+    isLoading: isLoadingProj4,
+    error: proj4Error 
+  }] = useLazyGetProj4StringQuery();
+  
+  const [triggerGetWktString, {
+    isLoading: isLoadingWkt,
+    error: wktError
+  }] = useLazyGetWktStringQuery();
 
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
   const multiSelectedFeatures = useSelector(
     (state) => state.map.multiSelectedFeatures,
   );
+
+  // Cache for fetched projections
+  const proj4Cache = useRef(new Map());
+  const prjCache = useRef(new Map());
 
   // ============================================
   // Utility: Parse row key to feature index
@@ -170,11 +184,10 @@ function AttributeTable({
                 type="link"
                 size="small"
                 onClick={(e) => {
-                  e.stopPropagation(); // Prevent row click from triggering
+                  e.stopPropagation();
                   if (url && url.startsWith("http")) {
                     window.open(url, "_blank", "noopener,noreferrer");
                   } else if (url) {
-                    // If URL doesn't have protocol, add https://
                     window.open(
                       "https://" + url,
                       "_blank",
@@ -191,7 +204,6 @@ function AttributeTable({
         );
       }
 
-      // Handle regular string/numbers/objects
       if (typeof value === "object" && value !== null) {
         return JSON.stringify(value);
       }
@@ -224,8 +236,6 @@ function AttributeTable({
     [renderCellValue],
   );
 
-  // getTableData now accepts optionally an array of originalIndices to
-  // ensure keys (layerId-index) use original indices even when filtered.
   const getTableData = useCallback((features, layerId, originalIndices) => {
     if (!features || features.length === 0) return [];
 
@@ -271,11 +281,10 @@ function AttributeTable({
         if (filterType === "Unselected") {
           return !isMultiSelected;
         }
-        return true; // "All"
+        return true;
       };
 
       const matchesQuery = (feature) => {
-        // Search properties
         const props = feature.properties || {};
         for (const k of Object.keys(props)) {
           const v = props[k];
@@ -288,7 +297,6 @@ function AttributeTable({
           }
         }
 
-        // Search geometry coordinates (flattened)
         if (feature.geometry && feature.geometry.coordinates) {
           try {
             const coordsStr = JSON.stringify(feature.geometry.coordinates)
@@ -300,7 +308,6 @@ function AttributeTable({
           }
         }
 
-        // Also allow matching layerId
         if (String(layerId).toLowerCase().includes(q)) return true;
 
         return false;
@@ -339,7 +346,6 @@ function AttributeTable({
         }
       });
 
-      // Convert indices to row keys
       const rowKeys = matchingIndices.map((idx) =>
         generateRowKey(layerId, idx),
       );
@@ -362,85 +368,152 @@ function AttributeTable({
   }, []);
 
   // ============================================
-  // SRID Transformation Functions
+  // SRID Transformation Functions with RTK Query
   // ============================================
 
-  // Get proj4 definition for a given SRID
-  const getProj4Definition = useCallback(
-    (srid, customProj = null) => {
-      if (srid === "custom" && customProj) {
-        return customProj;
+  // Get Proj4 definition using RTK Query (lazy)
+  const getProj4DefinitionAsync = useCallback(
+    async (srid) => {
+      // Check cache first
+      if (proj4Cache.current.has(srid)) {
+        return proj4Cache.current.get(srid);
       }
 
+      // Check common options
       const found = COMMON_SRID_OPTIONS.find((opt) => opt.value === srid);
       if (found && found.proj) {
+        proj4Cache.current.set(srid, found.proj);
         return found.proj;
       }
 
-      // Try to fetch from epsg.io API if not in common list
+      // Fetch from RTK Query for unknown SRIDs
       if (srid && srid !== "4326") {
-        // Return a placeholder, actual fetching would happen async
-        return `+init=epsg:${srid}`;
+        try {
+          const result = await triggerGetProj4String(srid).unwrap();
+          if (result) {
+            proj4Cache.current.set(srid, result);
+            return result;
+          }
+          throw new Error(`No Proj4 definition found for SRID ${srid}`);
+        } catch (err) {
+          console.error(`Error fetching Proj4 for SRID ${srid}:`, err);
+          throw new Error(
+            err?.data?.message || err?.message || `Failed to download for SRID ${srid}`
+          );
+        }
       }
 
-      return SRID_4326_proj; // Default to WGS 84
+      return SRID_4326_proj;
     },
-    [SRID_4326_proj],
+    [triggerGetProj4String],
+  );
+
+  // Get PRJ content using RTK Query (lazy)
+  const getPrjContentAsync = useCallback(
+    async (srid) => {
+      // For EPSG:4326
+      if (srid === "4326") {
+        return 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]]';
+      }
+
+      // Check cache
+      if (prjCache.current.has(srid)) {
+        return prjCache.current.get(srid);
+      }
+
+      // Check common options first (for quick access)
+      const found = COMMON_SRID_OPTIONS.find((opt) => opt.value === srid);
+      if (found) {
+        if (srid === "3857") {
+          const prj = 'PROJCS["WGS_84_Pseudo_Mercator",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]],PROJECTION["Mercator"],PARAMETER["central_meridian",0],PARAMETER["false_easting",0],PARAMETER["false_northing",0],UNIT["Meter",1],PARAMETER["standard_parallel_1",0.0]]';
+          prjCache.current.set(srid, prj);
+          return prj;
+        }
+        
+        if (srid.toString().startsWith("326")) {
+          const zone = srid.toString().substring(3);
+          const prj = `PROJCS["WGS_84_UTM_zone_${zone}N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]],PROJECTION["Transverse_Mercator"],PARAMETER["latitude_of_origin",0],PARAMETER["central_meridian",${(zone - 1) * 6 - 180 + 3}],PARAMETER["scale_factor",0.9996],PARAMETER["false_easting",500000],PARAMETER["false_northing",0],UNIT["Meter",1]]`;
+          prjCache.current.set(srid, prj);
+          return prj;
+        }
+      }
+
+      // Fetch from RTK Query for unknown SRIDs
+      if (srid && srid !== "4326") {
+        try {
+          const result = await triggerGetWktString(srid).unwrap();
+          if (result) {
+            prjCache.current.set(srid, result);
+            return result;
+          }
+          throw new Error(`No WKT definition found for SRID ${srid}`);
+        } catch (err) {
+          console.error(`Error fetching WKT for SRID ${srid}:`, err);
+          throw new Error(
+            err?.data?.message || err?.message || `Failed to download for SRID ${srid}`
+          );
+        }
+      }
+
+      // Fallback to WGS84
+      console.warn(`No PRJ definition found for SRID ${srid}, using WGS84`);
+      return 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]]';
+    },
+    [triggerGetWktString],
   );
 
   const transformCoords = useCallback(
-    (coords) => {
+    (coords, sourceProj, targetSrid) => {
       if (typeof coords[0] === "number") {
-        // Point coordinate
         const [lng, lat] = coords;
-        // Handle potential 3D coordinates (keep z if present)
         const transformed = proj4(sourceProj, targetSrid, [lng, lat]);
         if (coords.length > 2) {
-          // If original had z coordinate, append it back
           return [transformed[0], transformed[1], coords[2]];
         }
         return transformed;
       } else if (Array.isArray(coords[0])) {
-        // LineString or Polygon (array of coordinates)
-        return coords.map(transformCoords);
+        return coords.map((c) => transformCoords(c, sourceProj, targetSrid));
       }
       return coords;
     },
-    [getProj4Definition],
+    [],
   );
 
-  // Transform geometry from WGS84 to target SRID
-  const transformGeometry = useCallback(
-    (geometry, targetSrid, targetProjString = null) => {
-      if (!geometry || targetSrid === "4326") {
-        return geometry;
-      }
+  const transformGeometry = useCallback((geometry, targetSrid, targetProjString = null) => {
+    if (!geometry || targetSrid === "4326") {
+      return geometry;
+    }
 
-      try {
-        const sourceProj = SRID_4326_proj;
-        const targetProj = targetProjString || getProj4Definition(targetSrid);
+    try {
+      const sourceProj = SRID_4326_proj;
+      const targetProj = targetProjString;
 
-        // Register the projection if not already registered
-        if (!proj4.defs(targetSrid)) {
-          proj4.defs(targetSrid, targetProj);
+      const transformCoordsFn = (coords) => {
+        if (typeof coords[0] === "number") {
+          const [lng, lat] = coords;
+          const transformed = proj4(sourceProj, targetProj, [lng, lat]);
+          if (coords.length > 2) {
+            return [transformed[0], transformed[1], coords[2]];
+          }
+          return transformed;
+        } else if (Array.isArray(coords[0])) {
+          return coords.map(transformCoordsFn);
         }
+        return coords;
+      };
 
-        const transformedGeometry = {
-          ...geometry,
-          coordinates: transformCoords(geometry.coordinates),
-        };
+      const transformedGeometry = {
+        ...geometry,
+        coordinates: transformCoordsFn(geometry.coordinates),
+      };
 
-        return transformedGeometry;
-      } catch (error) {
-        console.error("Error transforming geometry:", error);
-        message.warning(
-          `Failed to transform geometry to SRID ${targetSrid}. Using original coordinates.`,
-        );
-        return geometry;
-      }
-    },
-    [getProj4Definition, transformCoords, SRID_4326_proj],
-  );
+      return transformedGeometry;
+    } catch (error) {
+      console.error("Error transforming geometry:", error);
+      warning(`Failed to transform geometry to SRID ${targetSrid}. Using original coordinates.`);
+      return geometry;
+    }
+  }, [SRID_4326_proj, warning]);
 
   // ============================================
   // Selection Handlers
@@ -471,15 +544,11 @@ function AttributeTable({
             const bounds = layer.getBounds();
             if (bounds && bounds.isValid && bounds.isValid()) {
               const currentBounds = map.getBounds();
-
-              // Calculate if the feature is already within or very close to current view
               const isAlreadyInView = currentBounds.contains(bounds);
 
               if (isAlreadyInView) {
-                // Use instant fitBounds without animation for close features
                 map.fitBounds(bounds, MAP_FIT_OPTIONS);
               } else {
-                // Use flyToBounds with animation for distant features
                 map.flyToBounds(bounds, MAP_FIT_OPTIONS);
               }
             }
@@ -488,14 +557,12 @@ function AttributeTable({
           }
         }
 
-        // Update selected row keys
         setSelectedRowKeys({
           [layerId]: [record.key],
         });
 
         prevSelectedFeatureId.current = layerId + record.featureIndex;
       } else {
-        // Deselect if the same feature is clicked again
         dispatch(
           setSelectedFeature({
             feature: [],
@@ -509,7 +576,6 @@ function AttributeTable({
     [dispatch, geoJsonLayers, map],
   );
 
-  // Toggle multi-select for a specific row
   const toggleMultiSelect = useCallback((layerId, rowKey, checked) => {
     setMultiSelected((prev) => {
       const layerSet = new Set(prev[layerId] ? Array.from(prev[layerId]) : []);
@@ -531,7 +597,7 @@ function AttributeTable({
         updated[layerId] = new Set(allRowKeys);
         return updated;
       });
-      handleTableVisibilityChange({ key: "2" }); // Switch to "Selected" view after applying query
+      handleTableVisibilityChange({ key: "2" });
     },
     [parseQueryToRowKeys, handleTableVisibilityChange],
   );
@@ -546,12 +612,9 @@ function AttributeTable({
 
   const clearMultiSelection = useCallback(() => {
     setMultiSelected({});
-    handleTableVisibilityChange({ key: "1" }); // Switch back to "All" view
+    handleTableVisibilityChange({ key: "1" });
   }, [handleTableVisibilityChange]);
 
-  // ============================================
-  // Select All / Unselect All Handler (respects filtering)
-  // ============================================
   const handleSelectAllChange = useCallback(
     (layerId, checked) => {
       const layerData = geoJsonLayers[layerId];
@@ -567,14 +630,12 @@ function AttributeTable({
       setMultiSelected((prev) => {
         const updated = { ...prev };
         if (checked) {
-          // Add visible keys to the set (preserve other selections)
           const existing = new Set(
             prev[layerId] ? Array.from(prev[layerId]) : [],
           );
           allRowKeys.forEach((k) => existing.add(k));
           updated[layerId] = existing;
         } else {
-          // Remove visible keys from selection
           const existing = new Set(
             prev[layerId] ? Array.from(prev[layerId]) : [],
           );
@@ -587,9 +648,6 @@ function AttributeTable({
     [geoJsonLayers, getFilteredFeatureIndices],
   );
 
-  // ============================================
-  // Determine Select All Checkbox State (based on visible/filtered rows)
-  // ============================================
   const getSelectAllState = useCallback(
     (layerId) => {
       const layerData = geoJsonLayers[layerId];
@@ -604,9 +662,9 @@ function AttributeTable({
         ).length || 0;
 
       if (visibleCount === 0) return false;
-      if (visibleSelectedCount === 0) return false; // Unchecked
-      if (visibleSelectedCount === visibleCount) return true; // Checked
-      return "indeterminate"; // Indeterminate (partial selection)
+      if (visibleSelectedCount === 0) return false;
+      if (visibleSelectedCount === visibleCount) return true;
+      return "indeterminate";
     },
     [geoJsonLayers, multiSelected, getFilteredFeatureIndices],
   );
@@ -676,10 +734,7 @@ function AttributeTable({
         }
       });
     });
-    console.log(
-      "xxw: Updating multi-selected features in Redux:",
-      multiFeatures,
-    );
+    console.log("xxw: Updating multi-selected features in Redux:", multiFeatures);
     dispatch(setMultiSelectedFeatures(multiFeatures));
 
     if (multiFeatures.length > 0) {
@@ -694,79 +749,11 @@ function AttributeTable({
   ]);
 
   // ============================================
-  // Export Functions
+  // Export Functions with RTK Query
   // ============================================
-
-  const exportSelectedToGeoJSON = useCallback(
-    (srid = "4326", projString = null) => {
-      if (!multiSelectedFeatures || multiSelectedFeatures.length === 0) {
-        message.info("No features selected for download");
-        return;
-      }
-
-      // Transform features to target SRID
-      const transformedFeatures = multiSelectedFeatures.map((item) => {
-        const transformedGeometry = transformGeometry(
-          item.feature.geometry,
-          srid,
-          projString,
-        );
-        return {
-          ...item.feature,
-          geometry: transformedGeometry,
-          properties: {
-            ...item.feature.properties,
-            ...(srid !== "4326"
-              ? { original_srid: "4326", target_srid: srid }
-              : {}),
-          },
-        };
-      });
-
-      // Create a FeatureCollection from the transformed features
-      const featureCollection = {
-        type: "FeatureCollection",
-        features: transformedFeatures,
-        crs:
-          srid !== "4326"
-            ? {
-                type: "name",
-                properties: {
-                  name: `urn:ogc:def:crs:EPSG::${srid}`,
-                },
-              }
-            : undefined,
-      };
-
-      // Convert to JSON string with pretty formatting
-      const jsonContent = JSON.stringify(featureCollection, null, 2);
-
-      // Create blob and download
-      const blob = new Blob([jsonContent], {
-        type: "application/json;charset=utf-8;",
-      });
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `geojson_${srid}_${new Date()
-        .toISOString()
-        .replace(/[:.]/g, "-")}.geojson`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      message.success(
-        `Exported ${transformedFeatures.length} features to GeoJSON (SRID: ${srid})`,
-      );
-    },
-    [multiSelectedFeatures, transformGeometry],
-  );
 
   const exportSelectedToCSV = useCallback(() => {
     const selected = [];
-    console.log(multiSelectedFeatures);
 
     multiSelectedFeatures.forEach(({ layerId, feature }) => {
       if (feature) {
@@ -795,10 +782,9 @@ function AttributeTable({
     });
 
     if (selected.length === 0) {
-      message.info("No features selected for download");
+      info("No features selected for download");
       return;
     }
-    console.log("xxw1 Selected features for CSV export:", selected);
 
     const hasPointFeatures = selected.some((s) => s.isPoint);
 
@@ -827,7 +813,6 @@ function AttributeTable({
         if (h === "latitude") return escapeCell(s.latitude);
         if (h === "longitude") return escapeCell(s.longitude);
 
-        // Handle array of strings in CSV export
         const value = s.properties[h];
         if (Array.isArray(value)) {
           return escapeCell(value.join(", "));
@@ -853,30 +838,95 @@ function AttributeTable({
     a.remove();
     URL.revokeObjectURL(url);
 
-    message.success(`Exported ${selected.length} features to CSV`);
+    success(`Exported ${selected.length} features to CSV`);
   }, [multiSelectedFeatures]);
 
-  const exportSelectedToShapeFile = useCallback(
-    async (srid = "4326", projString = null) => {
+  const exportSelectedToGeoJSONAsync = useCallback(
+    async (srid) => {
       if (!multiSelectedFeatures || multiSelectedFeatures.length === 0) {
-        message.info("No features selected for download");
+        info("No features selected for download");
         return;
       }
 
+      const hideLoading = message.loading(`Fetching projection for SRID ${srid}...`, 0);
+      
+      try {
+        const proj4String = await getProj4DefinitionAsync(srid);
+        hideLoading();
+        
+        const transformedFeatures = multiSelectedFeatures.map((item) => {
+          const transformedGeometry = transformGeometry(
+            item.feature.geometry,
+            srid,
+            proj4String,
+          );
+          return {
+            ...item.feature,
+            geometry: transformedGeometry,
+            properties: {
+              ...item.feature.properties,
+              ...(srid !== "4326" ? { original_srid: "4326", target_srid: srid } : {}),
+            },
+          };
+        });
+
+        const featureCollection = {
+          type: "FeatureCollection",
+          features: transformedFeatures,
+          crs: srid !== "4326" ? {
+            type: "name",
+            properties: { name: `urn:ogc:def:crs:EPSG::${srid}` },
+          } : undefined,
+        };
+
+        const jsonContent = JSON.stringify(featureCollection, null, 2);
+        const blob = new Blob([jsonContent], { type: "application/json;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `geojson_${srid}_${new Date().toISOString().replace(/[:.]/g, "-")}.geojson`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        success(`Exported ${transformedFeatures.length} features to GeoJSON (SRID: ${srid})`);
+      } catch (err) {
+        hideLoading();
+        console.error("Export error:", err);
+        error(err.message || "Failed to export GeoJSON. Please try again.");
+      }
+    },
+    [multiSelectedFeatures, transformGeometry, getProj4DefinitionAsync, error, info, success],
+  );
+
+  const exportSelectedToShapeFileAsync = useCallback(
+    async (srid) => {
+      if (!multiSelectedFeatures || multiSelectedFeatures.length === 0) {
+        info("No features selected for download");
+        return;
+      }
+
+      const hideLoading = message.loading(`Fetching projection for SRID ${srid}...`, 0);
+      
       try {
         const { zip } = await import("@mapbox/shp-write");
+        
+        const [proj4String, prjContent] = await Promise.all([
+          getProj4DefinitionAsync(srid),
+          getPrjContentAsync(srid)
+        ]);
+        
+        hideLoading();
 
-        // Transform features to target SRID
         const transformedFeatures = multiSelectedFeatures.map((item) => {
           const feature = JSON.parse(JSON.stringify(item.feature));
           const transformedGeometry = transformGeometry(
             feature.geometry,
             srid,
-            projString,
+            proj4String,
           );
-
           feature.geometry = transformedGeometry;
-
           return feature;
         });
 
@@ -885,26 +935,8 @@ function AttributeTable({
           features: transformedFeatures,
         };
 
-        const filenameBase = `shapefile_${srid}_${new Date()
-          .toISOString()
-          .replace(/[:.]/g, "-")}`;
-
-        // Generate PRJ file content based on SRID
-        let prjContent =
-          'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]]';
-
-        if (srid !== "4326") {
-          // Try to get PRJ from common options or generate basic one
-          const found = COMMON_SRID_OPTIONS.find((opt) => opt.value === srid);
-          if (found && found.value === "3857") {
-            prjContent =
-              'PROJCS["WGS_84_Pseudo_Mercator",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]],PROJECTION["Mercator"],PARAMETER["central_meridian",0],PARAMETER["false_easting",0],PARAMETER["false_northing",0],UNIT["Meter",1],PARAMETER["standard_parallel_1",0.0]]';
-          } else if (srid.toString().startsWith("326")) {
-            const zone = srid.toString().substring(3);
-            prjContent = `PROJCS["WGS_84_UTM_zone_${zone}N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]],PROJECTION["Transverse_Mercator"],PARAMETER["latitude_of_origin",0],PARAMETER["central_meridian",${(zone - 1) * 6 - 180 + 3}],PARAMETER["scale_factor",0.9996],PARAMETER["false_easting",500000],PARAMETER["false_northing",0],UNIT["Meter",1]]`;
-          }
-        }
-
+        const filenameBase = `shapefile_${srid}_${new Date().toISOString().replace(/[:.]/g, "-")}`;
+        
         const zipBlob = await zip(featureCollection, {
           outputType: "blob",
           compression: "DEFLATE",
@@ -920,71 +952,56 @@ function AttributeTable({
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        message.success(
-          `Exported ${transformedFeatures.length} features to Shapefile (SRID: ${srid})`,
-        );
-      } catch (error) {
-        console.error("Error exporting to Shapefile:", error);
-        if (error.message && error.message.includes("geometry")) {
-          message.error("Export failed: Some features have invalid geometry");
+        success(`Exported ${transformedFeatures.length} features to Shapefile (SRID: ${srid})`);
+      } catch (err) {
+        hideLoading();
+        console.error("Error exporting to Shapefile:", err);
+        if (err.message && err.message.includes("geometry")) {
+          error("Export failed: Some features have invalid geometry");
         } else {
-          message.error("Failed to export Shapefile. Please try again.");
+          error(err.message || "Failed to export Shapefile. Please try again.");
         }
       }
     },
-    [multiSelectedFeatures, transformGeometry],
+    [multiSelectedFeatures, transformGeometry, getProj4DefinitionAsync, getPrjContentAsync, error, info, success],
   );
 
   const showSridSelectionModal = useCallback(() => {
     if (multiSelectedFeatures.length === 0) {
-      messageApi.open({
-        type: "warning",
-        content: "No features selected for download",
-      });
+      warning("No features selected for download");
       return;
     }
     if (downloadType === "CSV") {
-      // CSV doesn't need SRID transformation
       exportSelectedToCSV();
     } else {
       setShowSridModal(true);
     }
-  }, [downloadType, exportSelectedToCSV]);
+  }, [downloadType, exportSelectedToCSV, multiSelectedFeatures.length, warning]);
 
-  const handleExportWithSrid = useCallback(() => {
+  const handleExportWithSrid = useCallback(async () => {
     let finalSrid = selectedSrid;
-    let finalProjString = null;
-
+    
     if (selectedSrid === "custom") {
-      if (!customSridInput || !customProjString) {
-        message.warning("Please enter both custom SRID and Proj4 string");
+      if (!customSridInput) {
+        warning("Please enter custom SRID");
         return;
       }
       finalSrid = customSridInput;
-      finalProjString = customProjString;
-    }
-
-    if (downloadType === "GeoJSON") {
-      exportSelectedToGeoJSON(finalSrid, finalProjString);
-    } else if (downloadType === "Shapefile") {
-      exportSelectedToShapeFile(finalSrid, finalProjString);
     }
 
     setShowSridModal(false);
-  }, [
-    selectedSrid,
-    customSridInput,
-    customProjString,
-    downloadType,
-    exportSelectedToGeoJSON,
-    exportSelectedToShapeFile,
-  ]);
+    
+    if (downloadType === "GeoJSON") {
+      await exportSelectedToGeoJSONAsync(finalSrid);
+    } else if (downloadType === "Shapefile") {
+      await exportSelectedToShapeFileAsync(finalSrid);
+    }
+  }, [selectedSrid, customSridInput, downloadType, exportSelectedToGeoJSONAsync, exportSelectedToShapeFileAsync, warning]);
 
   const handleSridChange = useCallback((value) => {
     setSelectedSrid(value);
     if (value !== "custom") {
       setCustomSridInput("");
-      setCustomProjString("");
     }
   }, []);
 
@@ -1012,9 +1029,6 @@ function AttributeTable({
     );
   }, [geoJsonLayers]);
 
-  // ============================================
-  // Auto-select all rows when defaultSelectAll is enabled and tab changes
-  // ============================================
   useEffect(() => {
     if (!defaultSelectAll || !activeTab || !hasInitialized) {
       return;
@@ -1027,7 +1041,6 @@ function AttributeTable({
     const features = layerData.geoJsonData.features;
     const allRowKeys = features.map((_, idx) => `${activeTab}-${idx}`);
 
-    // Update multiSelected to include all rows in active tab
     setMultiSelected((prev) => {
       const updated = { ...prev };
       updated[activeTab] = new Set(allRowKeys);
@@ -1035,20 +1048,14 @@ function AttributeTable({
     });
   }, [activeTab, defaultSelectAll, geoJsonLayers, hasInitialized]);
 
-  // ============================================
-  // Build tabs with tables based on geoJsonLayers
-  // ============================================
   const tabs = useMemo(() => {
     return layerEntries.map(([layerId, layerData]) => {
       const label = layerData?.metaData?.layer?.layer_nm || layerId;
 
-      // Build filtered set for this layer according to search query
       const features = layerData?.geoJsonData?.features || [];
-      // const availableFeatures =
       const visibleIndices = getFilteredFeatureIndices(features, layerId);
       const filteredFeatures = visibleIndices.map((idx) => features[idx]);
 
-      // ✅ Action column with view button
       const actionColumn = {
         title: "Find",
         key: `${layerId}-action`,
@@ -1077,7 +1084,6 @@ function AttributeTable({
         },
       };
 
-      // ✅ UPDATED: Select column with Select All header (works on filtered rows)
       const selectColumn = {
         title: (
           <Tooltip title="Select all / Unselect all rows in this tab (filtered)">
@@ -1110,7 +1116,6 @@ function AttributeTable({
         layerData?.geoJsonData?.features[0]?.properties,
       );
 
-      // ✅ Columns with updated select column
       const columns = [selectColumn, actionColumn, ...propertyColumns];
 
       activeTab === layerId && setNumOfItems(filteredFeatures.length);
@@ -1271,9 +1276,6 @@ function AttributeTable({
     showSridSelectionModal,
   ]);
 
-  // ============================================
-  // Lifecycle
-  // ============================================
   useEffect(() => {
     if (!activeTab && tabs.length > 0) {
       setActiveTab(tabs[0].key);
@@ -1283,14 +1285,13 @@ function AttributeTable({
     }
   }, [tabs, activeTab]);
 
-  // Handle tab change with optional data clearing
   const handleTabChange = useCallback(
     (activeKey) => {
       setActiveTab(activeKey);
       if (clearDataOnTabChange) {
         setSelectedRowKeys({});
         setMultiSelected({});
-        setSearchQueries({}); // clear searches on tab change (if opted)
+        setSearchQueries({});
         dispatch(resetBuffer());
         dispatch(setSelectedFeature({ feature: [], metaData: null }));
         dispatch(setMultiSelectedFeatures([]));
@@ -1299,7 +1300,6 @@ function AttributeTable({
     [dispatch, clearDataOnTabChange],
   );
 
-  // Clean up on component unmount if clearDataOnClose is enabled
   const cleanUp = useCallback(() => {
     setSelectedRowKeys({});
     setMultiSelected({});
@@ -1337,7 +1337,6 @@ function AttributeTable({
         />
       )}
 
-      {/* SRID Selection Modal */}
       <Modal
         title="Select Coordinate Reference System (SRID)"
         open={showSridModal}
@@ -1346,6 +1345,7 @@ function AttributeTable({
         okText="Export"
         cancelText="Cancel"
         width={500}
+        confirmLoading={isLoadingProj4 || isLoadingWkt}
       >
         <Form layout="vertical">
           <Form.Item
@@ -1360,7 +1360,7 @@ function AttributeTable({
                 ...COMMON_SRID_OPTIONS,
                 {
                   value: "custom",
-                  label: "Custom (Enter SRID and Proj4 string)",
+                  label: "Custom (Enter SRID only - Proj4 will be auto-fetched)",
                 },
               ]}
               placeholder="Select SRID"
@@ -1371,41 +1371,36 @@ function AttributeTable({
             <>
               <Form.Item
                 label="Custom SRID"
-                tooltip="Enter the EPSG code (e.g., 3857, 32648)"
+                tooltip="Enter the EPSG code (e.g., 27700 for British National Grid, 2154 for France)"
                 required
               >
                 <Input
-                  placeholder="e.g: 3857, 32648, 27700"
+                  placeholder="e.g., 27700, 2154, 25833"
                   value={customSridInput}
                   onChange={(e) => setCustomSridInput(e.target.value)}
                 />
               </Form.Item>
-              <Form.Item
-                label="Proj4 String"
-                tooltip="Enter the Proj4 projection definition string"
-                required
-              >
-                <Input.TextArea
-                  placeholder="e.g: +proj=merc +a=6378137 +b=6378137 +lat_ts=0 +lon_0=0 +x_0=0 +y_0=0 +k=1 +units=m +nadgrids=@null +wktext +no_defs"
-                  rows={3}
-                  value={customProjString}
-                  onChange={(e) => setCustomProjString(e.target.value)}
-                />
-              </Form.Item>
+              <div style={{ marginTop: 8, marginBottom: 16, color: "#666", fontSize: 12 }}>
+                <SettingOutlined /> Projection information will be automatically fetched from epsg.io
+              </div>
             </>
           )}
 
           {selectedSrid !== "custom" && selectedSrid !== "4326" && (
             <div style={{ marginTop: 8, color: "#666", fontSize: 12 }}>
-              <SettingOutlined /> Note: Coordinates will be transformed from
-              WGS84 (EPSG:4326) to {selectedSrid}
+              <SettingOutlined /> Coordinates will be transformed from WGS84 (EPSG:4326) to {selectedSrid}
             </div>
           )}
 
           {selectedSrid === "4326" && (
             <div style={{ marginTop: 8, color: "#52c41a", fontSize: 12 }}>
-              <Checkbox checked disabled /> Using default WGS84 (EPSG:4326)
-              projection
+              <Checkbox checked disabled /> Using default WGS84 (EPSG:4326) projection
+            </div>
+          )}
+
+          {(proj4Error || wktError) && (
+            <div style={{ marginTop: 8, color: "#ff4d4f", fontSize: 12 }}>
+              <CloseCircleOutlined /> Error: Failed to fetch projection information. Please check your SRID.
             </div>
           )}
         </Form>
@@ -1419,14 +1414,13 @@ function AttributeTable({
             wrap="nowrap"
             style={{ width: "100%", textAlign: "center", marginTop: 20 }}
           >
-            <Tag color="red" style={{}}>
+            <Tag color="red">
               No layers with features available
             </Tag>
           </Space>
         </div>
       ) : (
         <div className="table-container">
-          {/* hide vertical scroll bar */}
           <Tabs
             type="card"
             items={tabs}

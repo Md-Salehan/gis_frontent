@@ -23,8 +23,7 @@ import {
 import { useGetLayerObjectsMutation } from "../../../../store/api/layerApi";
 import { useDispatch, useSelector } from "react-redux";
 import { LeyerIcon } from "../../../../components";
-import { setGeoJsonLayer } from "../../../../store/slices/mapSlice";
-import { setLoadingMessage } from "../../../../store/slices/uiSlice";
+import { setTempGeoJsonLayer } from "../../../../store/slices/mapSlice";
 
 const { Text } = Typography;
 
@@ -41,14 +40,11 @@ const LayerCheckbox = memo(({ option, disabled }) => (
           }}
         >
           {option.label}
-          {/* | {option.value} */}
         </span>
       </Space>
 
       <Space size="small">
-        {/* <Text type="secondary" style={{ fontSize: 12 }}>
-          {option.orderNo}
-        </Text> */}
+       
         {disabled && <Spin size="small" />}
       </Space>
     </Space>
@@ -56,10 +52,9 @@ const LayerCheckbox = memo(({ option, disabled }) => (
 ));
 LayerCheckbox.displayName = "LayerCheckbox";
 
-const LayerPanel = memo(({ layers = [] }) => {
+const TempLayerPannel = memo(({ layers = [] }) => {
   const dispatch = useDispatch();
   const { portalId } = useSelector((state) => state.portal);
-  const loadingMessage = useSelector((state) => state.ui.loadingMessage);
 
   const [checkedState, setCheckedState] = useState({
     checkedLayers: [],
@@ -69,25 +64,15 @@ const LayerPanel = memo(({ layers = [] }) => {
 
   const [getLayerObjects] = useGetLayerObjectsMutation();
 
-  const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers || {});
+  const tempGeoJsonLayers = useSelector((state) => state.map.tempGeoJsonLayers || {});
 
   const [searchTerm, setSearchTerm] = useState("");
 
   // Memoized layer options - single source of truth
   const layerOptions = useMemo(() => {
-    const unsortedList = layers.filter((item) => item?.layer_order_no === "0");
-    const sortedList = layers
-      .filter((item) => item?.layer_order_no !== "0")
-      .sort((a, b) => {
-        const orderA = Number(a.layer_order_no);
-        const orderB = Number(b.layer_order_no);
-        return orderA - orderB;
-      });
-
-    const sortedLayers = [...sortedList, ...unsortedList];
     return (
-      sortedLayers?.map((item, idx) => ({
-        label: item.layer_mst?.layer_nm || 'unknown',
+      layers?.map((item, idx) => ({
+        label: item.layer_mst?.layer_nm || "unknown",
         value: item.layer_mst?.layer_id,
         styleInfo: {
           geom_typ: item.geomStyle_mst?.geom_typ,
@@ -108,7 +93,7 @@ const LayerPanel = memo(({ layers = [] }) => {
     const s = (searchTerm || "").trim().toLowerCase();
     if (!s) return layerOptions;
     return layerOptions.filter((o) =>
-      (o.label || "").toLowerCase().includes(s)
+      (o.label || "").toLowerCase().includes(s),
     );
   }, [layerOptions, searchTerm]);
 
@@ -118,77 +103,27 @@ const LayerPanel = memo(({ layers = [] }) => {
 
     const activeIds = layerOptions
       .map((item) => item.value)
-      .filter((id) => !!geoJsonLayers[id]);
+      .filter((id) => !!tempGeoJsonLayers[id]);
 
     setCheckedState((prev) => ({
       ...prev,
       checkedLayers: activeIds,
     }));
-  }, [layerOptions, geoJsonLayers]);
+  }, [layerOptions, tempGeoJsonLayers]);
 
   const handleLayerToggle = useCallback(
-    (layerId, geoJsonData, metaData, isActive, orderNo) => {
+    (layerId,  isActive) => {
       dispatch(
-        setGeoJsonLayer({
+        setTempGeoJsonLayer({
           layerId,
-          geoJsonData,
-          metaData,
           isActive,
-          orderNo,
-        })
+        }),
       );
     },
-    [dispatch]
+    [dispatch],
   );
 
-  const fetchLayerData = useCallback(
-    async (layerId) => {
-      setCheckedState((prev) => ({
-        ...prev,
-        loadingLayers: new Set([...prev.loadingLayers, layerId]),
-      }));
 
-      try {
-        const response = await getLayerObjects({ layerId, portalId }).unwrap();
-
-        const layerMetaData = response?.metaData || {};
-        const orderNo =
-          layerOptions.find((opt) => opt.value === layerId)?.orderNo || "0";
-
-        handleLayerToggle(
-          layerId,
-          response.geojson,
-          layerMetaData,
-          true,
-          orderNo
-        );
-
-        setCheckedState((prev) => {
-          const newLoading = new Set(prev.loadingLayers);
-          newLoading.delete(layerId);
-
-          return {
-            ...prev,
-            loadingLayers: newLoading,
-          };
-        });
-      } catch (error) {
-        if (error?.name !== "AbortError") {
-          console.error(`Error fetching layer ${layerId}:`, error);
-        }
-
-        setCheckedState((prev) => {
-          const newLoading = new Set(prev.loadingLayers);
-          newLoading.delete(layerId);
-          return {
-            ...prev,
-            loadingLayers: newLoading,
-          };
-        });
-      }
-    },
-    [getLayerObjects, handleLayerToggle, portalId, layerOptions]
-  );
 
   const onChange = useCallback(
     async (checkedValues) => {
@@ -196,7 +131,7 @@ const LayerPanel = memo(({ layers = [] }) => {
       const current = new Set(checkedValues);
 
       const toFetch = checkedValues.filter(
-        (id) => !previous.has(id) && !geoJsonLayers[id]
+        (id) => !previous.has(id) && !tempGeoJsonLayers[id],
       );
 
       const toRemove = [...previous].filter((id) => !current.has(id));
@@ -206,62 +141,21 @@ const LayerPanel = memo(({ layers = [] }) => {
         checkedLayers: checkedValues,
       }));
 
-      toFetch.forEach(fetchLayerData);
-
+      toFetch.forEach((layerId) => {
+        handleLayerToggle(layerId, true);
+      });
       toRemove.forEach((layerId) => {
-        handleLayerToggle(layerId, null, {}, false, "0");
+        handleLayerToggle(layerId, false);
       });
     },
     [
       checkedState.checkedLayers,
-      fetchLayerData,
       handleLayerToggle,
-      geoJsonLayers,
-    ]
+      tempGeoJsonLayers,
+    ],
   );
 
-  // Load default layers using layerOptions
-  useEffect(() => {
-    const loadDefaultLayers = async () => {
-      if (!layerOptions?.length) return;
 
-      const defaultLayers = layerOptions.filter((opt) => {
-        const originalLayer = layers.find(
-          (l) => l.layer_mst.layer_id === opt.value
-        );
-        return originalLayer?.default_view_flg === "Y";
-      });
-
-      if (!defaultLayers.length) return;
-
-      dispatch(setLoadingMessage("Loading default layers..."));
-
-      try {
-        // Load layers individually - each handles its own success/error
-        const loadPromises = defaultLayers.map((layer) =>
-          fetchLayerData(layer.value)
-        );
-
-        // Wait for all requests to complete (success or failure)
-        await Promise.allSettled(loadPromises);
-
-        // Update checked state with all default layers
-        setCheckedState((prev) => ({
-          ...prev,
-          checkedLayers: [
-            ...prev.checkedLayers,
-            ...defaultLayers.map((l) => l.value),
-          ],
-        }));
-      } catch (error) {
-        console.error("Error loading default layers:", error);
-      } finally {
-        dispatch(setLoadingMessage(null));
-      }
-    };
-
-    loadDefaultLayers();
-  }, [layerOptions, layers, dispatch, fetchLayerData, portalId]);
 
   // Select all visible options (keep others intact)
   const selectAllVisible = useCallback(() => {
@@ -275,7 +169,7 @@ const LayerPanel = memo(({ layers = [] }) => {
   const deselectAllVisible = useCallback(() => {
     const visibleSet = new Set(filteredOptions.map((o) => o.value));
     const remaining = (checkedState.checkedLayers || []).filter(
-      (id) => !visibleSet.has(id)
+      (id) => !visibleSet.has(id),
     );
     onChange(remaining);
   }, [filteredOptions, checkedState.checkedLayers, onChange]);
@@ -288,12 +182,12 @@ const LayerPanel = memo(({ layers = [] }) => {
       size="small"
       variant={false}
       styles={{ body: { padding: 12 } }}
-      style={{ width: "100%" }}
+      style={{ width: "100%", marginTop: 8 }}
       title={
         <Row align="middle" justify="space-between" style={{ gap: 8 }}>
           <Col>
             <Text strong style={{ fontSize: 16 }}>
-              Layers
+              Temporary Layers
             </Text>
             <div
               style={{ fontSize: 12, color: "var(--muted, rgba(0,0,0,0.45))" }}
@@ -328,19 +222,7 @@ const LayerPanel = memo(({ layers = [] }) => {
         </Row>
       }
     >
-      {loadingMessage && (
-        <Modal
-          title="Loading"
-          open={!!loadingMessage}
-          footer={null}
-          closable={false}
-        >
-          <Space>
-            <Spin />
-            <span>{loadingMessage}</span>
-          </Space>
-        </Modal>
-      )}
+     
 
       <Input
         prefix={<SearchOutlined />}
@@ -356,7 +238,7 @@ const LayerPanel = memo(({ layers = [] }) => {
 
       <Checkbox.Group
         onChange={onChange}
-        value={checkedState.checkedLayers}
+        // value={checkedState.checkedLayers}
         style={{ width: "100%" }}
       >
         {filteredOptions.length === 0 ? (
@@ -382,5 +264,5 @@ const LayerPanel = memo(({ layers = [] }) => {
   );
 });
 
-LayerPanel.displayName = "LayerPanel";
-export default LayerPanel;
+TempLayerPannel.displayName = "TempLayerPannel";
+export default TempLayerPannel;

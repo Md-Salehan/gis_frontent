@@ -5,6 +5,7 @@ import React, {
   useEffect,
   memo,
   useRef,
+  useContext,
 } from "react";
 import {
   Table,
@@ -17,6 +18,9 @@ import {
   Input,
   Dropdown,
   Tag,
+  Modal,
+  Select,
+  Form,
 } from "antd";
 import {
   DownloadOutlined,
@@ -26,6 +30,7 @@ import {
   EllipsisOutlined,
   UserOutlined,
   DatabaseOutlined,
+  SettingOutlined,
 } from "@ant-design/icons";
 import { useSelector, useDispatch } from "react-redux";
 import {
@@ -38,6 +43,10 @@ import { useMap } from "react-leaflet";
 import transformProperties from "../../utils/transformProperties";
 import { evaluateQuery } from "../../utils";
 import { QueryBuilder } from "..";
+import shpWrite from "@mapbox/shp-write";
+import proj4 from "proj4";
+import { COMMON_SRID_OPTIONS, SRID_4326_proj } from "../../constants";
+import { useMessage } from "../../hooks";
 
 // Constants
 const DEBUG = process.env.NODE_ENV === "development";
@@ -50,19 +59,36 @@ const TABLE_VISIBILITY_TYPES = [
   {
     label: "All",
     key: "1",
-    // icon: <UserOutlined />,
   },
   {
     label: "Selected",
     key: "2",
-    // icon: <UserOutlined />,
   },
   {
     label: "Unselected",
     key: "3",
-    // icon: <UserOutlined />,
   },
 ];
+
+const DOWNLOAD_TYPES = [
+  {
+    label: "CSV",
+    key: "1",
+    icon: <DownloadOutlined />,
+  },
+  {
+    label: "GeoJSON",
+    key: "2",
+    icon: <DownloadOutlined />,
+  },
+  {
+    label: "Shapefile",
+    key: "3",
+    icon: <DownloadOutlined />,
+  },
+];
+
+// Common SRID options
 
 function AttributeTable({
   csvDownloader = true,
@@ -72,17 +98,26 @@ function AttributeTable({
 }) {
   const dispatch = useDispatch();
   const map = useMap();
+  const { success, error, warning, info } = useMessage();
 
   const [activeTab, setActiveTab] = useState(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState({});
-  const [multiSelected, setMultiSelected] = useState([]);
+  const [multiSelected, setMultiSelected] = useState({});
   const [hasInitialized, setHasInitialized] = useState(false);
   const [searchQueries, setSearchQueries] = useState({});
   const [tableVisibilityType, setTableVisibilityType] = useState("All");
   const [showQueryBuilder, setShowQueryBuilder] = useState(false);
   const [numOfItems, setNumOfItems] = useState(0);
+  const [downloadType, setDownloadType] = useState("CSV");
+  const [showSridModal, setShowSridModal] = useState(false);
+  const [selectedSrid, setSelectedSrid] = useState("4326");
+  const [customSridInput, setCustomSridInput] = useState("");
+  const [customProjString, setCustomProjString] = useState("");
 
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
+  const multiSelectedFeatures = useSelector(
+    (state) => state.map.multiSelectedFeatures,
+  );
 
   // ============================================
   // Utility: Parse row key to feature index
@@ -229,11 +264,9 @@ function AttributeTable({
         const isMultiSelected = multiSelected[layerId]?.has(rowKey);
 
         if (filterType === "Selected") {
-          // return isMultiSelected || isSingleSelected;
           return isMultiSelected;
         }
         if (filterType === "Unselected") {
-          // return !isMultiSelected && !isSingleSelected;
           return !isMultiSelected;
         }
         return true; // "All"
@@ -294,8 +327,6 @@ function AttributeTable({
 
       features.forEach((feature, idx) => {
         try {
-          // Evaluate the query against this feature
-
           const matches = evaluateQuery(query, feature);
 
           if (matches) {
@@ -321,6 +352,105 @@ function AttributeTable({
       TABLE_VISIBILITY_TYPES.find((t) => t.key === type.key)?.label || "All",
     );
   }, []);
+
+  const handleDownloadTypeChange = useCallback((type) => {
+    setDownloadType(
+      DOWNLOAD_TYPES.find((t) => t.key === type.key)?.label || "CSV",
+    );
+  }, []);
+
+  // ============================================
+  // SRID Transformation Functions
+  // ============================================
+
+  // Get proj4 definition for a given SRID
+  const getProj4Definition = useCallback(
+    (srid, customProj = null) => {
+      if (srid === "custom" && customProj) {
+        return customProj;
+      }
+
+      const found = COMMON_SRID_OPTIONS.find((opt) => opt.value === srid);
+      if (found && found.proj) {
+        return found.proj;
+      }
+
+      // Try to fetch from epsg.io API if not in common list
+      if (srid && srid !== "4326") {
+        // Return a placeholder, actual fetching would happen async
+        return `+init=epsg:${srid}`;
+      }
+
+      return SRID_4326_proj; // Default to WGS 84
+    },
+    [SRID_4326_proj],
+  );
+
+  const transformCoords = useCallback(
+    (coords, sourceProj, targetSrid) => {
+      if (typeof coords[0] === "number") {
+        // Point coordinate
+        const [lng, lat] = coords;
+        // Handle potential 3D coordinates (keep z if present)
+        const transformed = proj4(sourceProj, targetSrid, [lng, lat]);
+        if (coords.length > 2) {
+          // If original had z coordinate, append it back
+          return [transformed[0], transformed[1], coords[2]];
+        }
+        return transformed;
+      } else if (Array.isArray(coords[0])) {
+        // LineString or Polygon (array of coordinates)
+        return coords.map(transformCoords);
+      }
+      return coords;
+    },
+    [getProj4Definition],
+  );
+
+  // Transform geometry from WGS84 to target SRID
+  const transformGeometry = useCallback((geometry, targetSrid, targetProjString = null) => {
+    if (!geometry || targetSrid === "4326") {
+      return geometry;
+    }
+
+    try {
+      const sourceProj = SRID_4326_proj;
+      const targetProj = targetProjString || getProj4Definition(targetSrid);
+
+      // Register the projection if not already registered
+      if (!proj4.defs(targetSrid)) {
+        proj4.defs(targetSrid, targetProj);
+      }
+
+      const transformCoords = (coords) => {
+        if (typeof coords[0] === "number") {
+          // Point coordinate
+          const [lng, lat] = coords;
+          // Handle potential 3D coordinates (keep z if present)
+          const transformed = proj4(sourceProj, targetSrid, [lng, lat]);
+          if (coords.length > 2) {
+            return [transformed[0], transformed[1], coords[2]];
+          }
+          return transformed;
+        } else if (Array.isArray(coords[0])) {
+          // LineString or Polygon (array of coordinates)
+          return coords.map(transformCoords);
+        }
+        return coords;
+      };
+
+      const transformedGeometry = {
+        ...geometry,
+        coordinates: transformCoords(geometry.coordinates),
+      };
+
+      return transformedGeometry;
+    } catch (error) {
+      console.error("Error transforming geometry:", error);
+      warning(`Failed to transform geometry to SRID ${targetSrid}. Using original coordinates.`);
+      return geometry;
+    }
+  }, [getProj4Definition, SRID_4326_proj]);
 
   // ============================================
   // Selection Handlers
@@ -388,6 +518,7 @@ function AttributeTable({
     },
     [dispatch, geoJsonLayers, map],
   );
+
   // Toggle multi-select for a specific row
   const toggleMultiSelect = useCallback((layerId, rowKey, checked) => {
     setMultiSelected((prev) => {
@@ -415,13 +546,18 @@ function AttributeTable({
     [parseQueryToRowKeys, handleTableVisibilityChange],
   );
 
-  const toggleQueryBuilder = useCallback((bool) => {  
-    if(typeof bool === "boolean") {
+  const toggleQueryBuilder = useCallback((bool) => {
+    if (typeof bool === "boolean") {
       setShowQueryBuilder(bool);
     } else {
       setShowQueryBuilder((prev) => !prev);
     }
   }, []);
+
+  const clearMultiSelection = useCallback(() => {
+    setMultiSelected({});
+    handleTableVisibilityChange({ key: "1" }); // Switch back to "All" view
+  }, [handleTableVisibilityChange]);
 
   // ============================================
   // Select All / Unselect All Handler (respects filtering)
@@ -550,7 +686,10 @@ function AttributeTable({
         }
       });
     });
-
+    console.log(
+      "xxw: Updating multi-selected features in Redux:",
+      multiFeatures,
+    );
     dispatch(setMultiSelectedFeatures(multiFeatures));
 
     if (multiFeatures.length > 0) {
@@ -565,43 +704,44 @@ function AttributeTable({
   ]);
 
   // ============================================
-  // CSV Export
+  // Export Functions
   // ============================================
-  const exportSelectedToCSV = useCallback(() => {
+
+    const exportSelectedToCSV = useCallback(() => {
     const selected = [];
-    Object.entries(multiSelected).forEach(([layerId, keySet]) => {
-      Array.from(keySet || []).forEach((rowKey) => {
-        const feature = getFeatureByRowKey(layerId, rowKey);
-        if (feature) {
-          let latitude = null;
-          let longitude = null;
-          let isPoint = false;
+    console.log(multiSelectedFeatures);
 
-          if (
-            feature.geometry?.type === "Point" &&
-            feature.geometry?.coordinates
-          ) {
-            const [lng, lat] = feature.geometry.coordinates;
-            longitude = lng;
-            latitude = lat;
-            isPoint = true;
-          }
+    multiSelectedFeatures.forEach(({ layerId, feature }) => {
+      if (feature) {
+        let latitude = null;
+        let longitude = null;
+        let isPoint = false;
 
-          selected.push({
-            layerId,
-            properties: feature.properties || {},
-            latitude,
-            longitude,
-            isPoint,
-          });
+        if (
+          feature.geometry?.type === "Point" &&
+          feature.geometry?.coordinates
+        ) {
+          const [lng, lat] = feature.geometry.coordinates;
+          longitude = lng;
+          latitude = lat;
+          isPoint = true;
         }
-      });
+
+        selected.push({
+          layerId,
+          properties: feature.properties || {},
+          latitude,
+          longitude,
+          isPoint,
+        });
+      }
     });
 
     if (selected.length === 0) {
-      message.info("No features selected for download");
+      info("No features selected for download");
       return;
     }
+    console.log("xxw1 Selected features for CSV export:", selected);
 
     const hasPointFeatures = selected.some((s) => s.isPoint);
 
@@ -610,9 +750,11 @@ function AttributeTable({
       headersSet.add("latitude");
       headersSet.add("longitude");
     }
+
     selected.forEach((s) => {
       Object.keys(s.properties).forEach((k) => headersSet.add(k));
     });
+
     const headers = Array.from(headersSet);
 
     const escapeCell = (v) => {
@@ -635,12 +777,14 @@ function AttributeTable({
         }
         return escapeCell(value);
       });
+
       csvRows.push(row.join(","));
     });
 
     const blob = new Blob([csvRows.join("\r\n")], {
       type: "text/csv;charset=utf-8;",
     });
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -651,7 +795,200 @@ function AttributeTable({
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-  }, [multiSelected, getFeatureByRowKey]);
+
+    success(`Exported ${selected.length} features to CSV`);
+  }, [multiSelectedFeatures]);
+
+
+
+  const exportSelectedToGeoJSON = useCallback(
+    (srid = "4326", projString = null) => {
+      if (!multiSelectedFeatures || multiSelectedFeatures.length === 0) {
+        info("No features selected for download");
+        return;
+      }
+
+      // Transform features to target SRID
+      const transformedFeatures = multiSelectedFeatures.map((item) => {
+        const transformedGeometry = transformGeometry(
+          item.feature.geometry,
+          srid,
+          projString,
+        );
+        return {
+          ...item.feature,
+          geometry: transformedGeometry,
+          properties: {
+            ...item.feature.properties,
+            ...(srid !== "4326"
+              ? { original_srid: "4326", target_srid: srid }
+              : {}),
+          },
+        };
+      });
+
+      // Create a FeatureCollection from the transformed features
+      const featureCollection = {
+        type: "FeatureCollection",
+        features: transformedFeatures,
+        
+      };
+
+      // Convert to JSON string with pretty formatting
+      const jsonContent = JSON.stringify(featureCollection, null, 2);
+
+      // Create blob and download
+      const blob = new Blob([jsonContent], {
+        type: "application/json;charset=utf-8;",
+      });
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `geojson_${srid}_${new Date()
+        .toISOString()
+        .replace(/[:.]/g, "-")}.geojson`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      success(
+        `Exported ${transformedFeatures.length} features to GeoJSON (SRID: ${srid})`,
+      );
+    },
+    [multiSelectedFeatures, transformGeometry],
+  );
+
+
+  const exportSelectedToShapeFile = useCallback(
+    async (srid = "4326", projString = null) => {
+      if (!multiSelectedFeatures || multiSelectedFeatures.length === 0) {
+        info("No features selected for download");
+        return;
+      }
+
+      try {
+        const { zip } = await import("@mapbox/shp-write");
+
+        // Transform features to target SRID
+        const transformedFeatures = multiSelectedFeatures.map((item) => {
+          const feature = JSON.parse(JSON.stringify(item.feature));
+          const transformedGeometry = transformGeometry(
+            feature.geometry,
+            srid,
+            projString,
+          );
+
+          feature.geometry = transformedGeometry;
+
+          return feature;
+        });
+
+        const featureCollection = {
+          type: "FeatureCollection",
+          features: transformedFeatures,
+        };
+
+        const filenameBase = `shapefile_${srid}_${new Date()
+          .toISOString()
+          .replace(/[:.]/g, "-")}`;
+
+        // Generate PRJ file content based on SRID
+        let prjContent =
+          'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]]';
+
+        if (srid !== "4326") {
+          // Try to get PRJ from common options or generate basic one
+          const found = COMMON_SRID_OPTIONS.find((opt) => opt.value === srid);
+          if (found && found.value === "3857") {
+            prjContent =
+              'PROJCS["WGS_84_Pseudo_Mercator",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]],PROJECTION["Mercator"],PARAMETER["central_meridian",0],PARAMETER["false_easting",0],PARAMETER["false_northing",0],UNIT["Meter",1],PARAMETER["standard_parallel_1",0.0]]';
+          } else if (srid.toString().startsWith("326")) {
+            const zone = srid.toString().substring(3);
+            prjContent = `PROJCS["WGS_84_UTM_zone_${zone}N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]],PROJECTION["Transverse_Mercator"],PARAMETER["latitude_of_origin",0],PARAMETER["central_meridian",${(zone - 1) * 6 - 180 + 3}],PARAMETER["scale_factor",0.9996],PARAMETER["false_easting",500000],PARAMETER["false_northing",0],UNIT["Meter",1]]`;
+          }
+        }
+
+        const zipBlob = await zip(featureCollection, {
+          outputType: "blob",
+          compression: "DEFLATE",
+          prj: prjContent,
+        });
+
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${filenameBase}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        success(
+          `Exported ${transformedFeatures.length} features to Shapefile (SRID: ${srid})`,
+        );
+      } catch (error) {
+        console.error("Error exporting to Shapefile:", error);
+        if (error.message && error.message.includes("geometry")) {
+          error("Export failed: Some features have invalid geometry");
+        } else {
+          error("Failed to export Shapefile. Please try again.");
+        }
+      }
+    },
+    [multiSelectedFeatures, transformGeometry],
+  );
+
+  const showSridSelectionModal = useCallback(() => {
+    if (multiSelectedFeatures.length === 0) {
+      warning("No features selected for download");
+      return;
+    }
+    if (downloadType === "CSV") {
+      // CSV doesn't need SRID transformation
+      exportSelectedToCSV();
+    } else {
+      setShowSridModal(true);
+    }
+  }, [downloadType, exportSelectedToCSV]);
+
+  const handleExportWithSrid = useCallback(() => {
+    let finalSrid = selectedSrid;
+    let finalProjString = null;
+
+    if (selectedSrid === "custom") {
+      if (!customSridInput || !customProjString) {
+        warning("Please enter both custom SRID and Proj4 string");
+        return;
+      }
+      finalSrid = customSridInput;
+      finalProjString = customProjString;
+    }
+
+    if (downloadType === "GeoJSON") {
+      exportSelectedToGeoJSON(finalSrid, finalProjString);
+    } else if (downloadType === "Shapefile") {
+      exportSelectedToShapeFile(finalSrid, finalProjString);
+    }
+
+    setShowSridModal(false);
+  }, [
+    selectedSrid,
+    customSridInput,
+    customProjString,
+    downloadType,
+    exportSelectedToGeoJSON,
+    exportSelectedToShapeFile,
+  ]);
+
+  const handleSridChange = useCallback((value) => {
+    setSelectedSrid(value);
+    if (value !== "custom") {
+      setCustomSridInput("");
+      setCustomProjString("");
+    }
+  }, []);
 
   // ============================================
   // Styling
@@ -789,12 +1126,6 @@ function AttributeTable({
                 justifyContent: "start",
                 gap: "8px",
                 margin: "2px 0 2px",
-                // position: "sticky",
-                // top: 0,
-                // zIndex: 9999,
-                // left: 0,
-                // backgroundColor: "white",
-                // padding: "4px",
               }}
             >
               <Space direction="horizontal" size="small">
@@ -841,24 +1172,44 @@ function AttributeTable({
               </Space>
 
               {csvDownloader && (
-                <Button
-                  size="small"
-                  type="primary"
-                  icon={<DownloadOutlined />}
-                  onClick={exportSelectedToCSV}
-                  disabled={
-                    !multiSelected[layerId] || multiSelected[layerId].size === 0
-                  }
-                >
-                  Download CSV
-                </Button>
+                <Space.Compact size="small">
+                  <Dropdown
+                    menu={{
+                      items: DOWNLOAD_TYPES,
+                      onClick: (e) => handleDownloadTypeChange(e),
+                    }}
+                    placement="bottomRight"
+                  >
+                    <Button
+                      style={{
+                        width: "100px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "start",
+                      }}
+                    >
+                      {downloadType}
+                    </Button>
+                  </Dropdown>
+                  <Button
+                    size="small"
+                    style={{
+                      width: "25px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                    onClick={() => showSridSelectionModal()}
+                  >
+                    <DownloadOutlined />
+                  </Button>
+                </Space.Compact>
               )}
               <Button
                 size="small"
                 type="primary"
                 icon={<DatabaseOutlined />}
                 onClick={() => toggleQueryBuilder(true)}
-                
               >
                 Query Builder
               </Button>
@@ -878,7 +1229,7 @@ function AttributeTable({
                 scroll={{ x: true }}
                 sticky={true}
                 size="small"
-                pagination={{ pageSize: 10, hideOnSinglePage: true}}
+                pagination={{ pageSize: 10, hideOnSinglePage: true }}
                 onRow={(record) => ({
                   style: {
                     whiteSpace: "nowrap",
@@ -912,10 +1263,14 @@ function AttributeTable({
     searchQueries,
     getFilteredFeatureIndices,
     csvDownloader,
-    exportSelectedToCSV,
     tableVisibilityType,
     handleTableVisibilityChange,
     numOfItems,
+    showQueryBuilder,
+    toggleQueryBuilder,
+    downloadType,
+    handleDownloadTypeChange,
+    showSridSelectionModal,
   ]);
 
   // ============================================
@@ -980,10 +1335,86 @@ function AttributeTable({
           onApplyFilters={applyQuerySelection}
           layerData={geoJsonLayers[activeTab]}
           onClose={toggleQueryBuilder}
+          onClear={clearMultiSelection}
         />
       )}
+
+      {/* SRID Selection Modal */}
+      <Modal
+        title="Select Coordinate Reference System (SRID)"
+        open={showSridModal}
+        onOk={handleExportWithSrid}
+        onCancel={() => setShowSridModal(false)}
+        okText="Export"
+        cancelText="Cancel"
+        width={500}
+      >
+        <Form layout="vertical">
+          <Form.Item
+            label="SRID / Projection"
+            tooltip="Select the coordinate reference system for the exported file"
+            required
+          >
+            <Select
+              value={selectedSrid}
+              onChange={handleSridChange}
+              options={[
+                ...COMMON_SRID_OPTIONS,
+                {
+                  value: "custom",
+                  label: "Custom (Enter SRID and Proj4 string)",
+                },
+              ]}
+              placeholder="Select SRID"
+            />
+          </Form.Item>
+
+          {selectedSrid === "custom" && (
+            <>
+              <Form.Item
+                label="Custom SRID"
+                tooltip="Enter the EPSG code (e.g., 3857, 32648)"
+                required
+              >
+                <Input
+                  placeholder="e.g: 3857, 32648, 27700"
+                  value={customSridInput}
+                  onChange={(e) => setCustomSridInput(e.target.value)}
+                />
+              </Form.Item>
+              <Form.Item
+                label="Proj4 String"
+                tooltip="Enter the Proj4 projection definition string"
+                required
+              >
+                <Input.TextArea
+                  placeholder="e.g: +proj=merc +a=6378137 +b=6378137 +lat_ts=0 +lon_0=0 +x_0=0 +y_0=0 +k=1 +units=m +nadgrids=@null +wktext +no_defs"
+                  rows={3}
+                  value={customProjString}
+                  onChange={(e) => setCustomProjString(e.target.value)}
+                />
+              </Form.Item>
+            </>
+          )}
+
+          {selectedSrid !== "custom" && selectedSrid !== "4326" && (
+            <div style={{ marginTop: 8, color: "#666", fontSize: 12 }}>
+              <SettingOutlined /> Note: Coordinates will be transformed from
+              WGS84 (EPSG:4326) to {selectedSrid}
+            </div>
+          )}
+
+          {selectedSrid === "4326" && (
+            <div style={{ marginTop: 8, color: "#52c41a", fontSize: 12 }}>
+              <Checkbox checked disabled /> Using default WGS84 (EPSG:4326)
+              projection
+            </div>
+          )}
+        </Form>
+      </Modal>
+
       {tabs.length === 0 ? (
-        <div className="table-container" >
+        <div className="table-container">
           <Space
             direction="vertical"
             size="large"
@@ -996,7 +1427,7 @@ function AttributeTable({
           </Space>
         </div>
       ) : (
-        <div className="table-container" >
+        <div className="table-container">
           {/* hide vertical scroll bar */}
           <Tabs
             type="card"
