@@ -11,11 +11,12 @@ import {
   HOVER_STYLE_CONFIG,
   LINE_STYLE,
 } from "../../constants";
-import LabelLayer from "./LabelLayer";
 import { meta } from "@eslint/js";
 
-const GeoJsonLayerWrapper = memo(
+const AnalyticalOverlays = memo(
   ({ layerId, geoJsonData, metaData, pane, isPrintModalOpen = false }) => {
+    console.log("log", { layerId, geoJsonData, metaData, pane, isPrintModalOpen });
+    
     const dispatch = useDispatch();
     const viewport = useSelector((state) => state.map.viewport);
     const isIdentifyOpen = useSelector((state) => state.ui.isIdentifyOpen);
@@ -43,15 +44,15 @@ const GeoJsonLayerWrapper = memo(
 
         // Get styles from properties
         const customStyle = {
-          color: props.stroke_color || DEFAULT_STYLES.color,
-          weight: normalizevalue(props.stroke_width || DEFAULT_STYLES.weight),
-          opacity: props.stroke_opacity || DEFAULT_STYLES.opacity,
-          fillOpacity: props.fill_opacity || DEFAULT_STYLES.fillOpacity,
-          fillColor: props.fill_color || DEFAULT_STYLES.fillColor,
+          color: props?.stroke_color || DEFAULT_STYLES.color,
+          weight: normalizevalue(props?.stroke_width || DEFAULT_STYLES.weight),
+          opacity: props?.stroke_opacity || DEFAULT_STYLES.opacity,
+          fillOpacity: props?.fill_opacity || DEFAULT_STYLES.fillOpacity,
+          fillColor: props?.fill_color || DEFAULT_STYLES.fillColor,
         };
 
         // Apply styles based on geometry type
-        switch (props.geom_typ) {
+        switch (props?.geom_typ) {
           case GEOMETRY_TYPES.POLYGON: // Polygon
             return customStyle;
           case GEOMETRY_TYPES.LINE: // Line
@@ -62,13 +63,13 @@ const GeoJsonLayerWrapper = memo(
           case GEOMETRY_TYPES.POINT: // Point
             return {
               radius: normalizevalue(
-                props.marker_size || DEFAULT_STYLES.radius,
+                props?.marker_size || DEFAULT_STYLES.radius,
               ),
-              color: props.stroke_color || DEFAULT_STYLES.color,
-              fillColor: props.fill_color || DEFAULT_STYLES.markerFillColor,
-              fillOpacity: props.fill_opacity || DEFAULT_STYLES.fillOpacity,
+              color: props?.stroke_color || DEFAULT_STYLES.color,
+              fillColor: props?.fill_color || DEFAULT_STYLES.markerFillColor,
+              fillOpacity: props?.fill_opacity || DEFAULT_STYLES.fillOpacity,
               weight: normalizevalue(
-                props.stroke_width || DEFAULT_STYLES.weight,
+                props?.stroke_width || DEFAULT_STYLES.weight,
               ),
             };
           default:
@@ -119,8 +120,7 @@ const GeoJsonLayerWrapper = memo(
           e.target.setStyle(style(feature));
         });
 
-        layer.on("contextmenu", (e) => {
-        });
+        layer.on("contextmenu", (e) => {});
 
         // click -> save selected feature and center map viewport on it
         layer.on("click", (e) => {
@@ -152,16 +152,16 @@ const GeoJsonLayerWrapper = memo(
     const pointToLayer = useCallback(
       (feature, latlng) => {
         const props = metaData?.style || {};
-        const iconName = props.marker_fa_icon_name;
-        const iconImg = props.marker_img_url;
+        const iconName = props?.marker_fa_icon_name;
+        const iconImg = props?.marker_img_url;
         const radius = normalizevalue(
-          props.marker_size || DEFAULT_STYLES.radius,
+          props?.marker_size || DEFAULT_STYLES?.radius,
         );
         const markerSize = normalizevalue(
-          Number(props.marker_size) || DEFAULT_STYLES.markerSize,
+          Number(props?.marker_size) || DEFAULT_STYLES?.markerSize,
         );
         const markerColor =
-          props.marker_color || DEFAULT_STYLES.markerFillColor;
+          props?.marker_color || DEFAULT_STYLES?.markerFillColor;
 
         if (iconImg) {
           const icon = L.icon({
@@ -205,29 +205,21 @@ const GeoJsonLayerWrapper = memo(
     );
 
     return (
-      <>
-        <GeoJSON
-          key={`${layerId}-${isPrintModalOpen ? "print" : "normal"}-${isIdentifyOpen ? "identify" : "normal"}`}
-          data={geoJsonData}
-          style={style}
-          pointToLayer={pointToLayer}
-          onEachFeature={(feature, layer) =>
-            onEachFeature(feature, layer, metaData?.layer?.layer_nm)
-          }
-          pane={pane}
-          renderer={svgRenderer}
-          interactive={!isPrintModalOpen} // Disable interactivity for print
-        />
-        {/* Label layer renders labels (centroid) for active layers using metadata styles */}
-        <LabelLayer
-          layerId={layerId}
-          geoJsonData={geoJsonData}
-          metaData={metaData}
-        />
-      </>
+      <GeoJSON
+        key={`${layerId}-${isPrintModalOpen ? "print" : "normal"}-${isIdentifyOpen ? "identify" : "normal"}`}
+        data={geoJsonData}
+        style={style}
+        pointToLayer={pointToLayer}
+        onEachFeature={(feature, layer) =>
+          onEachFeature(feature, layer, metaData?.layer_nm)
+        }
+        pane={pane}
+        renderer={svgRenderer}
+        interactive={!isPrintModalOpen} // Disable interactivity for print
+      />
     );
   },
 );
 
-GeoJsonLayerWrapper.displayName = "GeoJsonLayerWrapper";
-export default GeoJsonLayerWrapper;
+AnalyticalOverlays.displayName = "AnalyticalOverlays";
+export default AnalyticalOverlays;

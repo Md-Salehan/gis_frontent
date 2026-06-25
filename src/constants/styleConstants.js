@@ -83,7 +83,9 @@ export const HOVER_EFFECT = {
 // Pane z-index configuration
 export const PANE_ZINDEX = {
   BASE_LAYER: 0,
+  BUFFER_BASE: 200,
   OVERLAY_BASE: 400,
+  ANALYTICAL_BASE: 5000,
   SELECTED_FEATURES: 10000,
   POPUP: 10001,
 };

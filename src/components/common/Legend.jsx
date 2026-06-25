@@ -1,10 +1,12 @@
 // Legend.jsx
 import React, { useEffect, useState, useRef } from "react";
-import { Spin, Alert } from "antd";
+import { Spin, Alert, Space } from "antd";
 import { useSelector } from "react-redux";
 import { useGetLegendMutation } from "../../store/api/legendApi";
 import LeyerIcon from "./LeyerIcon";
 import Movable from "./Movable";
+import { DragOutlined } from "@ant-design/icons";
+
 
 const Legend = ({
   visible,
@@ -139,7 +141,7 @@ const Legend = ({
   return (
     <Movable
       isMovable={isMovable}
-      title="Legend"
+      title={<Space><DragOutlined /> Legend</Space>}
       titleFontSize={titleFontSize}
       width={width}
       height={height}

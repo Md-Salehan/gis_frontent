@@ -44,15 +44,7 @@ const UserMenu = ({ avatarSize = "default" }) => {
     },
   ];
 
-  // const handleMenuClick = ({ key }) => {
-  //   if (key === "logout") {
-  //     dispatch(logout());
-  //     message.success("Logged out");
-  //     navigate("/");
-  //   } else if (key === "profile") {
-  //     navigate("/profile");
-  //   }
-  // };
+
 
   return (
     <Dropdown menu={{ items }} placement="bottomRight" trigger={["click"]}>

@@ -4,7 +4,7 @@ import { DEFAULT_STYLES } from "../../constants";
 function LeyerIcon({ iconInfo }) {
   let geom_typ = iconInfo?.geom_typ;
   let iconType = "unknown-layer-icon";
-
+  
   let style = {
     backgroundColor: iconInfo?.fill_color || DEFAULT_STYLES.fillColor,
     borderColor: iconInfo?.stroke_color || DEFAULT_STYLES.color,
@@ -66,6 +66,7 @@ function LeyerIcon({ iconInfo }) {
   }
 
 
+  console.log("xxwL", {iconInfo, style, iconType});
 
   return <div className={iconType} style={style}></div>;
 }

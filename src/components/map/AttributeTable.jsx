@@ -102,6 +102,7 @@ function AttributeTable({
   const { success, error, warning, info } = useMessage();
 
   const [activeTab, setActiveTab] = useState(null);
+  const [activeLayers, setActiveLayers] = useState({});
   const [selectedRowKeys, setSelectedRowKeys] = useState({});
   const [multiSelected, setMultiSelected] = useState({});
   const [hasInitialized, setHasInitialized] = useState(false);
@@ -127,9 +128,27 @@ function AttributeTable({
   }] = useLazyGetWktStringQuery();
 
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
+  const tempGeoJsonLayers = useSelector((state) => state.map.tempGeoJsonLayers);
   const multiSelectedFeatures = useSelector(
     (state) => state.map.multiSelectedFeatures,
   );
+
+  useEffect(() => {
+    let activeTempLayers = {};
+    
+    for(let [key, val] of Object.entries(tempGeoJsonLayers)){
+      
+      if(val?.isActive){
+        activeTempLayers = {...activeTempLayers,
+          [key]: val
+        }
+      }
+    }
+    setActiveLayers({...geoJsonLayers, ...activeTempLayers})
+  
+    
+  }, [geoJsonLayers, tempGeoJsonLayers])
+  
 
   // Cache for fetched projections
   const proj4Cache = useRef(new Map());
@@ -152,11 +171,11 @@ function AttributeTable({
   // ============================================
   const getFeatureByRowKey = useCallback(
     (layerId, rowKey) => {
-      const features = geoJsonLayers[layerId]?.geoJsonData?.features || [];
+      const features = activeLayers[layerId]?.geoJsonData?.features || [];
       const idx = parseRowKeyToIndex(rowKey);
       return features[idx] || null;
     },
-    [geoJsonLayers, parseRowKeyToIndex],
+    [activeLayers, parseRowKeyToIndex],
   );
 
   // ============================================
@@ -328,7 +347,7 @@ function AttributeTable({
     (query, layerId) => {
       if (!query || !layerId) return [];
 
-      const layerData = geoJsonLayers[layerId];
+      const layerData = activeLayers[layerId];
 
       if (!layerData?.geoJsonData?.features) return [];
       const features = layerData.geoJsonData.features;
@@ -352,7 +371,7 @@ function AttributeTable({
 
       return rowKeys;
     },
-    [geoJsonLayers],
+    [activeLayers],
   );
 
   const handleTableVisibilityChange = useCallback((type) => {
@@ -522,7 +541,7 @@ function AttributeTable({
   const handleViewFeature = useCallback(
     (record, layerId) => {
       const selectedFeature =
-        geoJsonLayers[layerId]?.geoJsonData.features[record.featureIndex];
+        activeLayers[layerId]?.geoJsonData.features[record.featureIndex];
 
       if (
         selectedFeature &&
@@ -532,7 +551,7 @@ function AttributeTable({
           setSelectedFeature({
             feature: [selectedFeature],
             metaData: {
-              ...geoJsonLayers[layerId]?.metaData,
+              ...activeLayers[layerId]?.metaData,
               selectedKeys: [record.key],
             },
           }),
@@ -573,7 +592,7 @@ function AttributeTable({
         prevSelectedFeatureId.current = "";
       }
     },
-    [dispatch, geoJsonLayers, map],
+    [dispatch, activeLayers, map],
   );
 
   const toggleMultiSelect = useCallback((layerId, rowKey, checked) => {
@@ -617,7 +636,7 @@ function AttributeTable({
 
   const handleSelectAllChange = useCallback(
     (layerId, checked) => {
-      const layerData = geoJsonLayers[layerId];
+      const layerData = activeLayers[layerId];
       if (!layerData?.geoJsonData?.features) return;
 
       const features = layerData.geoJsonData.features;
@@ -645,12 +664,12 @@ function AttributeTable({
         return updated;
       });
     },
-    [geoJsonLayers, getFilteredFeatureIndices],
+    [activeLayers, getFilteredFeatureIndices],
   );
 
   const getSelectAllState = useCallback(
     (layerId) => {
-      const layerData = geoJsonLayers[layerId];
+      const layerData = activeLayers[layerId];
       const features = layerData?.geoJsonData?.features || [];
       const visibleIndices = getFilteredFeatureIndices(features, layerId);
       const visibleCount = visibleIndices.length;
@@ -666,7 +685,7 @@ function AttributeTable({
       if (visibleSelectedCount === visibleCount) return true;
       return "indeterminate";
     },
-    [geoJsonLayers, multiSelected, getFilteredFeatureIndices],
+    [activeLayers, multiSelected, getFilteredFeatureIndices],
   );
 
   // ============================================
@@ -686,7 +705,7 @@ function AttributeTable({
       let combinedBounds = null;
 
       Object.entries(multiSelected).forEach(([layerId, keySet]) => {
-        const features = geoJsonLayers[layerId]?.geoJsonData?.features || [];
+        const features = activeLayers[layerId]?.geoJsonData?.features || [];
         Array.from(keySet || []).forEach((rowKey) => {
           const idx = parseRowKeyToIndex(rowKey);
           const feature = features[idx];
@@ -716,7 +735,7 @@ function AttributeTable({
     } catch (error) {
       console.error("Error fitting to multi-selected bounds:", error);
     }
-  }, [map, multiSelected, geoJsonLayers, parseRowKeyToIndex]);
+  }, [map, multiSelected, activeLayers, parseRowKeyToIndex]);
 
   // ============================================
   // Redux Sync & Auto-fit
@@ -724,8 +743,8 @@ function AttributeTable({
   useEffect(() => {
     const multiFeatures = [];
     Object.entries(multiSelected).forEach(([layerId, keySet]) => {
-      const features = geoJsonLayers[layerId]?.geoJsonData?.features || [];
-      const metaData = geoJsonLayers[layerId]?.metaData || {};
+      const features = activeLayers[layerId]?.geoJsonData?.features || [];
+      const metaData = activeLayers[layerId]?.metaData || {};
       Array.from(keySet || []).forEach((rowKey) => {
         const idx = parseRowKeyToIndex(rowKey);
         const feature = features[idx];
@@ -734,7 +753,6 @@ function AttributeTable({
         }
       });
     });
-    console.log("xxw: Updating multi-selected features in Redux:", multiFeatures);
     dispatch(setMultiSelectedFeatures(multiFeatures));
 
     if (multiFeatures.length > 0) {
@@ -742,7 +760,7 @@ function AttributeTable({
     }
   }, [
     multiSelected,
-    geoJsonLayers,
+    activeLayers,
     dispatch,
     fitToMultiSelectedBounds,
     parseRowKeyToIndex,
@@ -1024,16 +1042,16 @@ function AttributeTable({
   // Tab Configuration
   // ============================================
   const layerEntries = useMemo(() => {
-    return Object.entries(geoJsonLayers || {}).filter(
+    return Object.entries(activeLayers || {}).filter(
       ([_, layerData]) => layerData?.geoJsonData?.features,
     );
-  }, [geoJsonLayers]);
+  }, [activeLayers]);
 
   useEffect(() => {
     if (!defaultSelectAll || !activeTab || !hasInitialized) {
       return;
     }
-    const layerData = geoJsonLayers[activeTab];
+    const layerData = activeLayers[activeTab];
     if (!layerData?.geoJsonData?.features) {
       return;
     }
@@ -1046,7 +1064,7 @@ function AttributeTable({
       updated[activeTab] = new Set(allRowKeys);
       return updated;
     });
-  }, [activeTab, defaultSelectAll, geoJsonLayers, hasInitialized]);
+  }, [activeTab, defaultSelectAll, activeLayers, hasInitialized]);
 
   const tabs = useMemo(() => {
     return layerEntries.map(([layerId, layerData]) => {
@@ -1331,7 +1349,7 @@ function AttributeTable({
         <QueryBuilder
           activeTab={activeTab}
           onApplyFilters={applyQuerySelection}
-          layerData={geoJsonLayers[activeTab]}
+          layerData={activeLayers[activeTab]}
           onClose={toggleQueryBuilder}
           onClear={clearMultiSelection}
         />

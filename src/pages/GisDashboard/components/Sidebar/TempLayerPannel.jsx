@@ -23,7 +23,7 @@ import {
 import { useGetLayerObjectsMutation } from "../../../../store/api/layerApi";
 import { useDispatch, useSelector } from "react-redux";
 import { LeyerIcon } from "../../../../components";
-import { setTempGeoJsonLayer } from "../../../../store/slices/mapSlice";
+import { toggleTempGeoJsonLayer } from "../../../../store/slices/mapSlice";
 
 const { Text } = Typography;
 
@@ -43,10 +43,7 @@ const LayerCheckbox = memo(({ option, disabled }) => (
         </span>
       </Space>
 
-      <Space size="small">
-       
-        {disabled && <Spin size="small" />}
-      </Space>
+      <Space size="small">{disabled && <Spin size="small" />}</Space>
     </Space>
   </Checkbox>
 ));
@@ -64,29 +61,25 @@ const TempLayerPannel = memo(({ layers = [] }) => {
 
   const [getLayerObjects] = useGetLayerObjectsMutation();
 
-  const tempGeoJsonLayers = useSelector((state) => state.map.tempGeoJsonLayers || {});
+  const tempGeoJsonLayers = useSelector(
+    (state) => state.map.tempGeoJsonLayers || {},
+  );
 
   const [searchTerm, setSearchTerm] = useState("");
 
   // Memoized layer options - single source of truth
   const layerOptions = useMemo(() => {
-    return (
-      layers?.map((item, idx) => ({
-        label: item.layer_mst?.layer_nm || "unknown",
-        value: item.layer_mst?.layer_id,
-        styleInfo: {
-          geom_typ: item.geomStyle_mst?.geom_typ,
-          fill_color: item.geomStyle_mst?.fill_color,
-          stroke_color: item.geomStyle_mst?.stroke_color,
-          marker_fa_icon_name: item.geomStyle_mst?.marker_fa_icon_name,
-          marker_color: item.geomStyle_mst?.marker_color,
-          marker_size: item.geomStyle_mst?.marker_size,
-          marker_img_url: item.geomStyle_mst?.marker_img_url,
-        },
-        orderNo: idx.toString(),
-      })) || []
-    );
-  }, [layers]);
+    let list = [];
+    for (const [key, value] of Object.entries(tempGeoJsonLayers)) {
+      list.push({
+        label: value.metaData?.layer?.layer_nm || "unknown",
+        value: key,
+        styleInfo: value.metaData?.style || {},
+        isActive: value?.isActive,
+      });
+    }
+    return list;
+  }, [tempGeoJsonLayers]);
 
   // filtered options for search UI
   const filteredOptions = useMemo(() => {
@@ -102,8 +95,8 @@ const TempLayerPannel = memo(({ layers = [] }) => {
     if (!layerOptions?.length) return;
 
     const activeIds = layerOptions
-      .map((item) => item.value)
-      .filter((id) => !!tempGeoJsonLayers[id]);
+      .filter((item) => item.isActive)
+      .map((item) => item.value);
 
     setCheckedState((prev) => ({
       ...prev,
@@ -112,9 +105,9 @@ const TempLayerPannel = memo(({ layers = [] }) => {
   }, [layerOptions, tempGeoJsonLayers]);
 
   const handleLayerToggle = useCallback(
-    (layerId,  isActive) => {
+    (layerId, isActive) => {
       dispatch(
-        setTempGeoJsonLayer({
+        toggleTempGeoJsonLayer({
           layerId,
           isActive,
         }),
@@ -123,16 +116,15 @@ const TempLayerPannel = memo(({ layers = [] }) => {
     [dispatch],
   );
 
-
-
   const onChange = useCallback(
     async (checkedValues) => {
       const previous = new Set(checkedState.checkedLayers);
       const current = new Set(checkedValues);
+      console.log("onChange called");
 
-      const toFetch = checkedValues.filter(
-        (id) => !previous.has(id) && !tempGeoJsonLayers[id],
-      );
+      console.log("log3", { previous, current });
+
+      const toFetch = checkedValues.filter((id) => !previous.has(id));
 
       const toRemove = [...previous].filter((id) => !current.has(id));
 
@@ -141,6 +133,8 @@ const TempLayerPannel = memo(({ layers = [] }) => {
         checkedLayers: checkedValues,
       }));
 
+      console.log("log4", { toFetch, toRemove });
+
       toFetch.forEach((layerId) => {
         handleLayerToggle(layerId, true);
       });
@@ -148,14 +142,8 @@ const TempLayerPannel = memo(({ layers = [] }) => {
         handleLayerToggle(layerId, false);
       });
     },
-    [
-      checkedState.checkedLayers,
-      handleLayerToggle,
-      tempGeoJsonLayers,
-    ],
+    [checkedState.checkedLayers, handleLayerToggle, layerOptions],
   );
-
-
 
   // Select all visible options (keep others intact)
   const selectAllVisible = useCallback(() => {
@@ -222,8 +210,6 @@ const TempLayerPannel = memo(({ layers = [] }) => {
         </Row>
       }
     >
-     
-
       <Input
         prefix={<SearchOutlined />}
         placeholder="Search layers..."
@@ -238,7 +224,7 @@ const TempLayerPannel = memo(({ layers = [] }) => {
 
       <Checkbox.Group
         onChange={onChange}
-        // value={checkedState.checkedLayers}
+        value={checkedState.checkedLayers}
         style={{ width: "100%" }}
       >
         {filteredOptions.length === 0 ? (

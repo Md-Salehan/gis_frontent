@@ -13,6 +13,7 @@ import BaseMapSwitcher from "../../../../components/common/BaseMapSwitcher";
 import GeomanControl from "../../../../components/common/GeomanControl";
 import FitBounds from "../../../../components/common/FitBounds";
 import {
+  AnalyticalOverlays,
   AttributeTableDrawer,
   BaseMapSwitcherControl,
   BufferGeoJsonLayer,
@@ -22,6 +23,7 @@ import {
   MeasureControl,
   PaneCreator,
   PrintControl,
+  SpatialAnalysis,
 } from "../../../../components";
 import SelectedFeaturesLayer from "../../../../components/map/SelectedFeaturesLayer";
 
@@ -31,10 +33,13 @@ const MapPanel = memo(() => {
   const viewport = useSelector((state) => state.map.viewport);
   const isLegendVisible = useSelector((state) => state.ui.isLegendVisible);
   const isPrintModalOpen = useSelector((state) => state.ui.isPrintModalOpen);
-  
+
   // buffers (kept separately)
   const bufferLayers = useSelector((state) => state.map.bufferLayers);
   const bufferOrder = useSelector((state) => state.map.bufferOrder);
+
+  const analyticalLayers = useSelector((state) => state.map.tempGeoJsonLayers);
+  const analyticalOrder = useSelector((state) => state.map.tempLayerOrder);
 
   // Sort layers by order number ascending (first = bottom)
   const sortedLayers = useMemo(() => {
@@ -58,10 +63,29 @@ const MapPanel = memo(() => {
       : Object.keys(bufferLayers || {});
     return order
       .filter(
-        (id) => bufferLayers && bufferLayers[id] && bufferLayers[id].geoJsonData
+        (id) =>
+          bufferLayers && bufferLayers[id] && bufferLayers[id].geoJsonData,
       )
       .map((layerId) => ({ layerId, data: bufferLayers[layerId] }));
   }, [bufferLayers, bufferOrder]);
+
+  // buffers sorted by bufferOrder (creation order)
+  const sortedAnalyticalLayers = useMemo(() => {
+    if (!analyticalLayers && !analyticalOrder) return [];
+
+    const order = analyticalOrder.length
+      ? analyticalOrder
+      : Object.keys(analyticalLayers || {});
+
+    return order
+      .filter(
+        (id) =>
+          analyticalLayers &&
+          analyticalLayers[id] &&
+          analyticalLayers[id].geoJsonData,
+      )
+      .map((layerId) => ({ layerId, data: analyticalLayers[layerId] }));
+  }, [analyticalLayers, analyticalOrder]);
 
   // build panes from sorted list (deterministic zIndex per index)
   const panes = useMemo(() => {
@@ -74,34 +98,20 @@ const MapPanel = memo(() => {
 
   // create panes for buffer layers at a lower zIndex (so they appear below overlays)
   const bufferPanes = useMemo(() => {
-    const overlayBase = PANE_ZINDEX.OVERLAY_BASE;
-    // prefer explicit BUFFER_BASE if available
-    // otherwise choose a zIndex that is below overlays but above the tile layer (tile layer zIndex ~= 200)
-    const fallback = Math.max(201, overlayBase - 1000); // ensure > tile z-index (200)
-    const bufferBase =
-      typeof PANE_ZINDEX.BUFFER_BASE === "number"
-        ? PANE_ZINDEX.BUFFER_BASE
-        : fallback;
+    const bufferBase = PANE_ZINDEX.BUFFER_BASE;
     return sortedBufferLayers.map((l, idx) => ({
       name: `pane-buffer-${l.layerId}`,
       zIndex: bufferBase + idx,
     }));
   }, [sortedBufferLayers]);
 
-  const renderedBufferLayers = useMemo(() => {
-    return sortedBufferLayers.map(({ layerId, data }, idx) => {
-      const paneName = `pane-buffer-${layerId}`;
-      return (
-        <BufferGeoJsonLayer
-          key={layerId}
-          layerId={layerId}
-          geoJsonData={data.geoJsonData}
-          metaData={data.metaData}
-          pane={paneName}
-        />
-      );
-    });
-  }, [sortedBufferLayers]);
+  const analyticalPanes = useMemo(() => {
+    const analyticalBase = PANE_ZINDEX.ANALYTICAL_BASE;
+    return sortedAnalyticalLayers.map((l, idx) => ({
+      name: `pane-analytical-${l.layerId}`,
+      zIndex: analyticalBase + idx,
+    }));
+  }, [sortedAnalyticalLayers]);
 
   const renderedLayers = useMemo(() => {
     return sortedLayers.map(({ layerId, data }, idx) => {
@@ -118,6 +128,39 @@ const MapPanel = memo(() => {
     });
   }, [sortedLayers]);
 
+  const renderedBufferLayers = useMemo(() => {
+    return sortedBufferLayers.map(({ layerId, data }, idx) => {
+      const paneName = `pane-buffer-${layerId}`;
+      return (
+        <BufferGeoJsonLayer
+          key={layerId}
+          layerId={layerId}
+          geoJsonData={data.geoJsonData}
+          metaData={data.metaData}
+          pane={paneName}
+        />
+      );
+    });
+  }, [sortedBufferLayers]);
+
+  const renderedAnalyticalLayers = useMemo(() => {
+    
+    return sortedAnalyticalLayers
+      .filter((item) => item?.data?.isActive)
+      .map(({ layerId, data }, idx) => {
+        const paneName = `pane-analytical-${layerId}`;
+        return (
+          <AnalyticalOverlays
+            key={layerId}
+            layerId={layerId}
+            geoJsonData={data.geoJsonData}
+            metaData={data.metaData}
+            pane={paneName}
+          />
+        );
+      });
+  }, [sortedAnalyticalLayers]);
+
   const mapSettings = useMemo(
     () => ({
       center: viewport?.center || [28.7041, 77.1025],
@@ -125,7 +168,7 @@ const MapPanel = memo(() => {
       style: { width: "100%", height: "100%" },
       zoomControl: false,
     }),
-    [viewport]
+    [viewport],
   );
 
   return (
@@ -151,9 +194,11 @@ const MapPanel = memo(() => {
 
         {/* Create panes before adding layers */}
         <PaneCreator panes={panes} />
-
         {/* Render layers in ascending order (first = bottom) */}
         {renderedLayers}
+
+        <PaneCreator panes={analyticalPanes} />
+        {renderedAnalyticalLayers}
 
         {/* Selected features on a very top pane */}
         <PaneCreator
@@ -173,6 +218,7 @@ const MapPanel = memo(() => {
         <MeasureControl />
         {isPrintModalOpen && <PrintControl />}
         <BufferToolDrawer />
+        {/* <SpatialAnalysis /> */}
       </MapContainer>
     </div>
   );

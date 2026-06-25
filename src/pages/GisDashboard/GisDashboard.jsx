@@ -43,19 +43,26 @@ import {
   Printer,
   Proportions,
   TableProperties,
+  Layers,
 } from "lucide-react";
 import { initGeoman } from "../../utils/map/geoman-setup";
 import FooterBar from "./components/FooterBar";
 import {
   toggleAttributeTable,
   toggleBuffer,
+  toggleCentroidModal,
+  toggleCountPointsModal,
   toggleIdentify,
   toggleLegend,
   toggleMeasure,
   togglePrintModal,
 } from "../../store/slices/uiSlice";
-import { resetActivePortalDetails, setPortalId, setPortalIdByName } from "../../store/slices/portalSlice";
-import { UserMenu } from "../../components";
+import {
+  resetActivePortalDetails,
+  setPortalId,
+  setPortalIdByName,
+} from "../../store/slices/portalSlice";
+import { SpatialAnalysis, UserMenu } from "../../components";
 import { set } from "lodash";
 const { Sider, Content, Header, Footer } = Layout;
 
@@ -91,18 +98,35 @@ const GisDashboard = memo(() => {
   }, []);
 
   const handleMenuSelect = useCallback(() => {
-    if(uiStates.isAttributeTableOpen) return (["0"]);
-    else if(uiStates.isMeasureOpen) return (["1"]);
-    else if(uiStates.isLegendVisible) return (["2"]);
-    else if(uiStates.isPrintModalOpen) return (["4"]);
-    else if(uiStates.isBufferOpen) return (["5"]);
-    else if(uiStates.isIdentifyOpen) return (["6"]);
-    else return ([]);
+    if (uiStates.isAttributeTableOpen) return ["0"];
+    else if (uiStates.isMeasureOpen) return ["1"];
+    else if (uiStates.isLegendVisible) return ["2"];
+    else if (uiStates.isPrintModalOpen) return ["4"];
+    else if (uiStates.isBufferOpen) return ["5"];
+    else if (uiStates.isIdentifyOpen) return ["6"];
+    else return [];
   }, [uiStates]);
-  
+
   useEffect(() => {
     setSelectedMenu(handleMenuSelect());
   }, [uiStates, handleMenuSelect]);
+
+  const spatialAnalysisItems = [
+    {
+      key: "centroids",
+      label: "Centroid",
+      onClick: () => {
+        dispatch(toggleCentroidModal({ state: true }));
+      },
+    },
+    {
+      key: "countpoints",
+      label: "Count Points",
+      onClick: () => {
+        dispatch(toggleCountPointsModal({ state: true }));
+      },
+    },
+  ];
 
   const items = [
     {
@@ -175,9 +199,13 @@ const GisDashboard = memo(() => {
         dispatch(toggleIdentify());
       },
     },
+    {
+      key: "7",
+      icon: React.createElement(Layers),
+      label: "Spatial Analysis",
+      children: spatialAnalysisItems, // This creates sub-menu items
+    },
   ];
-
-  
 
   const handleSiderCollapse = (collapsed) => {
     dispatch(toggleSidebar());
@@ -273,6 +301,7 @@ const GisDashboard = memo(() => {
             }}
           >
             <MapPanel />
+            <SpatialAnalysis />
           </div>
         </Content>
 

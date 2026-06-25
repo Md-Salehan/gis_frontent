@@ -1,11 +1,16 @@
 // Movable.jsx
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import { DragOutlined } from "@ant-design/icons";
+import { CloseOutlined, DragOutlined } from "@ant-design/icons";
+import { Tag } from "antd";
+import useSelection from "antd/es/table/hooks/useSelection";
+import { useDispatch, useSelector } from "react-redux";
+import { setActiveMovableTab } from "../../store/slices/uiSlice";
 
 const Movable = ({
   children,
   isMovable = false,
-  title = "Legend",
+  title = "",
+  icon = null,
   titleFontSize = 14,
   width = "auto",
   height = "auto",
@@ -13,18 +18,36 @@ const Movable = ({
   style = {},
   onPositionChange,
   initialPosition = { x: null, y: null },
+  onClose = null,
 }) => {
   // State
   const [pos, setPos] = useState(initialPosition);
   const [isDragging, setIsDragging] = useState(false);
-
+  const [zIndex, setZIndex] = useState(1000);
+  const activeMovableTab = useSelector((state) => state.ui.activeMovableTab);
   // Refs
   const containerRef = useRef(null);
   const parentRef = useRef(null);
   const startRef = useRef(null);
 
+  const dispatch = useDispatch();
+
   // Clamp helper
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  useEffect(() => {
+    if (activeMovableTab === title) {
+      console.log("xxw", title, activeMovableTab, 1001);
+      setZIndex(1001);
+    } else {
+      console.log("xxw", title, activeMovableTab, 1000);
+      setZIndex(1000);
+    }
+  }, [activeMovableTab]);
+
+  useEffect(() => {
+    console.log("xxw", title, zIndex);
+  }, [zIndex]);
 
   // Find nearest positioned parent
   const findPositionedParent = (el) => {
@@ -44,7 +67,6 @@ const Movable = ({
     const el = containerRef.current;
     const parent = findPositionedParent(el);
     parentRef.current = parent;
-
 
     const computeAndSet = () => {
       const parentRect = parent.getBoundingClientRect();
@@ -96,8 +118,10 @@ const Movable = ({
     (e) => {
       if (!isMovable) return;
       if (e.button && e.button !== 0) return;
-      e.preventDefault();
-      e.stopPropagation();
+      // e.preventDefault();
+      // e.stopPropagation();
+
+      console.log("xxw log calling onPointerDown");
 
       const el = containerRef.current;
       const parent = parentRef.current || (el && findPositionedParent(el));
@@ -137,8 +161,8 @@ const Movable = ({
   const onPointerMove = useCallback(
     (e) => {
       if (!isDragging || !startRef.current) return;
-      e.preventDefault();
-      e.stopPropagation();
+      // e.preventDefault();
+      // e.stopPropagation();
 
       const s = startRef.current;
       const dx = e.clientX - s.startX;
@@ -153,8 +177,8 @@ const Movable = ({
   const onPointerUp = useCallback(
     (e) => {
       if (!isDragging) return;
-      e.preventDefault();
-      e.stopPropagation();
+      // e.preventDefault();
+      // e.stopPropagation();
 
       const el = containerRef.current;
       try {
@@ -229,13 +253,22 @@ const Movable = ({
         }
       : { right: "1%", bottom: "8%" };
 
+  if (!icon && !title && !children) return null;
   return (
     <div
+      onPointerDown={
+        isMovable
+          ? (e) => {
+              onPointerDown(e);
+              dispatch(setActiveMovableTab(title));
+            }
+          : undefined
+      }
       ref={containerRef}
       className={`movable-container ${className}`}
       style={{
         position: "absolute",
-        zIndex: 1000,
+        zIndex: zIndex,
         ...transformStyle,
         ...style,
         touchAction: "none",
@@ -247,29 +280,49 @@ const Movable = ({
       aria-grabbed={isDragging}
     >
       {/* Title/Drag handle */}
+
       <div
-        onPointerDown={isMovable ? onPointerDown : undefined}
         style={{
           cursor: isDragging ? "grabbing" : isMovable ? "grab" : "default",
           display: "flex",
           alignItems: "center",
-          gap: 8,
           userSelect: "none",
           fontSize: titleFontSize,
-          padding: "8px 12px",
+          padding: "0px 12px",
           backgroundColor: "white",
           borderBottom: "1px solid #f0f0f0",
+          width: "100%",
+          justifyContent: "space-between",
+          height: "54px",
         }}
         aria-hidden="true"
       >
-        {isMovable && <DragOutlined />}
-        {title}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            height: "100%",
+            flex: 1,
+          }}
+        >
+          <div style={{ marginRight: "5px" }}>{icon ?? ""} </div>
+          <div style={{ marginBottom: "5px" }}>{title ?? ""}</div>
+        </div>
+        {onClose ? (
+          <Tag onPointerDown={onClose} style={{ cursor: "pointer" }} color="red">
+            <CloseOutlined />
+          </Tag>
+        ) : (
+          ""
+        )}
       </div>
 
       {/* Children content */}
-      <div style={{ padding: "12px", backgroundColor: "white" }}>
-        {children}
-      </div>
+      {children && (
+        <div style={{ padding: "12px", backgroundColor: "white" }}>
+          {children}
+        </div>
+      )}
     </div>
   );
 };

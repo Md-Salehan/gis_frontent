@@ -17,12 +17,14 @@ const initialState = {
   },
   // portalId: null,
   layerOrder: [], // array of layerIds to maintain order
+  tempLayerOrder: [], // array of temp layerIds to maintain order
   bufferLayers: {},
   bufferOrder: [],
   measure: {
     type: "line", // "line" | "area"
     unit: "km", // default unit
   },
+
 };
 
 const restoreInitialState = { ...initialState };
@@ -46,16 +48,26 @@ const mapSlice = createSlice({
       }
     },
     setTempGeoJsonLayer: (state, action) => {
+      const { layerId, geoJsonData, metaData, isActive } = action.payload;
+      state.tempLayerOrder.push(layerId);
+      state.tempGeoJsonLayers[layerId] = {
+        geoJsonData,
+        metaData,
+        orderNo: state.tempLayerOrder.length - 1,
+        isActive
+      };
+    },
+    toggleTempGeoJsonLayer: (state, action) => {
       const { layerId, isActive } = action.payload;
       if (isActive) {
         state.tempGeoJsonLayers[layerId] = {
           ...state.tempGeoJsonLayers[layerId],
-          isActive: true,
+          isActive: isActive,
         };
       } else {
         state.tempGeoJsonLayers[layerId] = {
           ...state.tempGeoJsonLayers[layerId],
-          isActive: false,
+          isActive: !state.tempGeoJsonLayers[layerId].isActive,
         };
       }
     },
@@ -116,6 +128,7 @@ const mapSlice = createSlice({
 export const {
   setGeoJsonLayer,
   setTempGeoJsonLayer,
+  toggleTempGeoJsonLayer,
   setBufferLayer,
   setMultiSelectedFeatures,
   clearSelectedFeature,

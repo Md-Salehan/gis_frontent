@@ -19,3 +19,6 @@ export { default as PaneCreator } from './map/PaneCreator';
 export { default as AttributeTableDrawer } from './map/AttributeTableDrawer';
 export { default as BufferToolDrawer } from './map/BufferToolDrawer';
 export { default as QueryBuilder } from './map/QueryBuilder';
+export { default as AnalyticalOverlays } from './common/AnalyticalOverlays.jsx'
+
+export { default as SpatialAnalysis } from './spatialAnalysis/index.jsx';

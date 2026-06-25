@@ -1,11 +1,13 @@
 // Movable.jsx
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import { DragOutlined } from "@ant-design/icons";
+import { CloseOutlined, DragOutlined } from "@ant-design/icons";
+import { Tag } from "antd";
 
 const Movable = ({
   children,
   isMovable = false,
-  title = "Legend",
+  title = "",
+  icon = null,
   titleFontSize = 14,
   width = "auto",
   height = "auto",
@@ -13,11 +15,12 @@ const Movable = ({
   style = {},
   onPositionChange,
   initialPosition = { x: null, y: null },
+  onClose = null,
 }) => {
   // State
   const [pos, setPos] = useState(initialPosition);
   const [isDragging, setIsDragging] = useState(false);
-  
+
   // Refs
   const containerRef = useRef(null);
   const parentRef = useRef(null);
@@ -45,14 +48,12 @@ const Movable = ({
     const parent = findPositionedParent(el);
     parentRef.current = parent;
 
-    const margin = 10;
-
     const computeAndSet = () => {
       const parentRect = parent.getBoundingClientRect();
       const legendRect = el.getBoundingClientRect();
 
-      const maxX = Math.max(0, parentRect.width - legendRect.width - margin);
-      const maxY = Math.max(0, parentRect.height - legendRect.height - margin);
+      const maxX = Math.max(0, parentRect.width - legendRect.width - 50);
+      const maxY = Math.max(0, parentRect.height - legendRect.height - 100);
 
       setPos((prev) => {
         if (prev.x == null && prev.y == null) {
@@ -61,12 +62,12 @@ const Movable = ({
         const clampedX = clamp(
           prev.x,
           0,
-          Math.max(0, parentRect.width - legendRect.width)
+          Math.max(0, parentRect.width - legendRect.width),
         );
         const clampedY = clamp(
           prev.y,
           0,
-          Math.max(0, parentRect.height - legendRect.height)
+          Math.max(0, parentRect.height - legendRect.height),
         );
         return { x: clampedX, y: clampedY };
       });
@@ -100,6 +101,8 @@ const Movable = ({
       e.preventDefault();
       e.stopPropagation();
 
+      console.log("log calling onPointerDown");
+
       const el = containerRef.current;
       const parent = parentRef.current || (el && findPositionedParent(el));
       if (!el || !parent) return;
@@ -132,7 +135,7 @@ const Movable = ({
       document.body.style.cursor = "grabbing";
       document.body.style.userSelect = "none";
     },
-    [isMovable, pos]
+    [isMovable, pos],
   );
 
   const onPointerMove = useCallback(
@@ -148,7 +151,7 @@ const Movable = ({
       const newY = clamp(s.origY + dy, 0, Math.max(0, s.parentH - s.legendH));
       setPos({ x: newX, y: newY });
     },
-    [isDragging]
+    [isDragging],
   );
 
   const onPointerUp = useCallback(
@@ -156,10 +159,14 @@ const Movable = ({
       if (!isDragging) return;
       e.preventDefault();
       e.stopPropagation();
-      
+
       const el = containerRef.current;
       try {
-        if (el && startRef.current && startRef.current.pointerId === e.pointerId) {
+        if (
+          el &&
+          startRef.current &&
+          startRef.current.pointerId === e.pointerId
+        ) {
           el.releasePointerCapture(e.pointerId);
         }
       } catch (err) {
@@ -170,10 +177,10 @@ const Movable = ({
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
     },
-    [isDragging]
+    [isDragging],
   );
 
-  // Attach global handlers
+  // Attach global handlers only while dragging
   useEffect(() => {
     if (!isDragging) return;
     window.addEventListener("pointermove", onPointerMove);
@@ -186,44 +193,34 @@ const Movable = ({
     };
   }, [isDragging, onPointerMove, onPointerUp]);
 
-  // Keyboard accessibility
-  const onKeyDown = useCallback(
-    (e) => {
-      if (!isMovable) return;
-      if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key))
-        return;
-      
-      e.preventDefault();
-      e.stopPropagation();
-      
-      const step = e.shiftKey ? 20 : 8;
-      const parent = parentRef.current;
-      if (!parent) return;
-      
-      const parentRect = parent.getBoundingClientRect();
-      const el = containerRef.current;
-      const legendRect = el ? el.getBoundingClientRect() : { width: 0, height: 0 };
-      
-      const current = {
-        x: pos.x ?? parentRect.width - legendRect.width - 20,
-        y: pos.y ?? parentRect.height - legendRect.height - 20,
-      };
-      
-      let nx = current.x;
-      let ny = current.y;
-      
-      if (e.key === "ArrowUp") ny = current.y - step;
-      if (e.key === "ArrowDown") ny = current.y + step;
-      if (e.key === "ArrowLeft") nx = current.x - step;
-      if (e.key === "ArrowRight") nx = current.x + step;
-      
-      nx = clamp(nx, 0, Math.max(0, parentRect.width - legendRect.width));
-      ny = clamp(ny, 0, Math.max(0, parentRect.height - legendRect.height));
-      
-      setPos({ x: nx, y: ny });
-    },
-    [isMovable, pos]
-  );
+  // Keyboard accessibility: arrow nudging
+  const onKeyDown = (e) => {
+    if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key))
+      return;
+    e.preventDefault();
+    e.stopPropagation();
+    const step = e.shiftKey ? 20 : 8;
+    const parent = parentRef.current;
+    if (!parent) return;
+    const parentRect = parent.getBoundingClientRect();
+    const el = legendRef.current;
+    const legendRect = el
+      ? el.getBoundingClientRect()
+      : { width: 0, height: 0 };
+    const current = {
+      x: pos.x ?? parentRect.width - legendRect.width - 20,
+      y: pos.y ?? parentRect.height - legendRect.height - 20,
+    };
+    let nx = current.x;
+    let ny = current.y;
+    if (e.key === "ArrowUp") ny = current.y - step;
+    if (e.key === "ArrowDown") ny = current.y + step;
+    if (e.key === "ArrowLeft") nx = current.x - step;
+    if (e.key === "ArrowRight") nx = current.x + step;
+    nx = clamp(nx, 0, Math.max(0, parentRect.width - legendRect.width));
+    ny = clamp(ny, 0, Math.max(0, parentRect.height - legendRect.height));
+    setPos({ x: nx, y: ny });
+  };
 
   // Transform style
   const transformStyle =
@@ -234,8 +231,9 @@ const Movable = ({
           transform: `translate3d(${pos.x}px, ${pos.y}px, 0)`,
           willChange: "transform",
         }
-      : { right: "1%", bottom: isMovable ? "1%" : "8%" };
+      : { right: "1%", bottom: "8%" };
 
+  if (!icon && !title && !children) return null;
   return (
     <div
       ref={containerRef}
@@ -254,29 +252,47 @@ const Movable = ({
       aria-grabbed={isDragging}
     >
       {/* Title/Drag handle */}
+
       <div
-        onPointerDown={isMovable ? onPointerDown : undefined}
+        
         style={{
           cursor: isDragging ? "grabbing" : isMovable ? "grab" : "default",
           display: "flex",
           alignItems: "center",
-          gap: 8,
           userSelect: "none",
           fontSize: titleFontSize,
-          padding: "8px 12px",
+          padding: "0px 12px",
           backgroundColor: "white",
           borderBottom: "1px solid #f0f0f0",
+          width: "100%",
+          justifyContent: "space-between",
+          height: "54px"
         }}
         aria-hidden="true"
       >
-        {isMovable && <DragOutlined />}
-        {title}
+        <div onPointerDown={isMovable ? onPointerDown : undefined} style={{ display: "flex", alignItems: "center", height: "100%", flex: 1 }}>
+          <div style={{ marginRight: "5px" }}>{icon ?? ""} </div>
+          <div style={{ marginBottom: "5px" }}>{title ?? ""}</div>
+        </div>
+        {onClose ? (
+          <Tag
+            onClick={onClose}
+            style={{  cursor: "pointer" }}
+            color="red"
+          >
+            <CloseOutlined />
+          </Tag>
+        ) : (
+          ""
+        )}
       </div>
-      
+
       {/* Children content */}
-      <div style={{ padding: "12px", backgroundColor: "white" }}>
-        {children}
-      </div>
+      {children && (
+        <div style={{ padding: "12px", backgroundColor: "white" }}>
+          {children}
+        </div>
+      )}
     </div>
   );
 };

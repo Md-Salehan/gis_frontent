@@ -6,6 +6,7 @@ const initialState = {
   theme: "light",
   loading: {},
   loadingMessage: null,
+  activeMovableTab: "",
 
   //GIS DASHBOARD HEADER STATE
   isLegendVisible: false,
@@ -14,6 +15,8 @@ const initialState = {
   isPrintModalOpen: false,
   isBufferOpen: false,
   isIdentifyOpen: false,
+  isCentroidModalOpen: false,
+  isCountPointsModalOpen: false,
 };
 
 export const uiSlice = createSlice({
@@ -64,6 +67,17 @@ export const uiSlice = createSlice({
       if (action.payload) state.isIdentifyOpen = action.payload.state;
       else state.isIdentifyOpen = !state.isIdentifyOpen;
     },
+    toggleCentroidModal: (state, action) => {
+      if (action.payload) state.isCentroidModalOpen = action.payload.state;
+      else state.isCentroidModalOpen = !state.isCentroidModalOpen;
+    },
+    toggleCountPointsModal: (state, action) => {
+      if (action.payload) state.isCountPointsModalOpen = action.payload.state;
+      else state.isCountPointsModalOpen = !state.isCountPointsModalOpen;
+    },
+    setActiveMovableTab: (state, action) => {
+      if (action.payload) state.activeMovableTab = action.payload;
+    },
   },
 });
 
@@ -79,5 +93,8 @@ export const {
   toggleBuffer,
   setLoadingMessage,
   toggleIdentify,
+  toggleCentroidModal,
+  toggleCountPointsModal,
+  setActiveMovableTab
 } = uiSlice.actions;
 export default uiSlice.reducer;
