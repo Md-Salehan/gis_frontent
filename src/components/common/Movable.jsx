@@ -37,17 +37,13 @@ const Movable = ({
 
   useEffect(() => {
     if (activeMovableTab === title) {
-      console.log("xxw", title, activeMovableTab, 1001);
       setZIndex(1001);
     } else {
-      console.log("xxw", title, activeMovableTab, 1000);
       setZIndex(1000);
     }
   }, [activeMovableTab]);
 
-  useEffect(() => {
-    console.log("xxw", title, zIndex);
-  }, [zIndex]);
+  useEffect(() => {}, [zIndex]);
 
   // Find nearest positioned parent
   const findPositionedParent = (el) => {
@@ -121,7 +117,13 @@ const Movable = ({
       // e.preventDefault();
       // e.stopPropagation();
 
-      console.log("xxw log calling onPointerDown");
+      const target = e.target;
+      const closeButton = target.closest?.(".movable-close-button");
+      
+      if (closeButton) {
+        // Don't initiate drag if clicking on close button
+        return;
+      }
 
       const el = containerRef.current;
       const parent = parentRef.current || (el && findPositionedParent(el));
@@ -259,7 +261,6 @@ const Movable = ({
       onPointerDown={
         isMovable
           ? (e) => {
-              onPointerDown(e);
               dispatch(setActiveMovableTab(title));
             }
           : undefined
@@ -282,6 +283,14 @@ const Movable = ({
       {/* Title/Drag handle */}
 
       <div
+        onPointerDown={
+          isMovable
+            ? (e) => {
+                onPointerDown(e);
+                dispatch(setActiveMovableTab(title));
+              }
+            : undefined
+        }
         style={{
           cursor: isDragging ? "grabbing" : isMovable ? "grab" : "default",
           display: "flex",
@@ -309,7 +318,12 @@ const Movable = ({
           <div style={{ marginBottom: "5px" }}>{title ?? ""}</div>
         </div>
         {onClose ? (
-          <Tag onPointerDown={onClose} style={{ cursor: "pointer" }} color="red">
+          <Tag
+            onClick={onClose}
+            style={{ cursor: "pointer" }}
+            color="red"
+            className="movable-close-button"
+          >
             <CloseOutlined />
           </Tag>
         ) : (

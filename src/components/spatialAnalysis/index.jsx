@@ -9,6 +9,7 @@ import {
   toggleCountPointsModal,
 } from "../../store/slices/uiSlice";
 import CountPointsInPolygon from "./CountPointsInPolygon";
+import { CircleDot, Dice5 } from "lucide-react";
 const { Text, Title, Paragraph } = Typography;
 
 function SpatialAnalysis() {
@@ -27,7 +28,7 @@ function SpatialAnalysis() {
         <Movable
           isMovable={true}
           title="Polygon Centroids"
-          icon={<AimOutlined style={{ color: "#1890ff", fontSize: 18 }} />}
+          icon={<CircleDot />}
           titleFontSize={14}
           // onPositionChange={handlePositionChange}
           // initialPosition={position}
@@ -39,11 +40,8 @@ function SpatialAnalysis() {
             height: "auto",
           }}
           onClose={(e) => {
-            console.log("log calling onClose");
-
             e.preventDefault();
             e.stopPropagation();
-            console.log("xxw Centroid onClose called");
 
             dispatch(toggleCentroidModal({ state: false }));
           }}
@@ -58,7 +56,7 @@ function SpatialAnalysis() {
         <Movable
           isMovable={true}
           title="Count Points"
-          icon={<AimOutlined style={{ color: "#1890ff", fontSize: 18 }} />}
+          icon={<Dice5  />}
           titleFontSize={14}
           // onPositionChange={handlePositionChange}
           // initialPosition={position}
@@ -66,15 +64,13 @@ function SpatialAnalysis() {
             backgroundColor: "white",
             borderRadius: "8px",
             boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-            width: "auto",
             height: "auto",
             width: "450px",
           }}
           onClose={(e) => {
             // e.preventDefault();
             // e.stopPropagation();
-            console.log("xxw CountPointsInPolygon onClose called");
-
+            
             dispatch(toggleCountPointsModal({ state: false }));
           }}
         >

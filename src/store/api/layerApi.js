@@ -58,7 +58,7 @@ export const {
   useGetLayersMutation,
   useGetLayerObjectsMutation,
   useGetProj4StringQuery,
-  useGetWktStringQuery,
+  useGetWktStringQuery,                 
   useLazyGetProj4StringQuery,
   useLazyGetWktStringQuery,
 } = layerApi;

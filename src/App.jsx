@@ -16,7 +16,6 @@ function App() {
           <Route path="/portal" element={<GisPortal />} />
           <Route path="/gis-dashboard/:portal_url" element={<GisDashboard />} />
         </Route>
-        {/* Add more routes as needed */}
       </Routes>
     </Suspense>
   );

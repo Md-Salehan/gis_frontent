@@ -142,7 +142,7 @@ function Centroid() {
   );
 
   // Calculate centroids for a single feature
-  const calculateFeatureCentroid = (feature, index) => {
+  const calculateFeatureCentroid = (feature, layerMetaData, index) => {
     try {
       let geometry = feature.geometry;
       if (geometry.type === "GeometryCollection") {
@@ -161,7 +161,7 @@ function Centroid() {
 
       centroid.properties = {
         ...feature.properties,
-        _centroid_from: feature.properties?.layer_nm || "Unknown",
+        _centroid_from: layerMetaData?.layer?.layer_nm || "Unknown",
         _centroid_id: `Centroid_${Date.now()}` + index,
       };
 
@@ -173,7 +173,7 @@ function Centroid() {
   };
 
   // Calculate centroids for entire layer
-  const calculateCentroids = useCallback(() => {
+  const calculateCentroids = useCallback(async () => {
     if (!selectedLayerId) {
       message.warning("Please select a polygon layer first");
       return;
@@ -191,8 +191,13 @@ function Centroid() {
         throw new Error("Layer not found");
       }
 
-      const geoJsonData = layerData.data.geoJsonData;
-      const features = geoJsonData.features || [];
+      const geoJsonData = layerData?.data?.geoJsonData || null;
+      const layerMetaData = layerData?.data?.metaData || {};
+
+      // Calculate centroids for each feature with progress
+      const features = geoJsonData?.features || [];
+      const centroids = [];
+      const chunkSize = 5;
 
       if (features.length === 0) {
         message.warning("Selected layer contains no features");
@@ -200,18 +205,31 @@ function Centroid() {
         return;
       }
 
-      // Calculate centroids for each feature with progress
-      const centroids = [];
-
-      features.forEach((feature, index) => {
-        const centroid = calculateFeatureCentroid(feature, index);
-        if (centroid) {
-          centroids.push(centroid);
-        }
-
+      for (let i = 0; i < features.length; i += chunkSize) {
+        const chunk = features.slice(i, i + chunkSize);
         // Update progress
-        setProgressPercent(Math.round(((index + 1) / features.length) * 100));
-      });
+        setProgressPercent(Math.round(((i + 1) / features.length) * 100));
+
+        const chunkResults = chunk.map((feature, index) => {
+          const centroid = calculateFeatureCentroid(
+            feature,
+            layerMetaData,
+            index,
+          );
+          if (centroid) {
+            return centroid;
+          } else {
+            return null;
+          }
+        });
+
+        // Filter out null results and add to resultFeatures
+        const validResults = chunkResults.filter((f) => f !== null);
+        centroids.push(...validResults);
+
+        // Small delay to allow UI to update
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
 
       if (centroids.length === 0) {
         message.warning(

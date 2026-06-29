@@ -164,6 +164,11 @@ const TempLayerPannel = memo(({ layers = [] }) => {
 
   // Number of active layers (selected)
   const activeCount = (checkedState.checkedLayers || []).length;
+  
+  
+  if(layerOptions?.length === 0){
+    return <></>
+  }
 
   return (
     <Card

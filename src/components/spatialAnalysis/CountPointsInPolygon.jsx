@@ -690,12 +690,17 @@ function CountPointsInPolygon() {
           size="small"
           bodyStyle={{ padding: "6px 12px" }}
           title={
-            <Space size={4}>
-              <CheckOutlined style={{ color: "#52c41a", fontSize: 12 }} />
-              <Text strong style={{ fontSize: 12 }}>
-                Results
-              </Text>
-              <Tag color="green" style={{ fontSize: 10, margin: 0 }}>
+            <Space
+              size={4}
+              style={{ display: "flex", justifyContent: "space-between" }}
+            >
+              <space>
+                <CheckOutlined style={{ color: "#52c41a", fontSize: 12, marginRight: "5px" }} />
+                <Text strong style={{ fontSize: 12 }}>
+                  Results
+                </Text>
+              </space>
+              <Tag color="blue" style={{ fontSize: 10, margin: 0 }}>
                 {resultStatistics.totalPoints} pts
               </Tag>
             </Space>
@@ -704,7 +709,7 @@ function CountPointsInPolygon() {
           <Row gutter={[4, 2]}>
             <Col span={8}>
               <Statistic
-                title={<Text style={{ fontSize: 10 }}>Polygons</Text>}
+                title={<Text style={{ fontSize: 10 }}>Polygons :</Text>}
                 value={resultStatistics.totalPolygons}
                 valueStyle={{ fontSize: 14 }}
                 prefix={<DatabaseOutlined style={{ fontSize: 11 }} />}
@@ -712,7 +717,7 @@ function CountPointsInPolygon() {
             </Col>
             <Col span={8}>
               <Statistic
-                title={<Text style={{ fontSize: 10 }}>With Points</Text>}
+                title={<Text style={{ fontSize: 10 }}>With Points :</Text>}
                 value={resultStatistics.polygonsWithPoints}
                 valueStyle={{ fontSize: 14 }}
                 suffix={
@@ -724,28 +729,33 @@ function CountPointsInPolygon() {
             </Col>
             <Col span={8}>
               <Statistic
-                title={<Text style={{ fontSize: 10 }}>Without</Text>}
+                title={<Text style={{ fontSize: 10 }}>Without Points :</Text>}
                 value={resultStatistics.polygonsWithoutPoints}
                 valueStyle={{ fontSize: 14 }}
+                suffix={
+                  <Text style={{ fontSize: 10, color: "#8c8c8c" }}>
+                    /{resultStatistics.totalPolygons}
+                  </Text>
+                }
               />
             </Col>
             <Col span={8}>
               <Statistic
-                title={<Text style={{ fontSize: 10 }}>Min</Text>}
+                title={<Text style={{ fontSize: 10 }}>Minimum :</Text>}
                 value={resultStatistics.minCount}
                 valueStyle={{ fontSize: 14, color: "#3f8600" }}
               />
             </Col>
             <Col span={8}>
               <Statistic
-                title={<Text style={{ fontSize: 10 }}>Max</Text>}
+                title={<Text style={{ fontSize: 10 }}>Maximum :</Text>}
                 value={resultStatistics.maxCount}
                 valueStyle={{ fontSize: 14, color: "#cf1322" }}
               />
             </Col>
             <Col span={8}>
               <Statistic
-                title={<Text style={{ fontSize: 10 }}>Avg</Text>}
+                title={<Text style={{ fontSize: 10 }}>Average :</Text>}
                 value={resultStatistics.avgCount}
                 valueStyle={{ fontSize: 14 }}
               />
