@@ -55,6 +55,7 @@ import {
   toggleBuffer,
   toggleCentroidModal,
   toggleCountPointsModal,
+  toggleDistanceMatrixModal,
   toggleIdentify,
   toggleLegend,
   toggleMeasure,
@@ -65,7 +66,7 @@ import {
   setPortalId,
   setPortalIdByName,
 } from "../../store/slices/portalSlice";
-import { SpatialAnalysis, UserMenu } from "../../components";
+import { MinimizedBar, SpatialAnalysis, UserMenu } from "../../components";
 import { set } from "lodash";
 const { Sider, Content, Header, Footer } = Layout;
 
@@ -131,6 +132,16 @@ const GisDashboard = memo(() => {
       },
       icon: React.createElement(Dice5), 
     },
+    {
+      key: "distancematrix",
+      label: "Distance Matrix",
+      onClick: () => {
+        dispatch(toggleDistanceMatrixModal({ state: true }));
+      },
+      icon: React.createElement(CircleDashed), 
+    },
+  
+
   ];
 
   const items = [
@@ -307,6 +318,7 @@ const GisDashboard = memo(() => {
           >
             <MapPanel />
             <SpatialAnalysis />
+            {/* <MinimizedBar /> */}
           </div>
         </Content>
 

@@ -17,6 +17,8 @@ const initialState = {
   isIdentifyOpen: false,
   isCentroidModalOpen: false,
   isCountPointsModalOpen: false,
+  isDistanceMatrixModalOpen: false,
+  minimizedGlobalCompList: [],
 };
 
 export const uiSlice = createSlice({
@@ -75,8 +77,20 @@ export const uiSlice = createSlice({
       if (action.payload) state.isCountPointsModalOpen = action.payload.state;
       else state.isCountPointsModalOpen = !state.isCountPointsModalOpen;
     },
+    toggleDistanceMatrixModal: (state, action) => {
+      if (action.payload) state.isDistanceMatrixModalOpen = action.payload.state;
+      else state.isDistanceMatrixModalOpen = !state.isDistanceMatrixModalOpen;
+    },
     setActiveMovableTab: (state, action) => {
       if (action.payload) state.activeMovableTab = action.payload;
+    },
+    handleMinimizeGlobalComp: (state, action) => {
+      const { comp, minimized } = action.payload;
+      if (minimized) {
+        state.minimizedGlobalCompList.push(comp);
+      } else {
+        state.minimizedGlobalCompList = state.minimizedGlobalCompList.filter((c) => c.id !== comp.id);
+      }
     },
   },
 });
@@ -95,6 +109,8 @@ export const {
   toggleIdentify,
   toggleCentroidModal,
   toggleCountPointsModal,
-  setActiveMovableTab
+  toggleDistanceMatrixModal,
+  setActiveMovableTab,
+  handleMinimizeGlobalComp
 } = uiSlice.actions;
 export default uiSlice.reducer;

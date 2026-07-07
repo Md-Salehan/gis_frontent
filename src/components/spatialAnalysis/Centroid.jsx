@@ -228,7 +228,7 @@ function Centroid() {
         centroids.push(...validResults);
 
         // Small delay to allow UI to update
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        await new Promise((resolve) => setTimeout(resolve, 0));
       }
 
       if (centroids.length === 0) {

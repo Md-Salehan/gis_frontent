@@ -5,6 +5,7 @@ import { Tag } from "antd";
 import useSelection from "antd/es/table/hooks/useSelection";
 import { useDispatch, useSelector } from "react-redux";
 import { setActiveMovableTab } from "../../store/slices/uiSlice";
+import { MiniIcon } from "../icons";
 
 const Movable = ({
   children,
@@ -19,6 +20,7 @@ const Movable = ({
   onPositionChange,
   initialPosition = { x: null, y: null },
   onClose = null,
+  onMinimize = null,
 }) => {
   // State
   const [pos, setPos] = useState(initialPosition);
@@ -118,7 +120,7 @@ const Movable = ({
       // e.stopPropagation();
 
       const target = e.target;
-      const closeButton = target.closest?.(".movable-close-button");
+      const closeButton = target.closest?.(".movable-header-button");
       
       if (closeButton) {
         // Don't initiate drag if clicking on close button
@@ -317,12 +319,29 @@ const Movable = ({
           <div style={{ marginRight: "5px" }}>{icon ?? ""} </div>
           <div style={{ marginBottom: "5px" }}>{title ?? ""}</div>
         </div>
+
+        {
+          onMinimize ? (
+            <Tag
+              onClick={onMinimize}
+              style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", height: "24px" }}
+              color="blue"
+              className="movable-header-button"
+            >
+              <MiniIcon />
+            </Tag>
+          ) : (
+            ""
+          )
+        }
+
+
         {onClose ? (
           <Tag
             onClick={onClose}
-            style={{ cursor: "pointer" }}
+              style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", height: "24px" }}
             color="red"
-            className="movable-close-button"
+            className="movable-header-button"
           >
             <CloseOutlined />
           </Tag>

@@ -6,6 +6,7 @@ export { default as Legend } from './common/Legend';
 export { default as LeyerIcon } from './common/LeyerIcon';
 export { default as BufferGeoJsonLayer } from './common/BufferGeoJsonLayer';
 export { default as UserMenu } from './common/UserMenu';
+export { default as MinimizedBar } from './common/MinimizedBar';
 
 
 
