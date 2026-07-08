@@ -44,6 +44,7 @@ import {
 } from "@ant-design/icons";
 import * as turf from "@turf/turf";
 import { setTempGeoJsonLayer } from "../../store/slices/mapSlice";
+import useIsCompMinimized from "../../hooks/useIsCompMinimized";
 const { Panel } = Collapse;
 
 const { Text, Title, Paragraph } = Typography;
@@ -87,12 +88,13 @@ const isPointLayer = (geoJsonData) => {
   });
 };
 
-function CountPointsInPolygon() {
+function CountPointsInPolygon({ id }) {
   const dispatch = useDispatch();
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers || {});
   const tempGeoJsonLayers = useSelector(
     (state) => state.map.tempGeoJsonLayers || {},
   );
+  const isMinimized = useIsCompMinimized(id);
 
   const [form] = Form.useForm();
   const [polygonLayerId, setPolygonLayerId] = useState(null);
@@ -507,6 +509,10 @@ function CountPointsInPolygon() {
     return labelText.toLowerCase().includes(input.toLowerCase());
   };
 
+  if (isMinimized) {
+    return <div style={{ width: "280px" }}></div>;
+  }
+
   return (
     <Space direction="vertical" style={{ width: "100%" }} size={4}>
       {/* Input Section */}
@@ -695,7 +701,9 @@ function CountPointsInPolygon() {
               style={{ display: "flex", justifyContent: "space-between" }}
             >
               <space>
-                <CheckOutlined style={{ color: "#52c41a", fontSize: 12, marginRight: "5px" }} />
+                <CheckOutlined
+                  style={{ color: "#52c41a", fontSize: 12, marginRight: "5px" }}
+                />
                 <Text strong style={{ fontSize: 12 }}>
                   Results
                 </Text>

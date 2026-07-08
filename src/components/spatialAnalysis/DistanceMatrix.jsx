@@ -140,7 +140,7 @@ function DistanceMatrix({ id }) {
   const tempGeoJsonLayers = useSelector(
     (state) => state.map.tempGeoJsonLayers || {},
   );
-  const isMinimized = useIsCompMinimized({ compId: id });
+  const isMinimized = useIsCompMinimized(id);
 
   const [sourceLayerId, setSourceLayerId] = useState(null);
   const [targetLayerId, setTargetLayerId] = useState(null);
@@ -508,7 +508,7 @@ function DistanceMatrix({ id }) {
   const generateTableData = useCallback(
     (results, matrixType, sourceIdKey, targetIdKey, distanceUnit) => {
       if (!results || results.length === 0) return { data: [], columns: [] };
-      const disUnit = DISTANCE_UNITS[distanceUnit].symbol
+      const disUnit = DISTANCE_UNITS[distanceUnit].symbol;
       if (matrixType === "linear") {
         // Linear: Each row is a source-target pair
         const rows = [];
@@ -542,7 +542,7 @@ function DistanceMatrix({ id }) {
             key: "distance",
             width: 150,
             render: (v) => v?.toFixed?.(4) || v,
-          }
+          },
         ];
 
         return { data: rows, columns };
@@ -692,7 +692,8 @@ function DistanceMatrix({ id }) {
           gid: idx + 1,
           source: sourceResult.sourceId,
           target: targetResult.targetId,
-          distance: targetResult.distance?.toFixed?.(3) || targetResult.distance,
+          distance:
+            targetResult.distance?.toFixed?.(3) || targetResult.distance,
           // distance_meters: targetResult.distanceMeters,
           unit: unitSymbol,
         };
@@ -826,12 +827,11 @@ function DistanceMatrix({ id }) {
         matrixType,
         sourceIdField,
         targetIdField,
-        distanceUnit
+        distanceUnit,
       );
       setTableData(data);
       setTableColumns(columns);
 
-      console.log("xxw:", { data, columns });
 
       setProgressPercent(100);
       setProgressMessage("Complete!");
@@ -925,7 +925,7 @@ function DistanceMatrix({ id }) {
           const value = row[dataIndex];
 
           if (typeof value === "number") return value.toFixed?.(6) || value;
-          
+
           const stringValue =
             value !== undefined && value !== null ? String(value) : "";
           if (
@@ -935,7 +935,7 @@ function DistanceMatrix({ id }) {
           ) {
             return `"${stringValue.replace(/"/g, '""')}"`;
           }
-          
+
           return stringValue;
         });
       });
@@ -992,11 +992,7 @@ function DistanceMatrix({ id }) {
   }));
 
   if (isMinimized) {
-    return (
-      <div >
-        
-      </div>
-    );
+    return <div style={{ width: "25vw" }}></div>;
   }
 
   return (

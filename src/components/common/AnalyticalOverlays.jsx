@@ -15,8 +15,6 @@ import { meta } from "@eslint/js";
 
 const AnalyticalOverlays = memo(
   ({ layerId, geoJsonData, metaData, pane, isPrintModalOpen = false }) => {
-    console.log("log", { layerId, geoJsonData, metaData, pane, isPrintModalOpen });
-    
     const dispatch = useDispatch();
     const viewport = useSelector((state) => state.map.viewport);
     const isIdentifyOpen = useSelector((state) => state.ui.isIdentifyOpen);
@@ -211,7 +209,7 @@ const AnalyticalOverlays = memo(
         style={style}
         pointToLayer={pointToLayer}
         onEachFeature={(feature, layer) =>
-          onEachFeature(feature, layer, metaData?.layer_nm)
+          onEachFeature(feature, layer, metaData?.layer.layer_nm)
         }
         pane={pane}
         renderer={svgRenderer}

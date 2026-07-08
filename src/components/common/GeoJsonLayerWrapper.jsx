@@ -16,6 +16,7 @@ import { meta } from "@eslint/js";
 
 const GeoJsonLayerWrapper = memo(
   ({ layerId, geoJsonData, metaData, pane, isPrintModalOpen = false }) => {
+
     const dispatch = useDispatch();
     const viewport = useSelector((state) => state.map.viewport);
     const isIdentifyOpen = useSelector((state) => state.ui.isIdentifyOpen);

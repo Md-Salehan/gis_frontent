@@ -46,7 +46,8 @@ import {
   Layers,
   CircleDot, 
   CircleDashed,
-  Dice5 
+  Dice5, 
+  Calculator
 } from "lucide-react";
 import { initGeoman } from "../../utils/map/geoman-setup";
 import FooterBar from "./components/FooterBar";
@@ -138,7 +139,7 @@ const GisDashboard = memo(() => {
       onClick: () => {
         dispatch(toggleDistanceMatrixModal({ state: true }));
       },
-      icon: React.createElement(CircleDashed), 
+      icon: React.createElement(Calculator), 
     },
   
 

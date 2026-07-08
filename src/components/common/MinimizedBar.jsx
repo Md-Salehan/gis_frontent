@@ -32,7 +32,7 @@ function MinimizedBar() {
         {minimizedComponents.map((comp, index) => (
           <Tag
             key={comp.id+index}
-            onClick={comp?.click || (() => {})}
+            onClick={(() => {})}
             style={{
               cursor: "pointer",
               display: "flex",

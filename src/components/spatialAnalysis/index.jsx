@@ -11,7 +11,7 @@ import {
   toggleDistanceMatrixModal,
 } from "../../store/slices/uiSlice";
 import CountPointsInPolygon from "./CountPointsInPolygon";
-import { CircleDot, Dice5 } from "lucide-react";
+import { Calculator, CircleDot, Dice5 } from "lucide-react";
 import DistanceMatrix from "./DistanceMatrix";
 const { Text, Title, Paragraph } = Typography;
 
@@ -45,13 +45,14 @@ function SpatialAnalysis() {
             height: "auto",
           }}
           onClose={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
+            dispatch(handleMinimizeGlobalComp({ id: "centroid", status: false }));
             dispatch(toggleCentroidModal({ state: false }));
           }}
+          onMinimize={(e) => {
+            dispatch(handleMinimizeGlobalComp({ id: "centroid" }));
+          }}
         >
-          <Centroid />
+          <Centroid id="centroid" />
         </Movable>
       ) : (
         ""
@@ -73,13 +74,14 @@ function SpatialAnalysis() {
             width: "450px",
           }}
           onClose={(e) => {
-            // e.preventDefault();
-            // e.stopPropagation();
-
+            dispatch(handleMinimizeGlobalComp({ id: "countPoints", status: false }));
             dispatch(toggleCountPointsModal({ state: false }));
           }}
+          onMinimize={(e) => {
+            dispatch(handleMinimizeGlobalComp({ id: "countPoints" }));
+          }}
         >
-          <CountPointsInPolygon />
+          <CountPointsInPolygon id="countPoints" />
         </Movable>
       ) : (
         ""
@@ -89,7 +91,7 @@ function SpatialAnalysis() {
         <Movable
           isMovable={true}
           title="Distance Matrix"
-          icon={<Dice5 />}
+          icon={<Calculator  />}
           titleFontSize={14}
           // onPositionChange={handlePositionChange}
           // initialPosition={position}
@@ -101,31 +103,11 @@ function SpatialAnalysis() {
             width: "auto",
           }}
           onClose={(e) => {
-            // e.preventDefault();
-            // e.stopPropagation();
-
+            dispatch(handleMinimizeGlobalComp({ id: "distanceMatrix", status: false }));
             dispatch(toggleDistanceMatrixModal({ state: false }));
           }}
           onMinimize={(e) => {
-            dispatch(
-              handleMinimizeGlobalComp({
-                comp: {
-                  id: "distanceMatrix",
-                  icon: <Dice5 />,
-                  click: () => {
-                    dispatch(
-                      handleMinimizeGlobalComp({
-                        comp: {
-                          id: "distanceMatrix",
-                        },
-                        minimized: false,
-                      }),
-                    );
-                  },
-                },
-                minimized: true,
-              }),
-            );
+            dispatch(handleMinimizeGlobalComp({ id: "distanceMatrix"}));
           }}
         >
           <DistanceMatrix id="distanceMatrix" />

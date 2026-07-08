@@ -39,17 +39,19 @@ import {
 } from "@ant-design/icons";
 import * as turf from "@turf/turf";
 import { setTempGeoJsonLayer } from "../../store/slices/mapSlice";
+import useIsCompMinimized from "../../hooks/useIsCompMinimized";
 
 const { Text, Title, Paragraph } = Typography;
 const { Option } = Select;
 const { Panel } = Collapse;
 
-function Centroid() {
+function Centroid({id}) {
   const dispatch = useDispatch();
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers || {});
   const tempGeoJsonLayers = useSelector(
     (state) => state.map.tempGeoJsonLayers || {},
   );
+  const isMinimized = useIsCompMinimized(id);
 
   const [selectedLayerId, setSelectedLayerId] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -313,6 +315,11 @@ function Centroid() {
     ),
     value: option.value,
   });
+
+  if (isMinimized) {
+    return <div style={{ width: "280px" }}></div>;
+  }
+
 
   return (
     <Space direction="vertical" style={{ width: "280px" }} size="small">

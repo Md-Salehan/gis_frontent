@@ -19,6 +19,8 @@ const SelectedFeaturesLayer = () => {
     (state) => state.map.selectedFeature.metaData,
   );
 
+  
+
   const multiSelectedFeatures = useSelector(
     (state) => state.map.multiSelectedFeatures || [],
   );

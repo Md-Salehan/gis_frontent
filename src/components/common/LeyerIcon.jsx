@@ -66,7 +66,6 @@ function LeyerIcon({ iconInfo }) {
   }
 
 
-  console.log("xxwL", {iconInfo, style, iconType});
 
   return <div className={iconType} style={style}></div>;
 }
