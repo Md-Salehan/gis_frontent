@@ -4,7 +4,7 @@ import { createSlice } from "@reduxjs/toolkit";
 const initialState = {
   geoJsonLayers: {}, // layerId: { geoJsonData, metaData, orderNo }
   tempGeoJsonLayers: {}, // layerId: { geoJsonData, metaData, orderNo, isActive }
-  multiSelectedFeatures: [],
+  multiSelectedFeatures: [], // Now stores: { layerId, featureIndex, feature, metaData }
   viewport: {
     center: [28.7041, 77.1025],
     zoom: 8,
@@ -24,7 +24,6 @@ const initialState = {
     type: "line", // "line" | "area"
     unit: "km", // default unit
   },
-
 };
 
 const restoreInitialState = { ...initialState };
@@ -54,7 +53,7 @@ const mapSlice = createSlice({
         geoJsonData,
         metaData,
         orderNo: state.tempLayerOrder.length - 1,
-        isActive
+        isActive,
       };
     },
     toggleTempGeoJsonLayer: (state, action) => {
@@ -85,6 +84,27 @@ const mapSlice = createSlice({
     },
     setMultiSelectedFeatures: (state, action) => {
       state.multiSelectedFeatures = action.payload || [];
+    },
+    toggleMultiSelectedFeatures: (state, action) => {
+      const { layerId, featureIndex, feature, metaData } = action.payload;
+
+      // Check if this feature is already selected
+      const existingIndex = state.multiSelectedFeatures.findIndex(
+        (f) => f.layerId === layerId && f.featureIndex === featureIndex,
+      );
+
+      if (existingIndex !== -1) {
+        // Remove if already selected (toggle)
+        state.multiSelectedFeatures.splice(existingIndex, 1);
+      } else {
+        // Add with featureIndex
+        state.multiSelectedFeatures.push({
+          layerId,
+          featureIndex,
+          feature,
+          metaData,
+        });
+      }
     },
     clearSelectedFeature: (state) => {
       state.selectedFeature = restoreInitialState?.selectedFeature;
@@ -131,6 +151,7 @@ export const {
   toggleTempGeoJsonLayer,
   setBufferLayer,
   setMultiSelectedFeatures,
+  toggleMultiSelectedFeatures,
   clearSelectedFeature,
   updateViewport,
   setActiveBasemap,

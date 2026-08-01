@@ -440,7 +440,14 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
         {/* Buffer Creation Section */}
         <div>
           <Text strong>Selected features:</Text>{" "}
-          <Text type="secondary">{selectedFeatures.length}</Text>
+          <Text type="secondary">
+            {selectedFeatures.length}
+          </Text>
+          {/* <div style={{ marginTop: 6 }}>
+            <Text type="secondary">
+              {selectedFeatures.length} feature(s) selected
+            </Text>
+          </div> */}
         </div>
 
         <div>
@@ -451,33 +458,28 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
               value={distance}
               onChange={(v) => setDistance(v)}
               style={{ width: 140 }}
-              disabled={hasBuffer}
             />
             <Select
               options={UNITS}
               value={unit}
               onChange={(v) => setUnit(v)}
               style={{ width: 160 }}
-              disabled={hasBuffer}
             />
-
-            {!hasBuffer ? (
-              <Button
-                type="primary"
-                onClick={createBuffer}
-                disabled={!hasSelection}
-              >
-                Create Buffer
-              </Button>
-            ) : (
-              <Button danger onClick={clearAllBuffers} disabled={!hasSelection}>
-                Remove Buffers
-              </Button>
-            )}
           </div>
         </div>
 
-       
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button
+            type="primary"
+            onClick={createBuffer}
+            disabled={!hasSelection}
+          >
+            Create Buffer
+          </Button>
+          <Button onClick={clearAllBuffers} danger>
+            Clear All
+          </Button>
+        </div>
 
         <Divider />
 
@@ -613,7 +615,28 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
           onClear={handleClearResults}
         />
 
-       
+        {/* Created buffers list */}
+        <div>
+          <Text strong>Created Buffers</Text>
+          <List
+            size="small"
+            bordered
+            style={{ marginTop: 8, maxHeight: 100, overflow: "auto" }}
+            dataSource={[...createdIds].reverse()}
+            locale={{ emptyText: "No buffers created" }}
+            renderItem={(item) => (
+              <List.Item
+                actions={[
+                  <Button size="small" onClick={() => removeBuffer(item)}>
+                    Remove
+                  </Button>,
+                ]}
+              >
+                <Text code>{item}</Text>
+              </List.Item>
+            )}
+          />
+        </div>
       </Space>
     </>
   );

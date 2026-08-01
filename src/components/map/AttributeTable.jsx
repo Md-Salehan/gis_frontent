@@ -48,8 +48,11 @@ import shpWrite from "@mapbox/shp-write";
 import proj4 from "proj4";
 import { COMMON_SRID_OPTIONS, SRID_4326_proj } from "../../constants";
 import { useMessage } from "../../hooks";
-import { useLazyGetProj4StringQuery, useLazyGetWktStringQuery } from "../../store/api/layerApi";
-
+import {
+  useLazyGetProj4StringQuery,
+  useLazyGetWktStringQuery,
+} from "../../store/api/layerApi";
+import { set } from "lodash";
 
 // Constants
 const DEBUG = process.env.NODE_ENV === "development";
@@ -117,15 +120,13 @@ function AttributeTable({
   const [isFetchingProjection, setIsFetchingProjection] = useState(false);
 
   // RTK Query hooks for lazy fetching
-  const [triggerGetProj4String, { 
-    isLoading: isLoadingProj4,
-    error: proj4Error 
-  }] = useLazyGetProj4StringQuery();
-  
-  const [triggerGetWktString, {
-    isLoading: isLoadingWkt,
-    error: wktError
-  }] = useLazyGetWktStringQuery();
+  const [
+    triggerGetProj4String,
+    { isLoading: isLoadingProj4, error: proj4Error },
+  ] = useLazyGetProj4StringQuery();
+
+  const [triggerGetWktString, { isLoading: isLoadingWkt, error: wktError }] =
+    useLazyGetWktStringQuery();
 
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers);
   const tempGeoJsonLayers = useSelector((state) => state.map.tempGeoJsonLayers);
@@ -135,20 +136,14 @@ function AttributeTable({
 
   useEffect(() => {
     let activeTempLayers = {};
-    
-    for(let [key, val] of Object.entries(tempGeoJsonLayers)){
-      
-      if(val?.isActive){
-        activeTempLayers = {...activeTempLayers,
-          [key]: val
-        }
+
+    for (let [key, val] of Object.entries(tempGeoJsonLayers)) {
+      if (val?.isActive) {
+        activeTempLayers = { ...activeTempLayers, [key]: val };
       }
     }
-    setActiveLayers({...geoJsonLayers, ...activeTempLayers})
-  
-    
-  }, [geoJsonLayers, tempGeoJsonLayers])
-  
+    setActiveLayers({ ...geoJsonLayers, ...activeTempLayers });
+  }, [geoJsonLayers, tempGeoJsonLayers]);
 
   // Cache for fetched projections
   const proj4Cache = useRef(new Map());
@@ -417,7 +412,9 @@ function AttributeTable({
         } catch (err) {
           console.error(`Error fetching Proj4 for SRID ${srid}:`, err);
           throw new Error(
-            err?.data?.message || err?.message || `Failed to download for SRID ${srid}`
+            err?.data?.message ||
+              err?.message ||
+              `Failed to download for SRID ${srid}`,
           );
         }
       }
@@ -444,11 +441,12 @@ function AttributeTable({
       const found = COMMON_SRID_OPTIONS.find((opt) => opt.value === srid);
       if (found) {
         if (srid === "3857") {
-          const prj = 'PROJCS["WGS_84_Pseudo_Mercator",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]],PROJECTION["Mercator"],PARAMETER["central_meridian",0],PARAMETER["false_easting",0],PARAMETER["false_northing",0],UNIT["Meter",1],PARAMETER["standard_parallel_1",0.0]]';
+          const prj =
+            'PROJCS["WGS_84_Pseudo_Mercator",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]],PROJECTION["Mercator"],PARAMETER["central_meridian",0],PARAMETER["false_easting",0],PARAMETER["false_northing",0],UNIT["Meter",1],PARAMETER["standard_parallel_1",0.0]]';
           prjCache.current.set(srid, prj);
           return prj;
         }
-        
+
         if (srid.toString().startsWith("326")) {
           const zone = srid.toString().substring(3);
           const prj = `PROJCS["WGS_84_UTM_zone_${zone}N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]],PROJECTION["Transverse_Mercator"],PARAMETER["latitude_of_origin",0],PARAMETER["central_meridian",${(zone - 1) * 6 - 180 + 3}],PARAMETER["scale_factor",0.9996],PARAMETER["false_easting",500000],PARAMETER["false_northing",0],UNIT["Meter",1]]`;
@@ -469,7 +467,9 @@ function AttributeTable({
         } catch (err) {
           console.error(`Error fetching WKT for SRID ${srid}:`, err);
           throw new Error(
-            err?.data?.message || err?.message || `Failed to download for SRID ${srid}`
+            err?.data?.message ||
+              err?.message ||
+              `Failed to download for SRID ${srid}`,
           );
         }
       }
@@ -481,58 +481,60 @@ function AttributeTable({
     [triggerGetWktString],
   );
 
-  const transformCoords = useCallback(
-    (coords, sourceProj, targetSrid) => {
-      if (typeof coords[0] === "number") {
-        const [lng, lat] = coords;
-        const transformed = proj4(sourceProj, targetSrid, [lng, lat]);
-        if (coords.length > 2) {
-          return [transformed[0], transformed[1], coords[2]];
-        }
-        return transformed;
-      } else if (Array.isArray(coords[0])) {
-        return coords.map((c) => transformCoords(c, sourceProj, targetSrid));
+  const transformCoords = useCallback((coords, sourceProj, targetSrid) => {
+    if (typeof coords[0] === "number") {
+      const [lng, lat] = coords;
+      const transformed = proj4(sourceProj, targetSrid, [lng, lat]);
+      if (coords.length > 2) {
+        return [transformed[0], transformed[1], coords[2]];
       }
-      return coords;
-    },
-    [],
-  );
-
-  const transformGeometry = useCallback((geometry, targetSrid, targetProjString = null) => {
-    if (!geometry || targetSrid === "4326") {
-      return geometry;
+      return transformed;
+    } else if (Array.isArray(coords[0])) {
+      return coords.map((c) => transformCoords(c, sourceProj, targetSrid));
     }
+    return coords;
+  }, []);
 
-    try {
-      const sourceProj = SRID_4326_proj;
-      const targetProj = targetProjString;
+  const transformGeometry = useCallback(
+    (geometry, targetSrid, targetProjString = null) => {
+      if (!geometry || targetSrid === "4326") {
+        return geometry;
+      }
 
-      const transformCoordsFn = (coords) => {
-        if (typeof coords[0] === "number") {
-          const [lng, lat] = coords;
-          const transformed = proj4(sourceProj, targetProj, [lng, lat]);
-          if (coords.length > 2) {
-            return [transformed[0], transformed[1], coords[2]];
+      try {
+        const sourceProj = SRID_4326_proj;
+        const targetProj = targetProjString;
+
+        const transformCoordsFn = (coords) => {
+          if (typeof coords[0] === "number") {
+            const [lng, lat] = coords;
+            const transformed = proj4(sourceProj, targetProj, [lng, lat]);
+            if (coords.length > 2) {
+              return [transformed[0], transformed[1], coords[2]];
+            }
+            return transformed;
+          } else if (Array.isArray(coords[0])) {
+            return coords.map(transformCoordsFn);
           }
-          return transformed;
-        } else if (Array.isArray(coords[0])) {
-          return coords.map(transformCoordsFn);
-        }
-        return coords;
-      };
+          return coords;
+        };
 
-      const transformedGeometry = {
-        ...geometry,
-        coordinates: transformCoordsFn(geometry.coordinates),
-      };
+        const transformedGeometry = {
+          ...geometry,
+          coordinates: transformCoordsFn(geometry.coordinates),
+        };
 
-      return transformedGeometry;
-    } catch (error) {
-      console.error("Error transforming geometry:", error);
-      warning(`Failed to transform geometry to SRID ${targetSrid}. Using original coordinates.`);
-      return geometry;
-    }
-  }, [SRID_4326_proj, warning]);
+        return transformedGeometry;
+      } catch (error) {
+        console.error("Error transforming geometry:", error);
+        warning(
+          `Failed to transform geometry to SRID ${targetSrid}. Using original coordinates.`,
+        );
+        return geometry;
+      }
+    },
+    [SRID_4326_proj, warning],
+  );
 
   // ============================================
   // Selection Handlers
@@ -740,26 +742,58 @@ function AttributeTable({
   // ============================================
   // Redux Sync & Auto-fit
   // ============================================
+
+  // Sync from Redux to local state - MUCH SIMPLER!
   useEffect(() => {
+    console.log("loggggggg1111");
+    if (!multiSelectedFeatures) return;
+
+    const newMultiSelected = {};
+
+    multiSelectedFeatures.forEach(({ layerId, featureIndex }) => {
+      if (!layerId || featureIndex === undefined || featureIndex === -1) return;
+
+      const rowKey = generateRowKey(layerId, featureIndex);
+      if (!newMultiSelected[layerId]) {
+        newMultiSelected[layerId] = new Set();
+      }
+      newMultiSelected[layerId].add(rowKey);
+    });
+
+    setMultiSelected(newMultiSelected);
+  }, [JSON.stringify(multiSelectedFeatures), generateRowKey]);
+
+  // Dispatch to Redux - also simpler!
+  useEffect(() => {
+    console.log("loggggggg2222");
+    
     const multiFeatures = [];
+
     Object.entries(multiSelected).forEach(([layerId, keySet]) => {
       const features = activeLayers[layerId]?.geoJsonData?.features || [];
       const metaData = activeLayers[layerId]?.metaData || {};
+
       Array.from(keySet || []).forEach((rowKey) => {
-        const idx = parseRowKeyToIndex(rowKey);
-        const feature = features[idx];
+        const featureIndex = parseRowKeyToIndex(rowKey);
+        const feature = features[featureIndex];
         if (feature) {
-          multiFeatures.push({ layerId, feature, metaData });
+          multiFeatures.push({
+            layerId,
+            featureIndex, // Include index
+            feature,
+            metaData,
+          });
         }
       });
     });
+
     dispatch(setMultiSelectedFeatures(multiFeatures));
 
     if (multiFeatures.length > 0) {
       fitToMultiSelectedBounds();
     }
   }, [
-    multiSelected,
+    JSON.stringify(multiSelected),
     activeLayers,
     dispatch,
     fitToMultiSelectedBounds,
@@ -866,12 +900,15 @@ function AttributeTable({
         return;
       }
 
-      const hideLoading = message.loading(`Fetching projection for SRID ${srid}...`, 0);
-      
+      const hideLoading = message.loading(
+        `Fetching projection for SRID ${srid}...`,
+        0,
+      );
+
       try {
         const proj4String = await getProj4DefinitionAsync(srid);
         hideLoading();
-        
+
         const transformedFeatures = multiSelectedFeatures.map((item) => {
           const transformedGeometry = transformGeometry(
             item.feature.geometry,
@@ -883,7 +920,9 @@ function AttributeTable({
             geometry: transformedGeometry,
             properties: {
               ...item.feature.properties,
-              ...(srid !== "4326" ? { original_srid: "4326", target_srid: srid } : {}),
+              ...(srid !== "4326"
+                ? { original_srid: "4326", target_srid: srid }
+                : {}),
             },
           };
         });
@@ -891,14 +930,19 @@ function AttributeTable({
         const featureCollection = {
           type: "FeatureCollection",
           features: transformedFeatures,
-          crs: srid !== "4326" ? {
-            type: "name",
-            properties: { name: `urn:ogc:def:crs:EPSG::${srid}` },
-          } : undefined,
+          crs:
+            srid !== "4326"
+              ? {
+                  type: "name",
+                  properties: { name: `urn:ogc:def:crs:EPSG::${srid}` },
+                }
+              : undefined,
         };
 
         const jsonContent = JSON.stringify(featureCollection, null, 2);
-        const blob = new Blob([jsonContent], { type: "application/json;charset=utf-8;" });
+        const blob = new Blob([jsonContent], {
+          type: "application/json;charset=utf-8;",
+        });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -908,14 +952,23 @@ function AttributeTable({
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        success(`Exported ${transformedFeatures.length} features to GeoJSON (SRID: ${srid})`);
+        success(
+          `Exported ${transformedFeatures.length} features to GeoJSON (SRID: ${srid})`,
+        );
       } catch (err) {
         hideLoading();
         console.error("Export error:", err);
         error(err.message || "Failed to export GeoJSON. Please try again.");
       }
     },
-    [multiSelectedFeatures, transformGeometry, getProj4DefinitionAsync, error, info, success],
+    [
+      multiSelectedFeatures,
+      transformGeometry,
+      getProj4DefinitionAsync,
+      error,
+      info,
+      success,
+    ],
   );
 
   const exportSelectedToShapeFileAsync = useCallback(
@@ -925,16 +978,19 @@ function AttributeTable({
         return;
       }
 
-      const hideLoading = message.loading(`Fetching projection for SRID ${srid}...`, 0);
-      
+      const hideLoading = message.loading(
+        `Fetching projection for SRID ${srid}...`,
+        0,
+      );
+
       try {
         const { zip } = await import("@mapbox/shp-write");
-        
+
         const [proj4String, prjContent] = await Promise.all([
           getProj4DefinitionAsync(srid),
-          getPrjContentAsync(srid)
+          getPrjContentAsync(srid),
         ]);
-        
+
         hideLoading();
 
         const transformedFeatures = multiSelectedFeatures.map((item) => {
@@ -954,7 +1010,7 @@ function AttributeTable({
         };
 
         const filenameBase = `shapefile_${srid}_${new Date().toISOString().replace(/[:.]/g, "-")}`;
-        
+
         const zipBlob = await zip(featureCollection, {
           outputType: "blob",
           compression: "DEFLATE",
@@ -970,7 +1026,9 @@ function AttributeTable({
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        success(`Exported ${transformedFeatures.length} features to Shapefile (SRID: ${srid})`);
+        success(
+          `Exported ${transformedFeatures.length} features to Shapefile (SRID: ${srid})`,
+        );
       } catch (err) {
         hideLoading();
         console.error("Error exporting to Shapefile:", err);
@@ -981,7 +1039,15 @@ function AttributeTable({
         }
       }
     },
-    [multiSelectedFeatures, transformGeometry, getProj4DefinitionAsync, getPrjContentAsync, error, info, success],
+    [
+      multiSelectedFeatures,
+      transformGeometry,
+      getProj4DefinitionAsync,
+      getPrjContentAsync,
+      error,
+      info,
+      success,
+    ],
   );
 
   const showSridSelectionModal = useCallback(() => {
@@ -994,11 +1060,16 @@ function AttributeTable({
     } else {
       setShowSridModal(true);
     }
-  }, [downloadType, exportSelectedToCSV, multiSelectedFeatures.length, warning]);
+  }, [
+    downloadType,
+    exportSelectedToCSV,
+    multiSelectedFeatures.length,
+    warning,
+  ]);
 
   const handleExportWithSrid = useCallback(async () => {
     let finalSrid = selectedSrid;
-    
+
     if (selectedSrid === "custom") {
       if (!customSridInput) {
         warning("Please enter custom SRID");
@@ -1008,13 +1079,20 @@ function AttributeTable({
     }
 
     setShowSridModal(false);
-    
+
     if (downloadType === "GeoJSON") {
       await exportSelectedToGeoJSONAsync(finalSrid);
     } else if (downloadType === "Shapefile") {
       await exportSelectedToShapeFileAsync(finalSrid);
     }
-  }, [selectedSrid, customSridInput, downloadType, exportSelectedToGeoJSONAsync, exportSelectedToShapeFileAsync, warning]);
+  }, [
+    selectedSrid,
+    customSridInput,
+    downloadType,
+    exportSelectedToGeoJSONAsync,
+    exportSelectedToShapeFileAsync,
+    warning,
+  ]);
 
   const handleSridChange = useCallback((value) => {
     setSelectedSrid(value);
@@ -1378,7 +1456,8 @@ function AttributeTable({
                 ...COMMON_SRID_OPTIONS,
                 {
                   value: "custom",
-                  label: "Custom (Enter SRID only - Proj4 will be auto-fetched)",
+                  label:
+                    "Custom (Enter SRID only - Proj4 will be auto-fetched)",
                 },
               ]}
               placeholder="Select SRID"
@@ -1398,27 +1477,38 @@ function AttributeTable({
                   onChange={(e) => setCustomSridInput(e.target.value)}
                 />
               </Form.Item>
-              <div style={{ marginTop: 8, marginBottom: 16, color: "#666", fontSize: 12 }}>
-                <SettingOutlined /> Projection information will be automatically fetched from epsg.io
+              <div
+                style={{
+                  marginTop: 8,
+                  marginBottom: 16,
+                  color: "#666",
+                  fontSize: 12,
+                }}
+              >
+                <SettingOutlined /> Projection information will be automatically
+                fetched from epsg.io
               </div>
             </>
           )}
 
           {selectedSrid !== "custom" && selectedSrid !== "4326" && (
             <div style={{ marginTop: 8, color: "#666", fontSize: 12 }}>
-              <SettingOutlined /> Coordinates will be transformed from WGS84 (EPSG:4326) to {selectedSrid}
+              <SettingOutlined /> Coordinates will be transformed from WGS84
+              (EPSG:4326) to {selectedSrid}
             </div>
           )}
 
           {selectedSrid === "4326" && (
             <div style={{ marginTop: 8, color: "#52c41a", fontSize: 12 }}>
-              <Checkbox checked disabled /> Using default WGS84 (EPSG:4326) projection
+              <Checkbox checked disabled /> Using default WGS84 (EPSG:4326)
+              projection
             </div>
           )}
 
           {(proj4Error || wktError) && (
             <div style={{ marginTop: 8, color: "#ff4d4f", fontSize: 12 }}>
-              <CloseCircleOutlined /> Error: Failed to fetch projection information. Please check your SRID.
+              <CloseCircleOutlined /> Error: Failed to fetch projection
+              information. Please check your SRID.
             </div>
           )}
         </Form>
@@ -1432,9 +1522,7 @@ function AttributeTable({
             wrap="nowrap"
             style={{ width: "100%", textAlign: "center", marginTop: 20 }}
           >
-            <Tag color="red">
-              No layers with features available
-            </Tag>
+            <Tag color="red">No layers with features available</Tag>
           </Space>
         </div>
       ) : (

@@ -2,7 +2,10 @@ import React, { useMemo } from "react";
 import { memo, useCallback } from "react";
 import { GeoJSON, useMap } from "react-leaflet";
 import { useDispatch, useSelector } from "react-redux";
-import { updateViewport } from "../../store/slices/mapSlice";
+import {
+  toggleMultiSelectedFeatures,
+  updateViewport,
+} from "../../store/slices/mapSlice";
 import L from "leaflet";
 import { bindTooltip } from "../../utils";
 import {
@@ -16,7 +19,6 @@ import { meta } from "@eslint/js";
 
 const GeoJsonLayerWrapper = memo(
   ({ layerId, geoJsonData, metaData, pane, isPrintModalOpen = false }) => {
-
     const dispatch = useDispatch();
     const viewport = useSelector((state) => state.map.viewport);
     const isIdentifyOpen = useSelector((state) => state.ui.isIdentifyOpen);
@@ -120,14 +122,12 @@ const GeoJsonLayerWrapper = memo(
           e.target.setStyle(style(feature));
         });
 
-        layer.on("contextmenu", (e) => {
-        });
+        layer.on("contextmenu", (e) => {});
 
         // click -> save selected feature and center map viewport on it
         layer.on("click", (e) => {
           try {
             const bounds = layer.getBounds?.();
-            console.log(bounds, "bounds");
 
             if (bounds?.isValid()) {
               const center = bounds.getCenter();
@@ -141,6 +141,15 @@ const GeoJsonLayerWrapper = memo(
               const [lng, lat] = feature.geometry.coordinates;
               dispatch(updateViewport({ center: [lat, lng] }));
             }
+
+            dispatch(
+              toggleMultiSelectedFeatures({
+                layerId,
+                featureIndex: parseInt(feature.properties?.gid) - 1,
+                feature,
+                metaData,
+              }),
+            );
           } catch (err) {
             // ignore
           }
