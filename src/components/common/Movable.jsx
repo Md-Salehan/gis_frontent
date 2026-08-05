@@ -116,8 +116,8 @@ const Movable = ({
     (e) => {
       if (!isMovable) return;
       if (e.button && e.button !== 0) return;
-      // e.preventDefault();
-      // e.stopPropagation();
+      e.preventDefault();
+      e.stopPropagation();
 
       const target = e.target;
       const closeButton = target.closest?.(".movable-header-button");

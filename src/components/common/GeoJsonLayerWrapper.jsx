@@ -22,6 +22,7 @@ const GeoJsonLayerWrapper = memo(
     const dispatch = useDispatch();
     const viewport = useSelector((state) => state.map.viewport);
     const isIdentifyOpen = useSelector((state) => state.ui.isIdentifyOpen);
+    const isFeatureSelectionEnabled = useSelector((state) => state.ui.isFeatureSelectionEnabled);
     const map = useMap();
 
     // Create a pane-aware SVG renderer and reuse it on the map object
@@ -122,7 +123,7 @@ const GeoJsonLayerWrapper = memo(
           e.target.setStyle(style(feature));
         });
 
-        layer.on("contextmenu", (e) => {});
+        // layer.on("contextmenu", (e) => {});
 
         // click -> save selected feature and center map viewport on it
         layer.on("click", (e) => {
@@ -142,21 +143,21 @@ const GeoJsonLayerWrapper = memo(
               dispatch(updateViewport({ center: [lat, lng] }));
             }
 
-            dispatch(
+            if(isFeatureSelectionEnabled){dispatch(
               toggleMultiSelectedFeatures({
                 layerId,
                 featureIndex: parseInt(feature.properties?.gid) - 1,
                 feature,
                 metaData,
-              }),
-            );
+              })
+            )};
           } catch (err) {
             // ignore
           }
         });
       },
       // }
-      [dispatch, style, viewport.zoom, isPrintModalOpen, isIdentifyOpen],
+      [dispatch, style, viewport.zoom, isPrintModalOpen, isIdentifyOpen, isFeatureSelectionEnabled],
     );
 
     const pointToLayer = useCallback(
@@ -217,7 +218,7 @@ const GeoJsonLayerWrapper = memo(
     return (
       <>
         <GeoJSON
-          key={`${layerId}-${isPrintModalOpen ? "print" : "normal"}-${isIdentifyOpen ? "identify" : "normal"}`}
+          key={`${layerId}-${isPrintModalOpen ? "print" : "normal"}-${isIdentifyOpen ? "identify" : "normal"}-${isFeatureSelectionEnabled ? "selection" : "normal"}`}
           data={geoJsonData}
           style={style}
           pointToLayer={pointToLayer}

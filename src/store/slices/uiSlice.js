@@ -19,6 +19,7 @@ const initialState = {
   isCountPointsModalOpen: false,
   isDistanceMatrixModalOpen: false,
   minimizedGlobalCompList: [],
+  isFeatureSelectionEnabled: false,
 };
 
 export const uiSlice = createSlice({
@@ -68,6 +69,10 @@ export const uiSlice = createSlice({
     toggleIdentify: (state, action) => {
       if (action.payload) state.isIdentifyOpen = action.payload.state;
       else state.isIdentifyOpen = !state.isIdentifyOpen;
+    },
+    toggleFeatureSelection: (state, action) => {
+      if (action.payload) state.isFeatureSelectionEnabled = action.payload.state;
+      else state.isFeatureSelectionEnabled = !state.isFeatureSelectionEnabled;
     },
     toggleCentroidModal: (state, action) => {
       if (action.payload) state.isCentroidModalOpen = action.payload.state;
@@ -126,6 +131,7 @@ export const {
   toggleBuffer,
   setLoadingMessage,
   toggleIdentify,
+  toggleFeatureSelection,
   toggleCentroidModal,
   toggleCountPointsModal,
   toggleDistanceMatrixModal,

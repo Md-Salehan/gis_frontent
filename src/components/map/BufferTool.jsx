@@ -13,7 +13,6 @@ import {
   Space,
   message,
   Typography,
-  List,
   Checkbox,
   Alert,
   Divider,
@@ -52,7 +51,7 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
   const multiSelected = useSelector((s) => s.map.multiSelectedFeatures);
   const bufferLayers = useSelector((s) => s.map.bufferLayers);
   const bufferOrder = useSelector((s) => s.map.bufferOrder) || [];
-  const geoJsonLayers = useSelector((s) => s.map.geoJsonLayers);
+  const activeLayers = useSelector((s) => s.map.geoJsonLayers);
 
   const [distance, setDistance] = useState(100);
   const [unit, setUnit] = useState("meters");
@@ -66,7 +65,7 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
   // Get available layers for selection (excluding buffer layers)
   const availableLayers = useMemo(() => {
     const layers = [];
-    Object.entries(geoJsonLayers).forEach(([layerId, data]) => {
+    Object.entries(activeLayers).forEach(([layerId, data]) => {
       if (data?.geoJsonData) {
         const layerName = data.metaData?.layer?.layer_nm || layerId;
         const featureCount = data.geoJsonData.features?.length || 0;
@@ -79,7 +78,7 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
       }
     });
     return layers;
-  }, [geoJsonLayers]);
+  }, [activeLayers]);
 
   const selectedFeatures = useMemo(() => {
     const multi = Array.isArray(multiSelected) ? multiSelected : [];
@@ -233,10 +232,9 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
 
     // Get all features from selected layers
     const allFeatures = [];
-    const layerFeatureMap = {};
 
     selectedLayerIds.forEach((layerId) => {
-      const layerData = geoJsonLayers[layerId];
+      const layerData = activeLayers[layerId];
       if (layerData?.geoJsonData?.features) {
         const features = layerData.geoJsonData.features.map(
           (feature, index) => ({
@@ -246,7 +244,6 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
           }),
         );
         allFeatures.push(...features);
-        layerFeatureMap[layerId] = features.length;
       }
     });
 
@@ -267,7 +264,7 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
       error: null,
     }));
 
-    const totalFeatures = allFeatures.length;
+    const totalFeatureCount = allFeatures.length;
     const matched = [];
     let processed = 0;
     let isAborted = false;
@@ -288,7 +285,7 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
         return;
       }
 
-      const endIndex = Math.min(startIndex + CHUNK_SIZE, totalFeatures);
+      const endIndex = Math.min(startIndex + CHUNK_SIZE, totalFeatureCount);
       const chunk = allFeatures.slice(startIndex, endIndex);
 
       // Process chunk synchronously
@@ -319,7 +316,7 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
       }
 
       // Update progress
-      const progress = Math.round((processed / totalFeatures) * 100);
+      const progress = Math.round((processed / totalFeatureCount) * 100);
       setAnalysisState((prev) => ({
         ...prev,
         progress,
@@ -328,20 +325,24 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
       }));
 
       // Process next chunk if not complete
-      if (processed < totalFeatures && !isAborted) {
-        setTimeout(() => processChunk(endIndex), 10000);
+      if (processed < totalFeatureCount && !isAborted) {
+        setTimeout(() => processChunk(endIndex), 0);
       } else if (!isAborted) {
         // Analysis complete
         const results = {
-          totalFeatures,
+          totalFeatureCount: totalFeatureCount,
           matchedCount: matched.length,
-          layers: selectedLayerIds.map((id) => ({
-            layerId: id,
-            layerName: geoJsonLayers[id]?.metaData?.layer?.layer_nm || id,
-            totalFeatures: layerFeatureMap[id] || 0,
-            matchedFeatures: matched.filter((m) => m.layerId === id).length,
-          })),
-          matchedFeatures: matched,
+          layers: selectedLayerIds.map((id) => {
+            const matchedFeatures = matched.filter((m) => m.layerId === id);
+            return {
+              layerId: id,
+              layerName: activeLayers[id]?.metaData?.layer?.layer_nm || id,
+              totalFeatureCount:
+                activeLayers[id]?.geoJsonData?.features?.length || 0,
+              matchedFeatures,
+              matchedFeatureCount: matchedFeatures.length,
+            };
+          }),
         };
 
         setIsAnalyzing(false);
@@ -359,14 +360,13 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
     };
 
     // Start processing
-
     setTimeout(() => processChunk(0), 0);
   }, [
     hasBuffer,
     hasSelectedLayers,
     bufferLayers,
     selectedLayerIds,
-    geoJsonLayers,
+    activeLayers,
   ]);
 
   // Cancel analysis
@@ -436,29 +436,47 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
 
   return (
     <>
-      <Space direction="vertical" style={{ width: "100%" }} size="middle">
+      <Space direction="vertical" style={{ width: "100%" }} size="small">
         {/* Buffer Creation Section */}
         <div>
-          <Text strong>Selected features:</Text>{" "}
-          <Text type="secondary">{selectedFeatures.length}</Text>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <Text strong style={{ fontSize: 13 }}>
+              Selected features:
+            </Text>
+            <Text type="secondary" style={{ fontSize: 13 }}>
+              {selectedFeatures.length}
+            </Text>
+          </div>
         </div>
 
         <div>
-          <Text strong>Buffer Distance</Text>
-          <div style={{ marginTop: 6, display: "flex", gap: 8 }}>
+          <Text strong style={{ fontSize: 13 }}>
+            Buffer Distance
+          </Text>
+          <div
+            style={{ marginTop: 4, display: "flex", gap: 6, flexWrap: "wrap" }}
+          >
             <InputNumber
               min={0}
               value={distance}
               onChange={(v) => setDistance(v)}
-              style={{ width: 140 }}
+              style={{ width: 100 }}
               disabled={hasBuffer}
+              size="small"
             />
             <Select
               options={UNITS}
               value={unit}
               onChange={(v) => setUnit(v)}
-              style={{ width: 160 }}
+              style={{ width: 120 }}
               disabled={hasBuffer}
+              size="small"
             />
 
             {!hasBuffer ? (
@@ -466,20 +484,34 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
                 type="primary"
                 onClick={createBuffer}
                 disabled={!hasSelection}
+                size="small"
               >
                 Create Buffer
               </Button>
             ) : (
-              <Button danger onClick={clearAllBuffers} disabled={!hasSelection}>
+              <Button
+                danger
+                onClick={clearAllBuffers}
+                disabled={isAnalyzing}
+                size="small"
+              >
                 Remove Buffers
               </Button>
             )}
           </div>
+
+          {!hasSelection && !hasBuffer && (
+            <Alert
+              message="Select features on the map to create a buffer."
+              type="info"
+              showIcon
+              style={{ marginTop: 6, fontSize: 12 }}
+              size="small"
+            />
+          )}
         </div>
 
-       
-
-        <Divider />
+        <Divider style={{ margin: "6px 0" }} />
 
         {/* Layer Selection Section */}
         <div>
@@ -488,23 +520,26 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              marginBottom: 8,
+              marginBottom: 4,
             }}
           >
-            <Text strong>Select Layers for Analysis</Text>
+            <Text strong style={{ fontSize: 13 }}>
+              Select Layers
+            </Text>
             <div>
               <Button
                 size="small"
                 onClick={selectAllLayers}
                 disabled={!hasBuffer || !availableLayers.length}
+                style={{ fontSize: 11 }}
               >
-                Select All
+                All
               </Button>
               <Button
                 size="small"
                 onClick={deselectAllLayers}
                 disabled={!hasBuffer}
-                style={{ marginLeft: 4 }}
+                style={{ marginLeft: 4, fontSize: 11 }}
               >
                 Clear
               </Button>
@@ -513,42 +548,45 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
 
           {!hasBuffer ? (
             <Alert
-              message="Create a buffer first to enable layer selection"
+              message="Create a buffer first"
               type="info"
               showIcon
-              style={{ marginTop: 8 }}
+              style={{ marginTop: 4, fontSize: 12 }}
+              size="small"
             />
           ) : availableLayers.length === 0 ? (
             <Alert
-              message="No layers available for analysis"
+              message="No layers available"
               type="warning"
               showIcon
-              style={{ marginTop: 8 }}
+              style={{ marginTop: 4, fontSize: 12 }}
+              size="small"
             />
           ) : (
             <div
               style={{
-                maxHeight: 150,
+                maxHeight: 120,
                 overflow: "auto",
                 border: "1px solid #d9d9d9",
                 borderRadius: 4,
-                padding: 8,
+                padding: 6,
               }}
             >
               {availableLayers.map((layer) => (
-                <div key={layer.id} style={{ padding: "4px 0" }}>
+                <div key={layer.id} style={{ padding: "2px 0" }}>
                   <Checkbox
                     checked={selectedLayerIds.includes(layer.id)}
                     onChange={(e) =>
                       handleLayerSelection(layer.id, e.target.checked)
                     }
+                    style={{ fontSize: 12 }}
                   >
-                    <Text>{layer.name}</Text>
+                    <Text style={{ fontSize: 12 }}>{layer.name}</Text>
                     <Text
                       type="secondary"
-                      style={{ marginLeft: 8, fontSize: 12 }}
+                      style={{ marginLeft: 6, fontSize: 11 }}
                     >
-                      ({layer.featureCount} features)
+                      ({layer.featureCount})
                     </Text>
                   </Checkbox>
                 </div>
@@ -558,18 +596,19 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
         </div>
 
         {/* Start Analysis / Cancel Buttons */}
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 6 }}>
           <Button
             type="primary"
             onClick={performAnalysis}
             disabled={!hasBuffer || !hasSelectedLayers || isAnalyzing}
             loading={isAnalyzing}
             style={{ flex: 1 }}
+            size="small"
           >
             {isAnalyzing ? "Analyzing..." : "Start Analysis"}
           </Button>
           {isAnalyzing && (
-            <Button onClick={cancelAnalysis} danger>
+            <Button onClick={cancelAnalysis} danger size="small">
               Cancel
             </Button>
           )}
@@ -583,8 +622,8 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
               alignItems: "center",
             }}
           >
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              Buffer active: {Object.keys(bufferLayers).join(", ")}
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              Buffer: {Object.keys(bufferLayers).join(", ")}
             </Text>
             <Badge
               status={
@@ -595,11 +634,13 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
                     : "default"
               }
               text={
-                analysisState.status === "complete"
-                  ? "Complete"
-                  : analysisState.status === "analyzing"
-                    ? "Analyzing"
-                    : "Ready"
+                <Text style={{ fontSize: 11 }}>
+                  {analysisState.status === "complete"
+                    ? "Complete"
+                    : analysisState.status === "analyzing"
+                      ? "Analyzing"
+                      : "Ready"}
+                </Text>
               }
             />
           </div>
@@ -608,12 +649,10 @@ function BufferTool({ clearDataOnClose = true, open = false }) {
         {/* Results Component */}
         <BufferAnalysisResults
           analysisState={analysisState}
-          geoJsonLayers={geoJsonLayers}
+          activeLayers={activeLayers}
           selectedLayerIds={selectedLayerIds}
           onClear={handleClearResults}
         />
-
-       
       </Space>
     </>
   );

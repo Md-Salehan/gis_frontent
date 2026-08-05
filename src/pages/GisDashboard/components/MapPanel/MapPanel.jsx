@@ -165,7 +165,7 @@ const MapPanel = memo(() => {
     () => ({
       center: viewport?.center || [28.7041, 77.1025],
       zoom: viewport?.zoom || 8,
-      style: { width: "100%", height: "100%" },
+      style: { width: "100%", height: "100%", position: "relative" },
       zoomControl: false,
     }),
     [viewport],

@@ -44,10 +44,11 @@ import {
   Proportions,
   TableProperties,
   Layers,
-  CircleDot, 
+  CircleDot,
   CircleDashed,
-  Dice5, 
-  Calculator
+  Dice5,
+  Calculator,
+  MousePointerClick,
 } from "lucide-react";
 import { initGeoman } from "../../utils/map/geoman-setup";
 import FooterBar from "./components/FooterBar";
@@ -57,6 +58,7 @@ import {
   toggleCentroidModal,
   toggleCountPointsModal,
   toggleDistanceMatrixModal,
+  toggleFeatureSelection,
   toggleIdentify,
   toggleLegend,
   toggleMeasure,
@@ -103,13 +105,16 @@ const GisDashboard = memo(() => {
   }, []);
 
   const handleMenuSelect = useCallback(() => {
-    if (uiStates.isAttributeTableOpen) return ["0"];
-    else if (uiStates.isMeasureOpen) return ["1"];
-    else if (uiStates.isLegendVisible) return ["2"];
-    else if (uiStates.isPrintModalOpen) return ["4"];
-    else if (uiStates.isBufferOpen) return ["5"];
-    else if (uiStates.isIdentifyOpen) return ["6"];
-    else return [];
+    const selected = [];
+
+    if (uiStates.isAttributeTableOpen) selected.push("0");
+    if (uiStates.isMeasureOpen) selected.push("1");
+    if (uiStates.isLegendVisible) selected.push("2");
+    if (uiStates.isPrintModalOpen) selected.push("4");
+    if (uiStates.isBufferOpen) selected.push("5");
+    if (uiStates.isFeatureSelectionEnabled) selected.push("6");
+    if (uiStates.isIdentifyOpen) selected.push("7");
+    return selected;
   }, [uiStates]);
 
   useEffect(() => {
@@ -131,7 +136,7 @@ const GisDashboard = memo(() => {
       onClick: () => {
         dispatch(toggleCountPointsModal({ state: true }));
       },
-      icon: React.createElement(Dice5), 
+      icon: React.createElement(Dice5),
     },
     {
       key: "distancematrix",
@@ -139,10 +144,8 @@ const GisDashboard = memo(() => {
       onClick: () => {
         dispatch(toggleDistanceMatrixModal({ state: true }));
       },
-      icon: React.createElement(Calculator), 
+      icon: React.createElement(Calculator),
     },
-  
-
   ];
 
   const items = [
@@ -209,15 +212,24 @@ const GisDashboard = memo(() => {
     },
     {
       key: "6",
-      icon: React.createElement(Info),
-      label: "Identify",
+      icon: React.createElement(MousePointerClick),
+      label: "Selection",
       onClick: () => {
         // handleMenuClick("6");
-        dispatch(toggleIdentify());
+        dispatch(toggleFeatureSelection());
       },
     },
     {
       key: "7",
+      icon: React.createElement(Info),
+      label: "Identify",
+      onClick: () => {
+        // handleMenuClick("7");
+        dispatch(toggleIdentify());
+      },
+    },
+    {
+      key: "8",
       icon: React.createElement(Layers),
       label: "Spatial Analysis",
       children: spatialAnalysisItems, // This creates sub-menu items
@@ -289,6 +301,7 @@ const GisDashboard = memo(() => {
                   items={items}
                   selectable={true}
                   selectedKeys={selectedMenu}
+                  multiple={true}
                   // onSelect={(e) => setSelectedMenu([e.key])}
                   style={{
                     flex: 1,

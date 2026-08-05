@@ -46,7 +46,7 @@ import { evaluateQuery } from "../../utils";
 import { QueryBuilder } from "..";
 import shpWrite from "@mapbox/shp-write";
 import proj4 from "proj4";
-import { COMMON_SRID_OPTIONS, SRID_4326_proj } from "../../constants";
+import { COMMON_SRID_OPTIONS, MAP_FIT_OPTIONS, SRID_4326_proj } from "../../constants";
 import { useMessage } from "../../hooks";
 import {
   useLazyGetProj4StringQuery,
@@ -56,11 +56,7 @@ import { set } from "lodash";
 
 // Constants
 const DEBUG = process.env.NODE_ENV === "development";
-const MAP_FIT_OPTIONS = {
-  padding: [10, 10],
-  maxZoom: 20,
-  duration: 0.7,
-};
+
 const TABLE_VISIBILITY_TYPES = [
   {
     label: "All",
@@ -745,7 +741,6 @@ function AttributeTable({
 
   // Sync from Redux to local state - MUCH SIMPLER!
   useEffect(() => {
-    console.log("loggggggg1111");
     if (!multiSelectedFeatures) return;
 
     const newMultiSelected = {};
@@ -765,7 +760,6 @@ function AttributeTable({
 
   // Dispatch to Redux - also simpler!
   useEffect(() => {
-    console.log("loggggggg2222");
     
     const multiFeatures = [];
 

@@ -152,8 +152,8 @@ const Legend = ({
         borderRadius: "8px",
         boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
         maxHeight: "50vh",
-        width: width ?? "auto",
-        height: height ?? "auto",
+        width:  "auto",
+        height:  "auto",
       }}
     >
       <div ref={legendContentRef}>

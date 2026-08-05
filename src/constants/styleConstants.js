@@ -12,20 +12,21 @@ export const DEFAULT_STYLES = {
 
 // Selected feature highlighting styles
 export const SELECTED_FEATURE_STYLE = {
-  color: "#ff0000",
+  // color: "#ff0000",
+  color: "#2FA084",
   weight: 3,
   opacity: 0.8,
-  fillColor: "#ff0000",
+  fillColor: "#2FA084",
   fillOpacity: 0.6,
 };
 
 // Selected point marker style
 export const SELECTED_CIRCLE_MARKER_STYLE = {
   radius: 10,
-  color: "#ff0000",
+  color: "#2FA084",
   weight: 2,
   opacity: 0.9,
-  fillColor: "#ff0000",
+  fillColor: "#2FA084",
   fillOpacity: 0.6,
 };
 
