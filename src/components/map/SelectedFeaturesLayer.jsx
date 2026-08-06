@@ -46,13 +46,13 @@ const SelectedFeaturesLayer = () => {
           coordinates = L.latLng(lat, lng);
         }
 
-        bindTooltip(
-          layer,
-          feature.properties,
-          title,
-          coordinates,
-          geometryType,
-        );
+        // bindTooltip(
+        //   layer,
+        //   feature.properties,
+        //   title,
+        //   coordinates,
+        //   geometryType,
+        // );
       }
     },
     [selectedFeatureMetadata],

@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo, useRef } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Card,
   Tag,
@@ -20,7 +20,7 @@ import {
   SearchOutlined,
 } from "@ant-design/icons";
 import { MAP_FIT_OPTIONS } from "../../constants";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { useMap } from "react-leaflet";
 import { setSelectedFeature } from "../../store/slices/mapSlice";
 
@@ -39,6 +39,10 @@ const BufferAnalysisResults = memo(
     } = analysisState;
     const dispatch = useDispatch();
     const map = useMap();
+    const [selectedRowKeys, setSelectedRowKeys] = useState({});
+    const singleSelectedFeature = useSelector(
+      (state) => state.map.selectedFeature,
+    );
 
     // Get property keys for a specific layer's features
     const getLayerPropertyKeys = (matchedFeatures) => {
@@ -52,14 +56,26 @@ const BufferAnalysisResults = memo(
       return Array.from(keys);
     };
 
+    const getRowBackgroundColor = useCallback(
+      (record, layerId) => {
+        const isSingleSelected = selectedRowKeys[layerId]?.includes(record.key);
+
+        if (isSingleSelected) return "#7ae9cb";
+        return "white";
+      },
+      [selectedRowKeys],
+    );
+
     // ============================================
     // Selection Handlers
     // ============================================
     const prevSelectedFeatureId = useRef("");
     const handleViewFeature = useCallback(
       (record, layerId) => {
+        console.log("==33===", record, record.featureIndex, layerId);
+        
         const selectedFeature =
-          activeLayers[layerId]?.geoJsonData.features[record.featureIndex - 1];
+          activeLayers[layerId]?.geoJsonData.features[record.featureIndex ];
 
         if (
           selectedFeature &&
@@ -94,9 +110,9 @@ const BufferAnalysisResults = memo(
             }
           }
 
-          // setSelectedRowKeys({
-          //   [layerId]: [record.key],
-          // });
+          setSelectedRowKeys({
+            [layerId]: [record.key],
+          });
 
           prevSelectedFeatureId.current = layerId + record.featureIndex;
         } else {
@@ -106,12 +122,30 @@ const BufferAnalysisResults = memo(
               metaData: null,
             }),
           );
-          // setSelectedRowKeys({});
+          setSelectedRowKeys({});
           prevSelectedFeatureId.current = "";
         }
       },
       [dispatch, activeLayers, map],
     );
+
+    // ============================================
+    // Redux Sync & Auto-fit
+    // ============================================
+
+    // //Sync single selection from Redux to local state
+    useEffect(() => {
+      if (singleSelectedFeature?.metaData?.selectedKeys) {
+        const layerId = singleSelectedFeature.metaData.layer.layer_id;
+        const rowKey = singleSelectedFeature.metaData.selectedKeys[0];
+
+        setSelectedRowKeys({
+          [layerId]: [rowKey],
+        });
+      } else {
+        setSelectedRowKeys({});
+      }
+    }, [JSON.stringify(singleSelectedFeature)]);
 
     if (status === "idle") {
       return null;
@@ -249,9 +283,8 @@ const BufferAnalysisResults = memo(
                       const tableData =
                         matchedFeatures?.map((item, index) => {
                           const row = {
-                            key: `${layerId}-${item.featureIndex}-${index}`,
-                            featureIndex:
-                              Number(item.feature?.properties?.gid),
+                            key: `${layerId}-${item.featureIndex}`,
+                            featureIndex: item.featureIndex,
                           };
                           // Add all property values
                           layerKeys.forEach((key) => {
@@ -382,6 +415,16 @@ const BufferAnalysisResults = memo(
                               scroll={{ x: "max-content" }}
                               style={{ fontSize: 12 }}
                               bordered
+                              onRow={(record) => ({
+                                style: {
+                                  whiteSpace: "nowrap",
+                                  cursor: "pointer",
+                                  backgroundColor: getRowBackgroundColor(
+                                    record,
+                                    layerId,
+                                  ),
+                                },
+                              })}
                             />
                           ) : (
                             <Empty

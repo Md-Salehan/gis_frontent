@@ -46,7 +46,11 @@ import { evaluateQuery } from "../../utils";
 import { QueryBuilder } from "..";
 import shpWrite from "@mapbox/shp-write";
 import proj4 from "proj4";
-import { COMMON_SRID_OPTIONS, MAP_FIT_OPTIONS, SRID_4326_proj } from "../../constants";
+import {
+  COMMON_SRID_OPTIONS,
+  MAP_FIT_OPTIONS,
+  SRID_4326_proj,
+} from "../../constants";
 import { useMessage } from "../../hooks";
 import {
   useLazyGetProj4StringQuery,
@@ -129,6 +133,7 @@ function AttributeTable({
   const multiSelectedFeatures = useSelector(
     (state) => state.map.multiSelectedFeatures,
   );
+  const singleSelectedFeature = useSelector((state) => state.map.selectedFeature);
 
   useEffect(() => {
     let activeTempLayers = {};
@@ -253,7 +258,7 @@ function AttributeTable({
       const originalIndex =
         Array.isArray(originalIndices) && originalIndices[index] !== undefined
           ? originalIndices[index]
-          : index;
+          : null;
       const TransformedProperties = transformProperties(
         feature.properties || {},
         {
@@ -261,7 +266,11 @@ function AttributeTable({
           processNestedArrays: false,
         },
       );
-
+      if (originalIndex === null) {
+        throw new Error(
+          `Original index is null for feature at index ${index} in layer ${layerId} | @getTableData`,
+        );
+      }
       return {
         key: generateRowKey(layerId, originalIndex),
         featureIndex: originalIndex,
@@ -739,7 +748,22 @@ function AttributeTable({
   // Redux Sync & Auto-fit
   // ============================================
 
-  // Sync from Redux to local state - MUCH SIMPLER!
+  // //Sync single selection from Redux to local state
+  useEffect(() => {
+
+    if (singleSelectedFeature?.metaData?.selectedKeys) {
+      const layerId = singleSelectedFeature.metaData.layer.layer_id;
+      const rowKey = singleSelectedFeature.metaData.selectedKeys[0];
+
+      setSelectedRowKeys({
+        [layerId]: [rowKey],
+      });
+    } else {
+      setSelectedRowKeys({});
+    }
+  }, [JSON.stringify(singleSelectedFeature)]);
+
+  // Sync Multi selection from Redux to local state
   useEffect(() => {
     if (!multiSelectedFeatures) return;
 
@@ -758,9 +782,8 @@ function AttributeTable({
     setMultiSelected(newMultiSelected);
   }, [JSON.stringify(multiSelectedFeatures), generateRowKey]);
 
-  // Dispatch to Redux - also simpler!
+  // Dispatch to Redux
   useEffect(() => {
-    
     const multiFeatures = [];
 
     Object.entries(multiSelected).forEach(([layerId, keySet]) => {
@@ -1103,7 +1126,7 @@ function AttributeTable({
       const isMultiSelected = multiSelected[layerId]?.has(record.key);
       const isSingleSelected = selectedRowKeys[layerId]?.includes(record.key);
 
-      if (isSingleSelected) return "#ffece6ff";
+      if (isSingleSelected) return "#7ae9cb";
       if (isMultiSelected) return "#fff7cc";
       return "white";
     },
