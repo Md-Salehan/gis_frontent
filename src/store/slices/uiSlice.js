@@ -18,6 +18,7 @@ const initialState = {
   isCentroidModalOpen: false,
   isCountPointsModalOpen: false,
   isDistanceMatrixModalOpen: false,
+  isSpatialJoinModalOpen: false,
   minimizedGlobalCompList: [],
   isFeatureSelectionEnabled: false,
 };
@@ -87,6 +88,10 @@ export const uiSlice = createSlice({
         state.isDistanceMatrixModalOpen = action.payload.state;
       else state.isDistanceMatrixModalOpen = !state.isDistanceMatrixModalOpen;
     },
+    toggleSpatialJoinModal: (state, action) => {
+      if (action.payload) state.isSpatialJoinModalOpen = action.payload.state;
+      else state.isSpatialJoinModalOpen = !state.isSpatialJoinModalOpen;
+    },
     setActiveMovableTab: (state, action) => {
       if (action.payload) state.activeMovableTab = action.payload;
     },
@@ -135,6 +140,7 @@ export const {
   toggleCentroidModal,
   toggleCountPointsModal,
   toggleDistanceMatrixModal,
+  toggleSpatialJoinModal,
   setActiveMovableTab,
   handleMinimizeGlobalComp,
 } = uiSlice.actions;

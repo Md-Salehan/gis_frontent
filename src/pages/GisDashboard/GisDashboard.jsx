@@ -63,6 +63,7 @@ import {
   toggleLegend,
   toggleMeasure,
   togglePrintModal,
+  toggleSpatialJoinModal,
 } from "../../store/slices/uiSlice";
 import {
   resetActivePortalDetails,
@@ -146,6 +147,14 @@ const GisDashboard = memo(() => {
       },
       icon: React.createElement(Calculator),
     },
+    {
+      key: "spatialjoin",
+      label: "Spatial Join",
+      onClick: () => {
+        dispatch(toggleSpatialJoinModal({ state: true }));
+      },
+      icon: React.createElement(CircleDashed),
+    }
   ];
 
   const items = [
