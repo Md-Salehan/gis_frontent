@@ -1,10 +1,10 @@
 export async function processInChunks(
   features,
-  options,
+  options, // { chunkSize, signal, onProgress, onChunkComplete }
   processor
 ) {
   const {
-    chunkSize = 500,
+    chunkSize = 500, 
     signal = null,
     onProgress = null,
     onChunkComplete = null,
@@ -49,7 +49,7 @@ export async function processInChunks(
       processed++;
 
       // Progress update
-      if (onProgress && processed % 50 === 0) {
+      if (onProgress && processed % 50 === 0) { // Update progress every 50 features
         onProgress(processed, features.length, totalMatches);
       }
     }

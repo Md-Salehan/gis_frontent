@@ -11,3 +11,4 @@ export * from './mapScaleCalculations';
 export * from './helper';
 export * from './transformProperties';
 export * from './queryBuilder.util';
+export * from './geometryUtils';

@@ -4,10 +4,10 @@ export function copyProperties(source, fields, prefix) {
   const fieldsToCopy = fields && fields.length > 0 ? fields : [];
   
   for (const field of fieldsToCopy) {
-    if (source[field] !== undefined && source[field] !== null) {
+    // if (source[field] !== undefined && source[field] !== null) {
       const key = prefix ? `${prefix}${field}` : field;
       result[key] = source[field];
-    }
+    // }
   }
 
   return result;

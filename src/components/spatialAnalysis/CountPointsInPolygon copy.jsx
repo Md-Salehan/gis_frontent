@@ -45,8 +45,6 @@ import {
 import * as turf from "@turf/turf";
 import { setTempGeoJsonLayer } from "../../store/slices/mapSlice";
 import useIsCompMinimized from "../../hooks/useIsCompMinimized";
-import { useAddLayerToMap } from "../../hooks/useAddLayerToMap";
-
 const { Panel } = Collapse;
 
 const { Text, Title, Paragraph } = Typography;
@@ -65,7 +63,7 @@ const isPolygonLayer = (geoJsonData) => {
       geomType === "MultiPolygon" ||
       (geomType === "GeometryCollection" &&
         feature.geometry?.geometries?.some(
-          (g) => g.type === "Polygon" || g.type === "MultiPolygon"
+          (g) => g.type === "Polygon" || g.type === "MultiPolygon",
         ))
     );
   });
@@ -84,7 +82,7 @@ const isPointLayer = (geoJsonData) => {
       geomType === "MultiPoint" ||
       (geomType === "GeometryCollection" &&
         feature.geometry?.geometries?.some(
-          (g) => g.type === "Point" || g.type === "MultiPoint"
+          (g) => g.type === "Point" || g.type === "MultiPoint",
         ))
     );
   });
@@ -94,7 +92,7 @@ function CountPointsInPolygon({ id }) {
   const dispatch = useDispatch();
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers || {});
   const tempGeoJsonLayers = useSelector(
-    (state) => state.map.tempGeoJsonLayers || {}
+    (state) => state.map.tempGeoJsonLayers || {},
   );
   const isMinimized = useIsCompMinimized(id);
 
@@ -107,22 +105,6 @@ function CountPointsInPolygon({ id }) {
   const [progressPercent, setProgressPercent] = useState(0);
   const [validationErrors, setValidationErrors] = useState([]);
   const [resultStatistics, setResultStatistics] = useState(null);
-
-  // Use the custom hook for adding layers
-  const { addLayerToMap } = useAddLayerToMap({
-    layerType: "count_result",
-    onSuccess: (resultLayer) => {
-      setIsLayerGenerated(true);
-      const featureCount = resultLayer?.metaData?.layer?.feature_count || 0;
-      message.success(
-        `Count layer added to map with ${featureCount} features!`
-      );
-    },
-    onError: (error) => {
-      console.error("Failed to add count layer:", error);
-      message.error(`Failed to add layer: ${error.message}`);
-    },
-  });
 
   // Get polygon layer options
   const polygonOptions = useMemo(() => {
@@ -202,14 +184,14 @@ function CountPointsInPolygon({ id }) {
       errors.push("Please enter a count field name");
     } else if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(countFieldName)) {
       errors.push(
-        "Field name must start with a letter or underscore and contain only letters, numbers, and underscores"
+        "Field name must start with a letter or underscore and contain only letters, numbers, and underscores",
       );
     }
 
     // Check if field already exists in polygon layer
     if (polygonLayerId && countFieldName) {
       const polygonData = polygonOptions.find(
-        (opt) => opt.value === polygonLayerId
+        (opt) => opt.value === polygonLayerId,
       );
       if (polygonData) {
         const features = polygonData.data.geoJsonData.features || [];
@@ -220,7 +202,7 @@ function CountPointsInPolygon({ id }) {
             firstFeature.properties[countFieldName] !== undefined
           ) {
             errors.push(
-              `Field "${countFieldName}" already exists in the polygon layer. Please use a different name.`
+              `Field "${countFieldName}" already exists in the polygon layer. Please use a different name.`,
             );
           }
         }
@@ -230,6 +212,39 @@ function CountPointsInPolygon({ id }) {
     setValidationErrors(errors);
     return errors.length === 0;
   }, [polygonLayerId, pointLayerId, countFieldName, polygonOptions]);
+
+  // Add result layer to map
+  const addToMap = useCallback(
+    (resultLayer) => {
+      if (!resultLayer) {
+        message.warning("No results to add");
+        return;
+      }
+
+      try {
+        const { layerId, geoJsonData, metaData } = resultLayer;
+
+        dispatch(
+          setTempGeoJsonLayer({
+            layerId: layerId,
+            geoJsonData: geoJsonData,
+            metaData: metaData,
+            isActive: true,
+          }),
+        );
+
+        message.success(
+          `Count layer "${metaData.layer_nm}" added to map with ${metaData.feature_count} features!`,
+        );
+
+        setIsLayerGenerated(true);
+      } catch (error) {
+        console.error("Error adding layer to map:", error);
+        message.error(`Failed to add layer: ${error.message}`);
+      }
+    },
+    [dispatch],
+  );
 
   // Count points in polygons
   const countPointsInPolygons = useCallback(async () => {
@@ -245,7 +260,7 @@ function CountPointsInPolygon({ id }) {
 
     try {
       const polygonData = polygonOptions.find(
-        (opt) => opt.value === polygonLayerId
+        (opt) => opt.value === polygonLayerId,
       );
       const pointData = pointOptions.find((opt) => opt.value === pointLayerId);
 
@@ -294,7 +309,7 @@ function CountPointsInPolygon({ id }) {
             let geometry = polygon.geometry;
             if (geometry.type === "GeometryCollection") {
               const polyGeom = geometry.geometries.find(
-                (g) => g.type === "Polygon" || g.type === "MultiPolygon"
+                (g) => g.type === "Polygon" || g.type === "MultiPolygon",
               );
               if (!polyGeom) return null;
               geometry = polyGeom;
@@ -303,13 +318,13 @@ function CountPointsInPolygon({ id }) {
             // Create polygon feature for Turf.js
             const polygonFeature = turf.feature(
               geometry,
-              polygon.properties || {}
+              polygon.properties || {},
             );
 
             // Count points within polygon using pointsWithinPolygon
             const pointsWithin = turf.pointsWithinPolygon(
               pointIndex,
-              polygonFeature
+              polygonFeature,
             );
             const count = pointsWithin.features.length;
 
@@ -330,7 +345,7 @@ function CountPointsInPolygon({ id }) {
           } catch (error) {
             console.warn(
               `Error processing polygon ${featureIndex + 1}:`,
-              error
+              error,
             );
             return null;
           }
@@ -358,7 +373,7 @@ function CountPointsInPolygon({ id }) {
 
       // Calculate statistics
       const counts = resultFeatures.map(
-        (f) => f.properties[countFieldName] || 0
+        (f) => f.properties[countFieldName] || 0,
       );
       const totalPoints = counts.reduce((a, b) => a + b, 0);
       const minCount = Math.min(...counts);
@@ -375,12 +390,12 @@ function CountPointsInPolygon({ id }) {
         avgCount: avgCount.toFixed(2),
       });
 
-      // Create layer metadata
+      // Store result
       const layerName = `Count Points (${pointData.label}) in ${polygonData.label}`;
       const layerId = `count_${Date.now()}`;
 
-      // Use the custom hook to add to map
-      const success = addLayerToMap({
+      // Add to map
+      addToMap({
         layerId: layerId,
         geoJsonData: resultCollection,
         metaData: {
@@ -401,11 +416,9 @@ function CountPointsInPolygon({ id }) {
         },
       });
 
-      if (success) {
-        message.success(
-          `Counted ${totalPoints} points in ${resultFeatures.length} polygons successfully!`
-        );
-      }
+      message.success(
+        `Counted ${totalPoints} points in ${resultFeatures.length} polygons successfully!`,
+      );
     } catch (error) {
       console.error("Error counting points:", error);
       message.error(`Failed to count points: ${error.message}`);
@@ -420,7 +433,7 @@ function CountPointsInPolygon({ id }) {
     polygonOptions,
     pointOptions,
     validateInputs,
-    addLayerToMap,
+    addToMap,
   ]);
 
   // Clear all selections and results
@@ -572,18 +585,18 @@ function CountPointsInPolygon({ id }) {
             style={{ marginBottom: 4 }}
             validateStatus={
               validationErrors.some(
-                (e) => e.includes("field") || e.includes("name")
+                (e) => e.includes("field") || e.includes("name"),
               )
                 ? "error"
                 : ""
             }
             help={
               validationErrors.some(
-                (e) => e.includes("field") || e.includes("name")
+                (e) => e.includes("field") || e.includes("name"),
               ) ? (
                 <Text type="danger" style={{ fontSize: 10 }}>
                   {validationErrors.find(
-                    (e) => e.includes("field") || e.includes("name")
+                    (e) => e.includes("field") || e.includes("name"),
                   )}
                 </Text>
               ) : null
@@ -629,6 +642,7 @@ function CountPointsInPolygon({ id }) {
         <Flex gap={4}>
           <Button
             type="primary"
+            // icon={<CalculatorOutlined />}
             onClick={countPointsInPolygons}
             loading={isProcessing}
             disabled={

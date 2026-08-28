@@ -23,6 +23,8 @@ import JoinProgress from "./components/JoinProgress";
 import JoinResults from "./components/JoinResults";
 import { useSpatialJoin } from "./hooks/useSpatialJoin";
 import useIsCompMinimized from "../../../hooks/useIsCompMinimized";
+import { useAddLayerToMap } from "../../../hooks/useAddLayerToMap";
+import { getLayerType } from "../../../utils";
 
 const { Text, Title } = Typography;
 
@@ -33,16 +35,16 @@ function SpatialJoin({ id }) {
   // Redux state
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers || {});
   const tempGeoJsonLayers = useSelector(
-    (state) => state.map.tempGeoJsonLayers || {},
+    (state) => state.map.tempGeoJsonLayers || {}
   );
 
   // Local state
   const [targetLayerId, setTargetLayerId] = useState(null);
   const [joinLayerId, setJoinLayerId] = useState(null);
-  const [predicate, setPredicate] = useState("within"); // eg: "intersects", "contains", "within", "touches", "crosses", "overlaps", "equals"
+  const [predicate, setPredicate] = useState(""); // eg: "intersects", "contains", "within", "touches", "crosses", "overlaps", "equals"
   const [distance, setDistance] = useState(500);
   const [distanceUnit, setDistanceUnit] = useState("meters");
-  const [matchStrategy, setMatchStrategy] = useState("first"); // "first", "all", "nearest"
+  const [matchStrategy, setMatchStrategy] = useState("all"); // "first", "all", "nearest"
   //Set default to all fields
   const [selectedFields, setSelectedFields] = useState(() => {
     // This will be initialized when joinFields is available
@@ -50,6 +52,21 @@ function SpatialJoin({ id }) {
   });
   const [fieldPrefix, setFieldPrefix] = useState("join_");
   const [aggregation, setAggregation] = useState(null); // Aggregation strategy for multiple matches (e.g., "count", "sum", "average", etc.)
+
+  // Use the custom hook for adding layers
+  const { addLayerToMap } = useAddLayerToMap({
+    layerType: "spatial_join_result",
+    onSuccess: (resultLayer) => {
+      const featureCount = resultLayer?.metaData?.layer?.feature_count || 0;
+      message.success(
+        `Spatial join complete! ${featureCount} matches found`
+      );
+    },
+    onError: (error) => {
+      console.error("Failed to add spatial join layer:", error);
+      message.error(`Failed to add result: ${error.message}`);
+    },
+  });
 
   // Join hook
   const {
@@ -69,6 +86,12 @@ function SpatialJoin({ id }) {
     onComplete: handleComplete,
     onError: handleError,
   });
+
+  // Reset predicate and selected fields when target or join layer changes
+  useEffect(() => {
+    setPredicate("");
+    setSelectedFields([]);
+  }, [targetLayerId, joinLayerId]);
 
   // Get available layers (polygon, point, line)
   const availableLayers = useMemo(() => {
@@ -128,7 +151,7 @@ function SpatialJoin({ id }) {
 
     const props = features[0].properties || {};
     return Object.keys(props).filter(
-      (key) => !key.startsWith("_"), // Exclude internal fields
+      (key) => !key.startsWith("_") // Exclude internal fields
     );
   }, [joinLayerId, availableLayers]);
 
@@ -142,31 +165,30 @@ function SpatialJoin({ id }) {
     try {
       const layerId = `spatial_join_${Date.now()}`;
 
-      dispatch(
-        setTempGeoJsonLayer({
-          layerId,
-          geoJsonData: result,
-          metaData: {
-            layer: {
-              layer_nm: `Spatial Join: ${targetLayerId} → ${joinLayerId}`,
-              target_layer: targetLayerId,
-              join_layer: joinLayerId,
-              predicate: predicate,
-              match_count: result.features?.length || 0,
-              created: new Date().toISOString(),
-              type: "spatial_join_result",
-            },
-            style: {
-              geom_typ: "P", // Point style by default
-            },
+      // Use the custom hook to add to map
+      const success = addLayerToMap({
+        layerId,
+        geoJsonData: result,
+        metaData: {
+          layer: {
+            layer_nm: `Spatial Join: ${targetLayerId} → ${joinLayerId}`,
+            target_layer: targetLayerId,
+            join_layer: joinLayerId,
+            predicate: predicate,
+            match_count: result.features?.length || 0,
+            feature_count: result.features?.length || 0,
+            created: new Date().toISOString(),
+            type: "spatial_join_result",
           },
-          isActive: true,
-        }),
-      );
+          style: {
+            geom_typ: getLayerType(result.features) || "Unknown",
+          },
+        },
+      });
 
-      message.success(
-        `Spatial join complete! ${result.features?.length || 0} matches found`,
-      );
+      if (!success) {
+        message.error("Failed to add spatial join result to map");
+      }
     } catch (error) {
       console.error("Error adding result to map:", error);
       message.error(`Failed to add result: ${error.message}`);

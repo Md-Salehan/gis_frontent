@@ -46,6 +46,17 @@ export function getGeometryType(feature) {
   return geom.type;
 }
 
+export function getLayerType(features){
+  if (!features || features.length === 0) return null;
+
+  const geomType = features?.[0]?.geometry?.type;
+  if(!geomType) return null;
+  else if(geomType === "Point" || geomType === "MultiPoint") return "P";
+  else if(geomType === "LineString" || geomType === "MultiLineString") return "L";
+  else if(geomType === "Polygon" || geomType === "MultiPolygon") return "G";
+  else return null;
+}
+
 // Check if geometry is a point
 export function isPoint(geometry) {
   if (!geometry) return false;

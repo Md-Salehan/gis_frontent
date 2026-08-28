@@ -1,4 +1,3 @@
-// Centroid.jsx - Updated version
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -39,18 +38,18 @@ import {
   WarningOutlined,
 } from "@ant-design/icons";
 import * as turf from "@turf/turf";
+import { setTempGeoJsonLayer } from "../../store/slices/mapSlice";
 import useIsCompMinimized from "../../hooks/useIsCompMinimized";
-import { useAddLayerToMap } from "../../hooks/useAddLayerToMap";
 
 const { Text, Title, Paragraph } = Typography;
 const { Option } = Select;
 const { Panel } = Collapse;
 
-function Centroid({ id }) {
+function Centroid({id}) {
   const dispatch = useDispatch();
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers || {});
   const tempGeoJsonLayers = useSelector(
-    (state) => state.map.tempGeoJsonLayers || {}
+    (state) => state.map.tempGeoJsonLayers || {},
   );
   const isMinimized = useIsCompMinimized(id);
 
@@ -59,17 +58,6 @@ function Centroid({ id }) {
   const [isLayerGenerated, setIsLayerGenerated] = useState(false);
   const [layerOptions, setLayerOptions] = useState([]);
   const [progressPercent, setProgressPercent] = useState(0);
-
-  // Use the custom hook for adding layers
-  const { addLayerToMap } = useAddLayerToMap({
-    layerType: "centroid_result",
-    onSuccess: () => {
-      setIsLayerGenerated(true);
-    },
-    onError: (error) => {
-      console.error("Failed to add centroid layer:", error);
-    },
-  });
 
   // Extract polygon layers from Redux state
   useEffect(() => {
@@ -118,11 +106,42 @@ function Centroid({ id }) {
         geomType === "MultiPolygon" ||
         (geomType === "GeometryCollection" &&
           feature.geometry?.geometries?.some(
-            (g) => g.type === "Polygon" || g.type === "MultiPolygon"
+            (g) => g.type === "Polygon" || g.type === "MultiPolygon",
           ))
       );
     });
   };
+
+  // Add centroid layer to map
+  const addToMap = useCallback(
+    (resultLayer) => {
+      if (!resultLayer) {
+        message.warning("No centroid results to add");
+        return;
+      }
+
+      try {
+        const { layerId, geoJsonData, metaData } = resultLayer;
+
+        dispatch(
+          setTempGeoJsonLayer({
+            layerId: layerId,
+            geoJsonData: geoJsonData,
+            metaData: metaData,
+            isActive: true,
+          }),
+        );
+
+        message.success(`Centroid layer "${metaData.layer_nm}" added to map!`);
+
+        setIsLayerGenerated(null);
+      } catch (error) {
+        console.error("Error adding layer to map:", error);
+        message.error(`Failed to add layer: ${error.message}`);
+      }
+    },
+    [dispatch],
+  );
 
   // Calculate centroids for a single feature
   const calculateFeatureCentroid = (feature, layerMetaData, index) => {
@@ -130,7 +149,7 @@ function Centroid({ id }) {
       let geometry = feature.geometry;
       if (geometry.type === "GeometryCollection") {
         const polyGeom = geometry.geometries.find(
-          (g) => g.type === "Polygon" || g.type === "MultiPolygon"
+          (g) => g.type === "Polygon" || g.type === "MultiPolygon",
         );
         if (!polyGeom) return null;
         geometry = polyGeom;
@@ -145,7 +164,7 @@ function Centroid({ id }) {
       centroid.properties = {
         ...feature.properties,
         _centroid_from: layerMetaData?.layer?.layer_nm || "Unknown",
-        _centroid_id: `Centroid_${Date.now()}_${index}`,
+        _centroid_id: `Centroid_${Date.now()}` + index,
       };
 
       return centroid;
@@ -163,12 +182,12 @@ function Centroid({ id }) {
     }
 
     setIsProcessing(true);
-    setIsLayerGenerated(false);
+    setIsLayerGenerated(null);
     setProgressPercent(0);
 
     try {
       const layerData = layerOptions.find(
-        (opt) => opt.value === selectedLayerId
+        (opt) => opt.value === selectedLayerId,
       );
       if (!layerData) {
         throw new Error("Layer not found");
@@ -190,21 +209,33 @@ function Centroid({ id }) {
 
       for (let i = 0; i < features.length; i += chunkSize) {
         const chunk = features.slice(i, i + chunkSize);
+        // Update progress
         setProgressPercent(Math.round(((i + 1) / features.length) * 100));
 
         const chunkResults = chunk.map((feature, index) => {
-          return calculateFeatureCentroid(feature, layerMetaData, index);
+          const centroid = calculateFeatureCentroid(
+            feature,
+            layerMetaData,
+            index,
+          );
+          if (centroid) {
+            return centroid;
+          } else {
+            return null;
+          }
         });
 
+        // Filter out null results and add to resultFeatures
         const validResults = chunkResults.filter((f) => f !== null);
         centroids.push(...validResults);
 
+        // Small delay to allow UI to update
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
 
       if (centroids.length === 0) {
         message.warning(
-          "No centroids could be calculated from the selected layer"
+          "No centroids could be calculated from the selected layer",
         );
         setIsProcessing(false);
         return;
@@ -216,8 +247,9 @@ function Centroid({ id }) {
         features: centroids,
       };
 
-      // Use the custom hook to add to map
-      const success = addLayerToMap({
+      // Store result
+      setIsLayerGenerated(true);
+      addToMap({
         layerId: `centroid_${Date.now()}`,
         geoJsonData: centroidCollection,
         metaData: {
@@ -235,10 +267,7 @@ function Centroid({ id }) {
           },
         },
       });
-
-      if (success) {
-        message.success(`Generated ${centroids.length} centroids successfully!`);
-      }
+      message.success(`Generated ${centroids.length} centroids successfully!`);
     } catch (error) {
       console.error("Error calculating centroids:", error);
       message.error(`Failed to calculate centroids: ${error.message}`);
@@ -246,12 +275,12 @@ function Centroid({ id }) {
       setIsProcessing(false);
       setProgressPercent(100);
     }
-  }, [selectedLayerId, layerOptions, addLayerToMap]);
+  }, [selectedLayerId, layerOptions, addToMap]);
 
   // Clear current selection and results
   const clearAll = useCallback(() => {
     setSelectedLayerId(null);
-    setIsLayerGenerated(false);
+    setIsLayerGenerated(null);
     setProgressPercent(0);
     message.info("Cleared all data");
   }, []);
@@ -261,7 +290,7 @@ function Centroid({ id }) {
     setSelectedLayerId(value);
   }, []);
 
-  // Render layer option with badge
+  // Render layer option with badge (used for select options)
   const renderLayerOption = (option) => ({
     label: (
       <Space size={4}>
@@ -289,6 +318,7 @@ function Centroid({ id }) {
   if (isMinimized) {
     return <div style={{ width: "280px" }}></div>;
   }
+
 
   return (
     <Space direction="vertical" style={{ width: "280px" }} size="small">

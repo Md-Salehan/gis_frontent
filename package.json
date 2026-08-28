@@ -19,6 +19,7 @@
     "antd-style": "^3.7.1",
     "axios": "^1.12.2",
     "dayjs": "^1.11.21",
+    "flatbush": "^4.6.2",
     "geokdbush": "^2.1.0",
     "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",

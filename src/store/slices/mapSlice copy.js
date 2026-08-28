@@ -3,20 +3,20 @@ import { createSlice } from "@reduxjs/toolkit";
 import { testData } from "./testData";
 
 const initialState = {
-  geoJsonLayers: {}, // layerId: { geoJsonData, metaData, orderNo }
-  tempGeoJsonLayers: {
-    test_schools: testData.schools,
-    test_districts: testData.districts,
-    test_houses: testData.houses,
-    test_hospitals: testData.hospitals,
-    test_roads: testData.roads,
-    test_rivers: testData.rivers,
-    test_land_parcels: testData.land_parcels,
-    test_police_stations: testData.police_stations,
-    test_city_wards: testData.city_wards,
-    test_pipelines: testData.pipelines,
-    test_conservation_areas: testData.conservation_areas,
-  }, // layerId: { geoJsonData, metaData, orderNo, isActive }
+  geoJsonLayers: {
+    "test_schools": { geoJsonData: testData.schools, metaData: { name: "Schools", description: "Test schools data" }, orderNo: 0 },
+    "test_districts": { geoJsonData: testData.districts, metaData: { name: "Districts", description: "Test districts data" }, orderNo: 1 },
+    "test_houses": { geoJsonData: testData.houses, metaData: { name: "Houses", description: "Test houses data" }, orderNo: 2 },
+    "test_hospitals": { geoJsonData: testData.hospitals, metaData: { name: "Hospitals", description: "Test hospitals data" }, orderNo: 3 },
+    "test_roads": { geoJsonData: testData.roads, metaData: { name: "Roads", description: "Test roads data" }, orderNo: 4 },
+    "test_rivers": { geoJsonData: testData.rivers, metaData: { name: "Rivers", description: "Test rivers data" }, orderNo: 5 },
+    "test_land_parcels": { geoJsonData: testData.land_parcels, metaData: { name: "Land Parcels", description: "Test land parcels data" }, orderNo: 6 },
+    "test_police_stations": { geoJsonData: testData.police_stations, metaData: { name: "Police Stations", description: "Test police stations data" }, orderNo: 7 },
+    "test_city_wards": { geoJsonData: testData.city_wards, metaData: { name: "City Wards", description: "Test city wards data" }, orderNo: 8 },
+    "test_pipelines": { geoJsonData: testData.pipelines, metaData: { name: "Pipelines", description: "Test pipelines data" }, orderNo: 9 },
+    "test_conservation_areas": { geoJsonData: testData.conservation_areas, metaData: { name: "Conservation Areas", description: "Test conservation areas data" }, orderNo: 10 },
+  }, // layerId: { geoJsonData, metaData, orderNo }
+  tempGeoJsonLayers: {}, // layerId: { geoJsonData, metaData, orderNo, isActive }
   multiSelectedFeatures: [], // Now stores: { layerId, featureIndex, feature, metaData }
   viewport: {
     center: [28.7041, 77.1025],
