@@ -8,6 +8,7 @@ import {
   handleMinimizeGlobalComp,
   toggleCentroidModal,
   toggleCountPointsModal,
+  toggleDataJoinModal,
   toggleDistanceMatrixModal,
   toggleSpatialJoinModal,
 } from "../../store/slices/uiSlice";
@@ -15,6 +16,7 @@ import CountPointsInPolygon from "./CountPointsInPolygon";
 import { Calculator, CircleDot, Dice5 } from "lucide-react";
 import DistanceMatrix from "./DistanceMatrix";
 import SpatialJoin from "./spatialJoin";
+import { DataJoinPanel } from "./dataJoin";
 const { Text, Title, Paragraph } = Typography;
 
 function SpatialAnalysis() {
@@ -24,7 +26,8 @@ function SpatialAnalysis() {
     isCentroidModalOpen,
     isCountPointsModalOpen,
     isDistanceMatrixModalOpen,
-    isSpatialJoinModalOpen
+    isSpatialJoinModalOpen,
+    isDataJoinModalOpen
   } = useSelector((state) => state.ui);
   const handlePositionChange = (newPosition) => {
     setPosition(newPosition);
@@ -143,6 +146,35 @@ function SpatialAnalysis() {
           }}
         >
           <SpatialJoin id="spatialJoin" />
+        </Movable>
+      ) : (
+        ""
+      )}
+
+      {isDataJoinModalOpen ? (
+        <Movable
+          isMovable={true}
+          title="Data Join"
+          icon={<Calculator  />}
+          titleFontSize={14}
+          // onPositionChange={handlePositionChange}
+          // initialPosition={position}
+          style={{
+            backgroundColor: "white",
+            borderRadius: "8px",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+            height: "auto",
+            width: "auto",
+          }}
+          onClose={(e) => {
+            dispatch(handleMinimizeGlobalComp({ id: "dataJoin", status: false }));
+            dispatch(toggleDataJoinModal({ state: false }));
+          }}
+          onMinimize={(e) => {
+            dispatch(handleMinimizeGlobalComp({ id: "dataJoin"}));
+          }}
+        >
+          <DataJoinPanel id="dataJoin" />
         </Movable>
       ) : (
         ""

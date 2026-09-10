@@ -4,19 +4,7 @@ import { testData } from "./testData";
 
 const initialState = {
   geoJsonLayers: {}, // layerId: { geoJsonData, metaData, orderNo }
-  tempGeoJsonLayers: {
-    test_schools: testData.schools,
-    test_districts: testData.districts,
-    test_houses: testData.houses,
-    test_hospitals: testData.hospitals,
-    test_roads: testData.roads,
-    test_rivers: testData.rivers,
-    test_land_parcels: testData.land_parcels,
-    test_police_stations: testData.police_stations,
-    test_city_wards: testData.city_wards,
-    test_pipelines: testData.pipelines,
-    test_conservation_areas: testData.conservation_areas,
-  }, // layerId: { geoJsonData, metaData, orderNo, isActive }
+  tempGeoJsonLayers: {}, // layerId: { geoJsonData, metaData, orderNo, isActive }
   multiSelectedFeatures: [], // Now stores: { layerId, featureIndex, feature, metaData }
   viewport: {
     center: [28.7041, 77.1025],

@@ -57,6 +57,7 @@ import {
   toggleBuffer,
   toggleCentroidModal,
   toggleCountPointsModal,
+  toggleDataJoinModal,
   toggleDistanceMatrixModal,
   toggleFeatureSelection,
   toggleIdentify,
@@ -154,7 +155,15 @@ const GisDashboard = memo(() => {
         dispatch(toggleSpatialJoinModal({ state: true }));
       },
       icon: React.createElement(CircleDashed),
-    }
+    },
+    {
+      key: "datajoin",
+      label: "Data Join",
+      onClick: () => {
+        dispatch(toggleDataJoinModal({ state: true }));
+      },
+      icon: React.createElement(CircleDashed),
+    },
   ];
 
   const items = [

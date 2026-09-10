@@ -1,445 +1,416 @@
+# Build a Production-Grade Data Join (Attribute Join) Feature for a Web GIS
 
+I am building a production Web GIS application using **React.js + Leaflet.js + Ant Design**.
 
-# Build a Production-Grade Spatial Join Feature for a Web GIS
+Build a standalone **Data Join / Attribute Join** feature.
 
-I am building a production Web GIS application using **React.js + Leaflet.js + TypeScript + Ant Design**.
+This feature must be completely independent from the Spatial Join feature. Do not mix spatial predicates, spatial indexing, Turf.js geometry operations, or spatial calculations into this module.
 
-Build a standalone **Spatial Join** analysis feature.
-
-This feature must be completely independent from the Data/Attribute Join feature.
-
-The purpose of this feature is to transfer attributes between GIS layers based on **geometric/spatial relationships**, not matching attribute values.
+The purpose of this feature is to join attributes from one GIS layer to another using matching attribute/field values.
 
 ---
 
 # 1. Core Concept
 
-A Spatial Join should answer questions such as:
+Implement a traditional relational/data join between two GIS layers.
 
-* Which district contains each school?
-* Which roads intersect this river?
-* Which houses are within 500 meters of a hospital?
-* What is the nearest hospital to each village?
+## Example
 
-Example:
+### Target Layer
 
+**Schools**
 
-Schools Layer
-      ↓
-Spatial Join
-      ↓
-District Layer
-      ↓
-Result
+| id | name     | district_code |
+| -- | -------- | ------------- |
+| 1  | School A | WB001         |
+| 2  | School B | WB002         |
 
+### Join Layer
 
-Result:
+**Districts**
 
+| district_code | district_name |
+| ------------- | ------------- |
+| WB001         | Kolkata       |
+| WB002         | Howrah        |
 
-School A → Kolkata
-School B → Howrah
-School C → Kolkata
+### Result
 
+**Schools**
 
-The join must be determined using geometry.
+| id | name     | district_code | district_name |
+| -- | -------- | ------------- | ------------- |
+| 1  | School A | WB001         | Kolkata       |
+| 2  | School B | WB002         | Howrah        |
 
-**Do NOT use attribute fields as the primary join mechanism.**
+The join must be based ONLY on attribute values.
 
 ---
 
-# 2. Supported Spatial Predicates
+# 2. Supported Join Types
 
 Support:
 
-* Intersects
-* Within
-* Contains
-* Touches
-* Overlaps
-* Crosses
-* Within Distance
-* Nearest
+## Left Join
 
-Map these concepts to Turf.js operations where appropriate.
+Keep every feature from the Target Layer.
 
-Examples:
+Target: 100 features
+Matches: 70
 
+Result: 100 features
 
-within          → booleanWithin
-contains        → booleanContains
-intersects      → booleanIntersects
-touches         → booleanTouches
-overlaps        → booleanOverlap
-crosses         → booleanCrosses
+Unmatched records should contain `null`/empty values for joined fields.
 
+## Inner Join
 
-Do not assume every predicate is valid for every geometry combination.
+Return only features that have a matching record.
 
-Validate compatibility.
+Target: 100 features
+Matches: 70
+
+Result: 70 features
+
+Design the architecture so additional join types can be added later.
 
 ---
 
-# 3. Layer Selection
+# 3. Compact Ant Design UI
 
-Integrate with the existing Web GIS Layer Manager.
-
-User selects:
-
-
-Target Layer
-Join Layer
-
-
-Examples:
-
-
-Target: Schools
-Join: Districts
-Predicate: Within
-
-
-or:
-
-
-Target: Hospitals
-Join: Roads
-Predicate: Intersects
-
-
-Do not duplicate layer data unnecessarily.
-
-I recommend not hardcoding a single Point → Polygon workflow.
-
-Instead build:
-
-
-Target Geometry Type
-        +
-Join Geometry Type
-        +
-Spatial Predicate
-        ↓
-Compatibility Rules
-        ↓
-Spatial Join Algorithm
-
-
-For example:
-
-ts
-const predicateCompatibility = {
-  point: {
-    point: ["nearest", "within-distance"],
-    line: ["nearest", "within-distance", "intersects"],
-    polygon: ["within", "intersects"]
-  },
-
-  line: {
-    point: ["nearest", "within-distance", "intersects"],
-    line: ["intersects", "crosses"],
-    polygon: ["intersects", "crosses", "within"]
-  },
-
-  polygon: {
-    point: ["contains", "intersects"],
-    line: ["contains", "intersects"],
-    polygon: ["within", "contains", "intersects", "overlaps"]
-  }
-};
-
-
-You'd want to refine this matrix based on the exact semantics of the geometry library you use.
-
-Then your UI can dynamically show only valid operations.
-
-For example:
-
-
-Target: Point
-Join: Polygon
-
-Available:
-✓ Within
-✓ Intersects
-✓ Within Distance
-
-Unavailable:
-✗ Overlaps
-✗ Crosses
-
-
----
-
-# 4. Geometry Compatibility
-
-Implement a compatibility matrix.
-
-For example:
-
-
-Point + Polygon
-    → Within ✓
-
-Point + Polygon
-    → Contains ✗ / depends on direction
-
-Polygon + Polygon
-    → Overlaps ✓
-
-Line + Polygon
-    → Crosses ✓
-
-
-The UI should prevent or warn about invalid combinations.
-
----
-
-# 5. Geometry Validation
-
-Before execution validate:
-
-* Target layer exists.
-* Join layer exists.
-* Both contain valid geometries.
-* Geometry types are supported.
-* Layers are not the same.
-* Predicate is compatible with geometry types.
-* Required distance is provided.
-* Distance is positive.
-
-Handle:
-
-
-Point
-LineString
-Polygon
-MultiPoint
-MultiLineString
-MultiPolygon
-
-
-where supported.
-
----
-
-# 6. Compact Ant Design UI
-
-Build a compact GIS sidebar panel.
+Create a compact GIS sidebar/toolbox using Ant Design.
 
 Use:
 
 * `Card`
 * `Select`
 * `Radio.Group`
-* `InputNumber`
 * `Button`
 * `Progress`
 * `Alert`
 * `Tag`
 * `Tooltip`
 * `Space`
-* `Collapse`
 * `Divider`
+* `Collapse`
 
 Use:
 
-jsx
+```jsx
 size="small"
+```
 
+Keep the UI compact and suitable for a narrow Web GIS sidebar.
 
-Example:
+## Example
 
-
-┌──────────────────────────────┐
-│ Spatial Join                 │
-├──────────────────────────────┤
+```text
+┌──────────────────────────────┌──────────────────────────────
+│ Data Join                    │                              │
+├──────────────────────────────┤──────────────────────────────┤
 │ Target Layer                 │
-│ [ Schools              ▼ ]   │
+│ [ Schools              ▼ ]   │ previous Target Layer attribute table
 │                              │
 │ Join Layer                   │
 │ [ Districts            ▼ ]   │
 │                              │
-│ Relationship                 │
-│ [ Within                ▼ ]  │
+│ Target Field                 │
+│ [ district_code        ▼ ]   │
+│                              |
+│ Join Type                    │
+│ [ Left Join             ▼ ]  │
+│                              |
+| Match Strategy               |
+│ [ All match             ▼ ]  │
+│                              |
+| Aggregation                  |
+│ [ Count        ▼ ]           │
+│                              |
+│ Output Fields                │
+│ [ Select fields...      ▼ ]  │
+│                              │ new Target Layer attribute table after running join operation
 │                              │
-│ Distance                     │
-│ [ 500 ] [ meters ▼ ]         │
-│                              │
-│ Join Fields                  │
-│ [ district_name         ▼ ]  │
-│                              │
-│         [ Run Join ]         │
+│        [ Run Join ]          │
 └──────────────────────────────┘
+```
 
+Do not use a large modal.
 
-Only show controls relevant to the selected predicate.
+---
+
+# 4. Layer Selection
+
+Integrate with the existing Web GIS Layer Manager.
+
+The user selects:
+
+```text
+Target Layer
+      ↓
+Join Layer
+```
+
+Then dynamically load available fields.
+
+## Example
+
+```text
+Target Layer
+    ↓
+Available Fields
+    ├── id
+    ├── name
+    ├── district_code
+    └── population
+```
+
+```text
+Join Layer
+    ↓
+Available Fields
+    ├── district_code
+    ├── district_name
+    └── state
+```
+
+---
+
+# 5. Field Validation
+
+Before executing the join validate:
+
+* Target layer exists.
+* Join layer exists.
+* Target field exists.
+* Join field exists.
+* Both fields contain compatible values.
+* Layers are not empty.
+* Join configuration is valid.
+
+Display validation errors directly in the compact UI.
+
+## Examples
+
+```text
+Target field does not exist.
+```
+
+```text
+No matching values found.
+```
+
+```text
+Target and Join layers cannot be the same.
+```
+
+---
+
+# 6. Data Normalization
+
+Support optional normalization before comparison.
 
 For example:
 
+```text
+"Kolkata"
+"kolkata"
+" KOLKATA "
+```
 
-Within
+can optionally be treated as the same value.
 
+Provide configurable options:
 
-does not require a distance.
+```text
+☐ Trim whitespace
+☐ Case insensitive
+☐ Convert numeric/string values
+```
 
-But:
+Do not silently modify the original layer.
 
-
-Within Distance
-
-
-must display:
-
-
-Distance
-Unit
-
+Normalization should happen only during the join.
 
 ---
 
-# 7. Spatial Join Algorithm
+# 7. Efficient Join Algorithm
 
-**DO NOT implement:**
+Do NOT implement:
 
-ts
+```javascript
 for (const target of targetFeatures) {
     for (const join of joinFeatures) {
-        // expensive geometry comparison
+        if (target.properties[key] === join.properties[key]) {
+            ...
+        }
     }
 }
+```
 
+This creates:
 
-This produces:
-
-
+```text
 O(N × M)
+```
 
+complexity.
 
-candidate comparisons.
+Instead create a lookup index.
 
-Instead use a spatial index.
+## Example
 
-Architecture:
+```javascript
+const lookup = new Map();
 
+for (const feature of joinFeatures) {
+    const key = feature.properties[joinField];
 
-JOIN LAYER
-   ↓
-Calculate BBOX for every feature
-   ↓
-Build spatial index
+    if (!lookup.has(key)) {
+        lookup.set(key, []);
+    }
 
-TARGET LAYER
-   ↓
-For each target feature
-   ↓
-Calculate its BBOX
-   ↓
-Query JOIN spatial index
-   ↓
-Get candidate JOIN features
-   ↓
-Run exact spatial predicate
-   ↓
-Create result
-
-
-Use an R-tree / Flatbush / equivalent spatial indexing approach.
-
-The exact geometry predicate should only run against candidate features.
-
----
-
-# 8. Two-Stage Spatial Filtering
-
-Every expensive spatial join should use:
-
-## Stage 1 — Fast Candidate Filtering
-
-Use bounding boxes/spatial index.
-
-
-Target geometry
-      ↓
-BBox
-      ↓
-Spatial index query
-      ↓
-Candidates
-
-
-## Stage 2 — Exact Geometry Operation
-
-Only then run:
-
-
-booleanWithin()
-booleanIntersects()
-booleanContains()
-...
-
-
-This is critical for large datasets.
-
----
-
-# 9. Spatial Index
-
-Build the index from the Join Layer.
-
-Conceptually:
-
-ts
-const spatialIndex = buildSpatialIndex(joinFeatures);
-
+    lookup.get(key).push(feature);
+}
+```
 
 Then:
 
-ts
-const candidates =
-    spatialIndex.search(targetFeatureBBox);
+```javascript
+for (const target of targetFeatures) {
+    const key = target.properties[targetField];
 
+    const matches = lookup.get(key);
+}
+```
 
-Do not rebuild the spatial index for every target feature.
+This reduces the lookup operation to approximately:
 
-Build once and reuse.
+```text
+O(N + M)
+```
+
+excluding output/aggregation costs.
+
+---
+
+# 8. One-to-Many Relationships
+
+The Join Layer may contain duplicate values.
+
+## Example
+
+```text
+Customer ID | Order
+------------|------
+101         | A
+101         | B
+101         | C
+```
+
+Target:
+
+```text
+Customer ID
+101
+```
+
+The system must NOT silently overwrite duplicate matches.
+
+Support configurable behavior:
+
+## Match Strategy
+
+```text
+○ First Match
+○ All Matches
+○ Aggregate
+```
+
+For `All Matches`, define how the result should be represented.
+
+For `Aggregate`, support:
+
+* Count
+* Sum
+* Average
+* Min
+* Max
+* Concatenate
+
+## Example
+
+```text
+Customer | Order Count | Total Amount
+A        | 5            | ₹12,500
+```
+
+---
+
+# 9. Field Collision Handling
+
+If both layers contain:
+
+```text
+name
+id
+population
+```
+
+do not overwrite the Target Layer properties.
+
+Use configurable prefixes:
+
+```text
+Target prefix:
+target_
+
+Join prefix:
+join_
+```
+
+## Result
+
+```text
+target_name
+target_id
+
+join_name
+join_id
+```
+
+Alternatively allow the user to select only the fields to import.
+
+For large datasets, encourage selecting only required fields to reduce memory usage.
 
 ---
 
 # 10. Chunking
 
-The Spatial Join **MUST** process datasets in chunks.
+The Data Join feature must support chunked processing for large datasets.
 
-Example:
+Do not process huge datasets in one blocking synchronous operation.
 
+Create a reusable utility:
 
-50,000 target features
-
-Chunk 1 → 500
-Chunk 2 → 500
-Chunk 3 → 500
-...
-
-
-Create a reusable processor:
-
-ts
+```javascript
 processInChunks(features, {
     chunkSize,
     onProgress,
     onChunkComplete,
     signal
 });
+```
 
-
-Support:
+The chunk processor should support:
 
 * Configurable chunk size
-* Progress
+* Progress reporting
 * Cancellation
 * Error handling
 * Memory-conscious processing
 
-Do not block the browser main thread.
+Do not update React state for every feature.
+
+Update progress periodically.
 
 ---
 
@@ -447,486 +418,1481 @@ Do not block the browser main thread.
 
 Provide:
 
-
-Processing Spatial Join...
+```text
+Processing...
 
 ████████████░░░░░░░ 62%
 
 31,000 / 50,000
 
 [ Cancel ]
+```
 
+Use `AbortController`.
 
-Support cancellation through:
-
-
-AbortController
-
-
-and prevent memory leaks.
+And prevent memory leaks.
 
 ---
 
 # 12. Progress Optimization
 
-Do not send progress messages for every feature.
+Do not send a Worker message for every record.
 
-Batch updates:
+Batch progress updates.
 
+For example:
 
-Every 500–1000 features
-
+```text
+Every 500–1000 records
+```
 
 or:
 
-
+```text
 Every 100–250 ms
+```
 
-
-React should not re-render for every processed feature.
-
----
-
-# 13. One-to-Many Spatial Matches
-
-Spatial joins frequently produce multiple matches.
-
-Example:
-
-
-District
-   ↓
-Many Schools
-
-
-or:
-
-
-Hospital
-   ↓
-Many nearby Villages
-
-
-Do not silently overwrite matches.
-
-Support:
-
-
-Match Strategy
-
-○ First Match
-○ All Matches
-○ Aggregate
-
-
-For aggregation support:
-
-* count
-* sum
-* average
-* min
-* max
-* concatenate
-
-Example:
-
-
-District | School Count
-North    | 25
-South    | 18
-
+The UI should remain responsive.
 
 ---
 
-# 14. Nearest Join
+# 13. Memory Optimization
 
-For:
+Do not use:
 
+```javascript
+JSON.parse(JSON.stringify(data))
+```
 
-Nearest
+Do not repeatedly clone the entire FeatureCollection.
 
+Do not store every intermediate chunk in React state.
 
-use the spatial index to efficiently find candidate features.
-
-Workflow:
-
-
-Target
- ↓
-Spatial Index
- ↓
-Nearest Candidates
- ↓
-Distance Calculation
- ↓
-Nearest Feature
-
-
-Optionally add:
-
-
-nearest_distance
-
-
-to the output properties.
-
-Allow units:
-
-
-meters
-kilometers
-miles
-
-
-Use Turf's geodesic distance calculations or an appropriate projected CRS.
-
-Never calculate geographic distance using simple latitude/longitude subtraction.
-
----
-
-# 15. Within-Distance Join
-
-For:
-
-
-Within Distance
-
-
-UI:
-
-
-Distance
-[ 500 ]
-
-Unit
-[ meters ▼ ]
-
-
-Algorithm:
-
-
-Target Geometry
-      ↓
-Expanded Search BBox
-      ↓
-Spatial Index
-      ↓
-Candidates
-      ↓
-Accurate Distance Test
-      ↓
-Matches
-
-
-Do not calculate distance against every feature in the Join Layer.
-
----
-
-# 16. Attribute Selection
-
-After finding spatial matches, copy only selected Join Layer properties.
-
-Example:
-
-
-Join fields:
-
-☑ district_name
-☑ population
-☐ internal_id
-☐ created_at
-
-
-Do not copy the entire Join Layer property object by default.
-
-This reduces memory usage.
-
----
-
-# 17. Field Collision Handling
-
-If both layers contain:
-
-
-id
-name
-population
-
-
-do not overwrite Target Layer properties.
+Keep large datasets outside frequently changing React state where appropriate.
 
 Use:
 
+* `useRef`
+* service layer
+* dedicated state/store
 
-target_
-join_
+depending on the existing application architecture.
 
-
-prefixes.
-
-Example:
-
-
-target_name
-join_name
-
-
-Allow users to customize prefixes.
+Only return the final result to the UI.
 
 ---
 
-# 18. Result Layer
+# 14. Result Layer
 
-Never mutate the original layers.
+Never mutate the original Target Layer.
 
 Create:
 
-
-Spatial Join Result
-
+```text
+Data Join Result
+```
 
 as a new GeoJSON FeatureCollection.
 
-Integrate with the existing Layer Manager.
+The result should:
 
-Result layer must support:
+* Appear in Layer Manager
+* Have a unique layer ID
+* Be toggleable
+* Be removable
+* Support popup/attribute inspection
+* Support zoom-to-layer
 
-* Toggle visibility
-* Remove
-* Zoom to layer
-* Popup
-* Attribute inspection
-* Export
+Use Leaflet only for rendering the final result.
 
-Do not recreate the Leaflet map.
-
-Only add the result layer.
+Do not recreate the entire Leaflet map.
 
 ---
 
-# 19. Leaflet Integration
+# 16. Architecture
 
-After processing:
+Use a modular structure:
 
+```text
+src/
+└── features/
+    └── dataJoin/
+        ├── components/
+        │   ├── DataJoinPanel.tsx
+        │   ├── LayerSelector.tsx
+        │   ├── FieldSelector.tsx
+        │   ├── JoinTypeSelector.tsx
+        │   ├── OutputFieldSelector.tsx
+        │   ├── JoinProgress.tsx
+        │   └── JoinResultActions.tsx
+        │
+        ├── hooks/
+        │   ├── useDataJoin.ts
+        │   └── useDataJoinValidation.ts
+        │
+        ├── services/
+        │   ├── dataJoinService.ts
+        │   └── resultLayerService.ts
+        │
+        ├── algorithms/
+        │   ├── attributeIndex.ts
+        │   ├── attributeJoin.ts
+        │   └── aggregation.ts
+        │
+        ├── utils/
+        │   ├── chunkProcessor.ts
+        │   ├── valueNormalizer.ts
+        │   └── fieldUtils.ts
+        │
+        └── index.ts
+```
 
-Result GeoJSON
-      ↓
-L.geoJSON()
-      ↓
-Leaflet Result Layer
-
-
-Use the existing Leaflet map instance.
-
-Do not perform expensive geometry calculations inside Leaflet rendering.
-
-Processing should already be complete before rendering the result.
-
----
-
-# 20. Memory Optimization
-
-Avoid:
-
-ts
-JSON.parse(JSON.stringify(data))
-
-
-Avoid unnecessary deep copies.
-
-Do not continuously add processed features to Leaflet.
-
-Instead:
-
-
-Process chunks
-      ↓
-Collect result
-      ↓
-Create final GeoJSON
-      ↓
-Render once
-
-
-For extremely large results, design a path for server-side processing.
+Do not put the entire feature inside `DataJoin.jsx`.
 
 ---
 
-# 21. React Architecture
+# 17. React State
 
-Do not store huge intermediate datasets in React state.
+Do not store large intermediate datasets in frequently changing React state.
 
 React state should primarily contain:
 
+* configuration
+* status
+* progress
+* error
+* result layer ID
 
-configuration
-status
-progress
-error
-resultLayerId
+Example:
 
-
-**DO NOT create one giant `SpatialJoin.jsx`.**
-
-Divide the component and function efficiently and keep algorithms pure and independently testable.
-
----
-
-# 22. CRS / Distance Handling
-
-Clearly distinguish:
-
-
-Topological relationship
-
-
-from:
-
-
-Distance measurement
-
-
-For:
-
-
-within
-intersects
-contains
-
-
-use appropriate geometry operations.
-
-For distance:
-
-
-nearest
-within-distance
-
-
-use proper geodesic or projected-coordinate calculations.
-
-Do not assume raw longitude/latitude values represent linear distances.
+```
+ JoinStatus =
+    | "idle"
+    | "validating"
+    | "processing"
+    | "completed"
+    | "cancelled"
+    | "error";
+```
 
 ---
 
-# 23. Error Handling
+# 20. Performance Strategy
 
-Handle:
+```text
+Map Index
++
+Chunking
+```
 
-* Invalid GeoJSON
-* Invalid geometries
+solution be optimized to handle large data set, join operation will be handle on client side only.
+
+---
+
+# 22. Testing
+
+Test:
+
+## Basic
+
+* Left join
+* Inner join
+* Exact matches
+* No matches
 * Empty layers
-* Unsupported geometry combinations
-* CRS issues
-* Invalid distance
-* Memory failure
-* Cancellation
-* No matching features
 
-Never silently fail.
+## Normalization
+
+* Whitespace
+* Case differences
+* Numeric/string values
+
+## Duplicates
+
+* One-to-one
+* One-to-many
+* Duplicate join keys
+
+## Fields
+
+* Missing fields
+* Field collisions
+* Selected fields
+* Prefixes
+
+## Performance
+
+Test:
+
+```text
+1,000
+10,000
+50,000
+100,000+
+```
+
+Measure:
+
+* Index creation time
+* Join time
+* Memory usage
+* UI responsiveness
+
+## Cancellation
+
+Verify:
+
+```text
+Start
+ ↓
+Process
+ ↓
+Cancel
+ ↓
+UI returns to idle
+```
 
 ---
 
-# 24. Final UX
+# 23. Final UX
 
-The final tool should look like a professional GIS analysis tool:
+The final feature should feel like a professional GIS tool:
 
-
-┌──────────────────────────────┐
-│ Spatial Join           [×]   │
-├──────────────────────────────┤
-│ Target                       │
-│ [ Schools              ▼ ]   │
+```text
+┌──────────────────────────────┌──────────────────────────────
+│ Data Join                    │                              │
+├──────────────────────────────┤──────────────────────────────┤
+│ Target Layer                 │
+│ [ Schools              ▼ ]   │ previous Target Layer attribute table
 │                              │
-│ Join                         │
+│ Join Layer                   │
 │ [ Districts            ▼ ]   │
 │                              │
-│ Relationship                 │
-│ [ Within                ▼ ]  │
+│ Target Field                 │
+│ [ district_code        ▼ ]   │
+│                              |
+│ Join Type                    │
+│ [ Left Join             ▼ ]  │
+│                              |
+| Match Strategy               |
+│ [ All match             ▼ ]  │
+│                              |
+| Aggregation                  |
+│ [ Count        ▼ ]           │
+│                              |
+│ Output Fields                │
+│ [ Select fields...      ▼ ]  │
+│                              │ new Target Layer attribute table after running join operation
 │                              │
-│ Fields                       │
-│ [ district_name         ▼ ]  │
-│                              │
-│ Match                        │
-│ [ First Match           ▼ ]  │
-│                              │
-│         [ Run Join ]         │
+│        [ Run Join ]          │
 └──────────────────────────────┘
+```
 
-
-For distance operations:
-
-
-Relationship
-[ Within Distance ▼ ]
-
-Distance
-[ 500 ] [ meters ▼ ]
-
-
-During execution:
-
-
-Spatial Join
-
-██████████████░░░░░ 72%
-
-36,000 / 50,000
-
-[ Cancel ]
-
-
-After completion:
-
-
-✓ Spatial Join completed
-
-12,482 matches
-
-[ Add to Map ] [ Export ]
-
+Keep it compact, fast, non-blocking, and suitable for a GIS sidebar.
 
 ---
 
-# 25. Important Implementation Principle
+# CRITICAL PERFORMANCE REQUIREMENT
 
-This must be a **Spatial Join module only**.
+**NEVER implement Data Join using nested loops.**
 
-Do **NOT** implement:
+DO NOT implement:
 
-* Attribute/Data Join
-* Field-to-field matching as the primary mechanism
-* SQL-style joins
-* Attribute lookup joins
+```javascript
+for (const target of targetFeatures) {
+  for (const join of joinFeatures) {
+    // compare keys
+  }
+}
+```
 
-The feature should focus exclusively on:
+This creates:
 
+```text
+O(N × M)
+```
 
-Geometry
-   ↓
-Spatial Index
-   ↓
-Candidate Features
-   ↓
-Spatial Predicate
-   ↓
-Match
-   ↓
-Attribute Transfer
-   ↓
-Result GeoJSON
+complexity and becomes extremely slow for large datasets.
 
+Instead, implement a hash-based lookup strategy:
 
-The implementation must prioritize:
+```text
+Join Layer
+    ↓
+Extract Join Key
+    ↓
+Normalize Key
+    ↓
+Build Map / Hash Lookup
+    ↓
+Target Layer
+    ↓
+Extract Target Key
+    ↓
+Normalize Key
+    ↓
+Map.get(key)
+    ↓
+Merge Selected Attributes
+    ↓
+Result Layer
+```
 
+The expected complexity should be approximately:
 
-correct spatial relationships
+```text
+O(N + M)
+```
+
+where:
+
+```text
+N = Target feature count
+M = Join feature count
+```
+
+---
+
+# 3. Lookup Map Architecture
+
+Build the lookup structure from the Join Layer once.
+
+Example:
+
+```javascript
+const lookup = new Map();
+
+for (const feature of joinFeatures) {
+  const key = normalizeKey(getJoinKey(feature));
+
+  if (!key) continue;
+
+  lookup.set(key, feature);
+}
+```
+
+Then process the Target Layer:
+
+```javascript
+for (const feature of targetFeatures) {
+  const key = normalizeKey(getTargetKey(feature));
+
+  const match = lookup.get(key);
+
+  // merge attributes
+}
+```
+
+Do not rebuild the lookup Map for every Target feature.
+
+The Join Layer should be scanned only once when constructing the lookup structure.
+
+---
+
+# 4. Duplicate Join-Key Handling
+
+This is a critical requirement.
+
+NEVER silently overwrite duplicate Join Layer keys unless the selected configuration explicitly allows it.
+
+For example:
+
+### Join Layer
+
+```text
+customer_id | revenue
+00123       | 50000
+00123       | 70000
+```
+
+A simple:
+
+```javascript
+lookup.set("00123", feature);
+```
+
+would silently discard one record.
+
+Instead, support duplicate-key policies.
+
+The UI/configuration must provide:
+
+```text
+First Match
+00123 → first matching record
+
+All Matches
+00123 → [record1, record2, ...]
+
+Aggregate
+```
+
+Allow aggregation of duplicate records.
+
+Supported aggregation operations should include:
+
+```text
+COUNT
+SUM
+AVG
+MIN
+MAX
+CONCAT
+Error on Duplicate
+```
+
+Treat duplicate Join keys as a data-quality error and prevent execution or clearly report the issue.
+
+The implementation should use an appropriate lookup structure:
+
+```text
+Map<string, Feature>
+```
+
+when uniqueness is guaranteed.
+
+Use:
+
+```text
+Map<string, Feature[]>
+```
+
+when duplicate handling is required.
+
+Do not unnecessarily use arrays when the selected configuration guarantees unique keys.
+
+---
+
+# 5. Key Normalization
+
+Implement a dedicated and reusable key-normalization function.
+
+Example:
+
+```text
+normalizeKey(value, options)
+```
+
+It should support configurable normalization such as:
+
+* trim leading/trailing whitespace
+* case-insensitive matching
+* Unicode normalization where appropriate
+* optional type normalization
+
+Example:
+
+```text
+" ABC123 "
+"ABC123"
+"abc123"
+```
+
+can optionally resolve to the same key.
+
+However, normalization must be explicit and predictable.
+
+---
+
+# 6. IMPORTANT: Preserve Identifier Semantics
+
+DO NOT blindly convert all keys to numbers.
+
+For example:
+
+```text
+"00123"
+```
+
+must NOT automatically become:
+
+```text
+123
+```
+
+because:
+
+```text
+00123 ≠ 123
+```
+
+for many identifier datasets.
+
+Examples where leading zeros matter:
+
+* PIN codes
+* Customer IDs
+* Account IDs
+* Postal codes
+* Product codes
+* Employee IDs
+* Survey IDs
+* Administrative codes
+
+Numeric conversion should therefore be OFF by default.
+
+If type coercion is supported, make it an explicit user-selected option.
+
+---
+
+# 7. Null / Empty / Undefined Keys
+
+Handle invalid join keys explicitly.
+
+Treat these as invalid/unmatched by default:
+
+```text
+null
+undefined
+""
+"   "
+```
+
+Do NOT automatically consider:
+
+```text
+null === null
+```
+
+to be a valid join match.
+
+If null-to-null matching is supported, it must be an explicit configuration option.
+
+Default behavior:
+
+```text
+Invalid Target Key → Unmatched
+Invalid Join Key → Excluded from lookup
+```
+
+---
+
+# 8. Composite Keys
+
+Support joins using multiple fields.
+
+Example:
+
+```text
+State + District
+```
+
+Target:
+
+```text
+state = WB
+district = Kolkata
+```
+
+Join:
+
+```text
+state = WB
+district = Kolkata
+```
+
+The composite key should be generated safely.
+
+DO NOT simply concatenate values:
+
+```text
+state + district
+```
+
+because this can produce ambiguous collisions.
+
+Instead use a structured representation such as:
+
+```javascript
+JSON.stringify([
+  stateValue,
+  districtValue
+]);
+```
+
+Both Target and Join keys must use the exact same composite-key generation logic.
+
+---
+
+# 9. Duplicate Target Keys
+
+Duplicate Target keys are NOT inherently an error.
+
+For example:
+
+### Target
+
+```text
+customer_id
+00123
+00123
+00123
+```
+
+Every Target feature should independently receive the matching Join attributes.
+
+The lookup structure should be built from the Join Layer, while each Target feature performs its own lookup.
+
+---
+
+# 10. Selective Attribute Transfer
+
+Do NOT blindly copy every Join Layer property.
+
+Avoid:
+
+```javascript
+{
+  ...target.properties,
+  ...join.properties
+}
+```
+
+when the Join Layer contains hundreds of fields.
+
+Instead, allow the user to select which fields should be transferred.
+
+Example:
+
+```text
+Join Fields
+
+☑ customer_type
+☑ revenue
+☐ internal_id
+☐ created_at
+☐ metadata
+☐ debug_field
+```
+
+Only selected fields should be copied.
+
+This reduces:
+
+* memory usage
+* processing cost
+* result size
+* rendering overhead
+* unnecessary property duplication
+
+---
+
+# 11. Field Collision Handling
+
+Handle situations where Target and Join Layers contain fields with the same name.
+
+Example:
+
+### Target
+
+```text
+name
+status
+```
+
+### Join
+
+```text
+name
+status
+revenue
+```
+
+DO NOT silently overwrite Target attributes.
+
+Provide configurable collision strategies:
+
+### Prefix Join Fields
+
+```text
+join_name
+join_status
+join_revenue
+```
+
+### Prefix Target Fields
+
+```text
+target_name
+target_status
+```
+
+### Replace
+
+Explicitly replace Target values.
+
+### Skip
+
+Keep the existing Target field.
+
+### Error
+
+Stop the join and report the conflict.
+
+The safest default should avoid accidental data loss.
+
+---
+
+# 12. Result Cardinality
+
+The default result should preserve:
+
+```text
+1 Target Feature → 1 Result Feature
+```
+
+Do NOT unexpectedly duplicate Target geometries because a Join Layer contains multiple matching records.
+
+If one-to-many matching is selected, require an explicit handling strategy such as:
+
+```text
+All Matches
+Aggregate Matches
+First Match
+```
+
+For normal Data Join, maintain one result feature per Target feature.
+
+---
+
+# 13. Missing Matches
+
+Unmatched Target features must NOT be silently discarded.
+
+Track:
+
+* Total Target Features
+* Matched Features
+* Unmatched Features
+* Match Rate
+
+Example:
+
+```text
+Target Features: 100,000
+Matched:         94,320
+Unmatched:        5,680
+Match Rate:      94.32%
+```
+
+The UI should clearly display these statistics after execution.
+
+Optionally provide:
+
+```text
+Create Unmatched Layer
+```
+
+which contains only Target features for which no Join match was found.
+
+---
+
+# 14. Data Quality Diagnostics
+
+The engine should detect and report important data-quality problems.
+
+At minimum detect:
+
+* Invalid Target Keys
+* Invalid Join Keys
+* Duplicate Join Keys
+* Unmatched Target Records
+* Field Name Collisions
+
+Provide useful statistics instead of generic errors.
+
+Example:
+
+```text
+Data Join Completed
+
+Target Records:        100,000
+Join Records:           25,000
+Matched:                94,320
+Unmatched:               5,680
+Duplicate Join Keys:       127
+Invalid Target Keys:       312
+```
+
+---
+
+# 15. Efficient Processing of Large Datasets
+
+Web Workers are explicitly NOT required for this implementation.
+
+The feature must still avoid blocking the UI unnecessarily.
+
+For large Target datasets:
+
+* process records in chunks
+* avoid deep cloning
+* avoid unnecessary object creation
+* avoid repeated normalization configuration construction
+* reuse the lookup Map
+* avoid recalculating values
+* minimize React state updates
+* update progress periodically rather than after every feature
+
+Example:
+
+```text
+Chunk 1 → 1,000 features
+Chunk 2 → 1,000 features
+Chunk 3 → 1,000 features
+...
+```
+
+Do NOT call React state updates for every individual feature.
+
+Progress updates should be batched.
+
+For example:
+
+```text
+0%
+10%
+20%
+30%
+...
+100%
+```
+
+or update based on a reasonable time/record interval.
+
+The exact chunk size should be configurable or benchmark-driven rather than hard-coded as a universal value.
+
+---
+
+# 16. Main-Thread Performance
+
+Because Web Workers are not being used, carefully prevent unnecessary main-thread work.
+
+For small datasets:
+
+```text
+Run synchronously
+```
+
+For larger datasets:
+
+```text
+Run in chunks
+```
+
+Use a lightweight threshold based on dataset size and/or estimated processing cost.
+
+Do NOT assume a fixed threshold is universally optimal.
+
+The architecture should allow thresholds to be tuned later.
+
+---
+
+# 17. Avoid Deep Cloning
+
+DO NOT use:
+
+```javascript
+JSON.parse(JSON.stringify(data))
+```
+
+for large GeoJSON datasets.
+
+This creates unnecessary:
+
+* CPU cost
+* memory allocations
+* garbage collection pressure
+
+Instead, create only the objects necessary for the result.
+
+Preserve the Target geometry reference where safe and construct a new properties object only when needed.
+
+Example concept:
+
+```javascript
+{
+  ...targetFeature,
+  properties: {
+    ...targetFeature.properties,
+    ...selectedJoinProperties
+  }
+}
+```
+
+Only clone what is actually required.
+
+---
+
+# 18. Geometry Must Be Treated as Opaque
+
+This is an **ATTRIBUTE JOIN**.
+
+The Join engine must not inspect geometry.
+
+Do NOT:
+
+* calculate BBOX
+* calculate distance
+* calculate intersection
+* calculate containment
+* use Turf predicates
+* build spatial index
+* compare coordinates
+
+The Join Layer's geometry is irrelevant to matching.
+
+Only its properties should participate in the join.
+
+The Target geometry should be preserved in the output.
+
+---
+
+# 19. Cache the Lookup Map
+
+If the same Join Layer is likely to be used repeatedly, support caching of the generated lookup Map.
+
+Do NOT automatically cache every lookup structure forever.
+
+Caching should consider:
+
+* Join Layer feature count
+* Map build time
+* Expected reuse
+* Memory usage
+* Layer version
+
+Suggested cache metadata:
+
+```
+DataJoinCacheEntry {
+  layerId: string;
+  layerVersion: string;
+  keyConfiguration: string;
+  lookup: Map<string, unknown>;
+  featureCount: number;
+  buildTimeMs: number;
+  hitCount: number;
+  lastUsedAt: number;
+  estimatedMemoryBytes?: number;
+}
+```
+
+The cache key should include everything that affects the lookup.
+
+For example:
+
+* layerId
+* layerVersion
+* joinField
+* key normalization configuration
+* duplicate strategy
+* composite-key configuration
+
+---
+
+# 20. Cache Invalidation
+
+The lookup Map must never be reused if its underlying assumptions are no longer valid.
+
+Invalidate the cache when relevant Join Layer data changes.
+
+At minimum invalidate when:
+
+* Join Layer attributes change
+* Join Layer features are added
+* Join Layer features are removed
+* Join Layer is replaced
+* Join field configuration changes
+* Normalization configuration changes
+* Duplicate handling changes
+
+A layer version/hash can be used to detect changes.
+
+For the first implementation, prefer correctness over sophisticated incremental invalidation.
+
+---
+
+# 21. LRU Cache / Memory Protection
+
+Do NOT allow unlimited lookup caches.
+
+Use an LRU-style strategy or another bounded cache mechanism.
+
+Track:
+
+* lastUsedAt
+* hitCount
+* estimated memory
+
+When memory limits are reached:
+
+```text
+evict least-recently-used entries
+```
+
+Layer removal should also release its cached lookup structure.
+
+---
+
+# 22. Separate Data Cache from Join Cache
+
+Keep these concepts separate:
+
+```text
+Raw Layer Data Cache
         ↓
-spatial indexing
-        ↓
-chunking
-        ↓
-memory efficiency
-        ↓
-Leaflet rendering efficiency
+Data Join Lookup Cache
+```
 
+Do not mix raw GeoJSON storage with derived lookup Maps.
+
+The lookup Map is a derived structure and should be safely rebuildable from the underlying layer data.
+
+---
+
+# 24. Recommended contants
+
+Design clean constants similar to:
+
+```
+object : DataJoinConfig {
+  targetLayerId: string;
+  joinLayerId: string;
+
+  targetFields: string[];
+  joinFields: string[];
+
+  normalization: KeyNormalizationOptions;
+
+  duplicateStrategy:
+    | "first"
+    | "all"
+    | "aggregate"
+    | "error";
+
+  collisionStrategy:
+    | "prefixJoin"
+    | "prefixTarget"
+    | "replace"
+    | "skip"
+    | "error";
+
+  selectedJoinFields: string[];
+
+  aggregation?: AggregationConfig;
+}
+```
+
+And separate services:
+
+```
+object: KeyExtractor {
+  getKey(feature: GeoJSON.Feature): string | null;
+}
+
+object: LookupBuilder {
+  build(features: GeoJSON.Feature[]): LookupResult;
+}
+
+object: PropertyMerger {
+  merge(
+    target: GeoJSON.Feature,
+    match: unknown,
+    config: DataJoinConfig
+  ): GeoJSON.Feature;
+}
+
+object:DataJoinResult {
+  featureCollection: GeoJSON.FeatureCollection;
+  statistics: DataJoinStatistics;
+  unmatchedFeatures?: GeoJSON.Feature[];
+  duplicateKeys?: string[];
+}
+```
+
+Keep these modules independently testable.
+
+---
+
+# 25. Data Join Algorithm
+
+The final algorithm should conceptually be:
+
+1. Validate Target Layer
+2. Validate Join Layer
+3. Validate join-field configuration
+4. Validate selected output fields
+5. Create/retrieve cached Join lookup
+6. Scan Join Layer once if lookup is not cached
+7. Normalize Join keys
+8. Handle duplicate Join keys according to configuration
+9. Store Join records in Map
+10. Iterate Target Layer
+11. Extract Target key
+12. Normalize Target key
+13. Lookup matching Join record(s)
+14. If no match:
+
+    * increment unmatched count
+15. If match:
+
+    * merge only selected fields
+16. Preserve Target geometry
+17. Collect statistics
+18. Produce FeatureCollection
+19. Return result + diagnostics
+
+---
+
+# 26. Complexity Requirements
+
+The implementation should target:
+
+```text
+Lookup construction
+O(M)
+
+Target processing
+O(N)
+
+Overall
+O(N + M)
+```
+
+Do NOT introduce accidental:
+
+```text
+O(N × M)
+```
+
+operations anywhere in the normal execution path.
+
+Be especially careful that duplicate handling and aggregation do not accidentally create nested full-dataset scans.
+
+---
+
+# 28. Validation Before Execution
+
+Before running the join, validate:
+
+* Target Layer selected
+* Join Layer selected
+* Target field selected
+* Join field selected
+* Target field exists
+* Join field exists
+* Selected output fields exist
+* Composite field configuration is valid
+* Duplicate strategy is valid
+* Aggregation configuration is valid
+
+Do not start processing if configuration is invalid.
+
+Display concise, actionable Ant Design validation messages.
+
+---
+
+# 29. Progress and Cancellation
+
+Even without Web Workers, large joins should expose processing state.
+
+Example:
+
+```text
+Joining...
+
+42,000 / 100,000
+42%
+```
+
+Provide a Cancel button where practical.
+
+Cancellation must be checked between processing chunks rather than on every expensive operation.
+
+After cancellation:
+
+* stop processing
+* release temporary result structures
+* restore UI to usable state
+* do not publish partial output as a completed result
+
+---
+
+# 30. Result Handling
+
+The resulting layer should:
+
+* preserve Target geometry
+* preserve Target properties
+* add selected Join properties
+* respect collision strategy
+* preserve feature ordering unless explicitly configured otherwise
+* contain predictable metadata
+* be compatible with the existing Leaflet layer manager
+
+Do not mutate the original Target Layer or Join Layer.
+
+The join should produce a new result dataset.
+
+---
+
+# 31. Statistics
+
+Return structured statistics:
+
+```
+object: DataJoinStatistics {
+  targetCount: number;
+  joinCount: number;
+  matchedCount: number;
+  unmatchedCount: number;
+  matchRate: number;
+  invalidTargetKeyCount: number;
+  invalidJoinKeyCount: number;
+  duplicateJoinKeyCount: number;
+  fieldCollisionCount: number;
+  processingTimeMs: number;
+  lookupBuildTimeMs: number;
+  cacheHit: boolean;
+}
+```
+
+Use these statistics in the UI.
+
+---
+
+# 32. Error Handling
+
+Do not expose raw JavaScript errors directly to users.
+
+Convert expected failures into meaningful messages.
+
+Examples:
+
+```text
+"The selected join field does not exist in the Join Layer."
+```
+
+```text
+"1,248 Join records contain empty keys."
+```
+
+```text
+"Duplicate Join keys were detected. Choose how duplicates should be handled."
+```
+
+```text
+"The join could not be completed because the selected fields have incompatible configurations."
+```
+
+Log technical details separately for debugging.
+
+---
+
+# 33. Memory Optimization
+
+Pay special attention to memory because GeoJSON datasets can become large.
+
+Avoid:
+
+* unnecessary deep cloning
+* unnecessary property copying
+* duplicate arrays
+* duplicate lookup structures
+* repeated serialization/deserialization
+* temporary full-dataset transformations
+
+Only keep structures that are actually required.
+
+When processing completes, release temporary arrays/maps that are no longer needed unless they are intentionally cached.
+
+---
+
+# 34. React Optimization
+
+Do not store huge intermediate datasets unnecessarily in multiple React states.
+
+Avoid patterns like:
+
+```text
+rawData state
+processedData state
+clonedData state
+joinData state
+mergedData state
+```
+
+when these duplicate the same large dataset.
+
+Keep large datasets in the application's existing layer/data management architecture where possible.
+
+React state should primarily contain:
+
+* selected layers
+* configuration
+* processing status
+* progress
+* statistics
+* errors
+* result reference
+
+Avoid unnecessary component re-renders.
+
+Use memoization only where it provides measurable value; do not blindly wrap everything in `useMemo/useCallback`.
+
+---
+
+# 35. No Unnecessary Dependencies
+
+Do not add Turf.js, Flatbush, RBush, KDBush, or any spatial library.
+
+This feature is a pure attribute join.
+
+Use native JavaScript structures such as:
+
+```text
+Map
+Set
+Array
+```
+
+where appropriate.
+
+---
+
+# 36. Testing Requirements
+
+Create unit tests for:
+
+## Basic join
+
+* matching keys
+* No matches
+* all unmatched
+* Partial matches
+* some matched
+* some unmatched
+
+## Duplicate Join keys
+
+Test:
+
+```text
+First
+All
+Aggregate
+Error
+```
+
+## Normalization
+
+Test:
+
+* whitespace
+* case sensitivity
+* leading zeros
+* null
+* undefined
+* empty strings
+
+## Composite keys
+
+Test:
+
+* single field
+* two fields
+* multiple fields
+* collision-safe encoding
+
+## Field collisions
+
+Test every collision strategy.
+
+## Large dataset behavior
+
+Verify that the implementation does not accidentally introduce nested full-dataset loops.
+
+## Cache
+
+Test:
+
+* cache hit
+* cache miss
+* cache invalidation
+* configuration change
+* layer version change
+* LRU eviction
+
+## Cancellation
+
+Verify that processing stops cleanly and does not publish partial results.
+
+---
+
+# 37. Code Quality Requirements
+
+Follow these principles:
+
+* Single Responsibility
+* Separation of Concern
+* Pure Functions Where Possible
+* Minimal Mutation
+* Predictable State Management
+* Reusable Services
+* Testable Algorithms
+
+Do not create one giant component containing:
+
+* UI
+* validation
+* lookup creation
+* normalization
+* joining
+* aggregation
+* caching
+* statistics
+* error handling
+
+Separate these responsibilities.
+
+---
+
+# 39. Final Implementation Standard
+
+Before considering the feature complete, verify all of the following:
+
+* No Target × Join nested loop
+* Hash Map lookup is used
+* Expected complexity is O(N + M)
+* Join lookup is built once and reused
+* Duplicate Join keys are handled explicitly
+* Key normalization is configurable
+* Leading-zero identifiers are preserved
+* Null/empty keys are handled safely
+* Composite keys are supported safely
+* Only selected Join fields are copied
+* Field collisions are handled explicitly
+* One-to-many behavior is explicit
+* Unmatched records are reported
+* Data-quality statistics are generated
+* Large datasets are processed in chunks
+* No Web Workers are used
+* No unnecessary deep cloning
+* No unnecessary geometry processing
+* No spatial libraries are introduced
+* Lookup caching is bounded and version-aware
+* Cache invalidation is implemented
+* Original layers are never mutated
+* React state does not unnecessarily duplicate large datasets
+* UI updates are throttled/batched
+* Cancellation works cleanly
+* Unit tests cover edge cases
+* Code is modular and maintainable
+
+Build the feature as if it will be used with tens or hundreds of thousands of GeoJSON features, while keeping the implementation simple enough to maintain.
+
+Do not take shortcuts that sacrifice correctness for apparent performance.
+
+Prioritize:
+
+**Correctness → Algorithmic Efficiency → Memory Efficiency → UI Responsiveness → Maintainability.**
