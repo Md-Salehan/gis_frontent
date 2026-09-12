@@ -13,10 +13,8 @@ import {
   Col,
   Card,
   Tag,
-  Switch,
-  Tooltip,
 } from "antd";
-import { ExclamationCircleOutlined, InfoCircleOutlined } from "@ant-design/icons";
+import { ExclamationCircleOutlined } from "@ant-design/icons";
 import useIsCompMinimized from "../../../../hooks/useIsCompMinimized";
 import { useDataJoin } from "../hooks/useDataJoin";
 import { useDataJoinValidation } from "../hooks/useDataJoinValidation";
@@ -61,9 +59,6 @@ function DataJoinPanel({ id }) {
     caseSensitive: false,
     preserveLeadingZeros: true,
   });
-
-  // Composite key mode state
-  const [isCompositeKeyMode, setIsCompositeKeyMode] = useState(false);
 
   // Collision detection state
   const [collisionFields, setCollisionFields] = useState([]);
@@ -193,8 +188,12 @@ function DataJoinPanel({ id }) {
         normalizeOptions,
       };
       validateJoinConfig(config);
+
+      // Detect collisions
+      // detectCollisions();
     } else {
       clearValidation();
+      // setCollisionFields([]);
     }
   }, [
     targetLayerId,
@@ -212,6 +211,7 @@ function DataJoinPanel({ id }) {
     joinLayer,
     validateJoinConfig,
     clearValidation,
+    // detectCollisions,
   ]);
 
   // Reset collision state when collisions are resolved / fields change
@@ -255,20 +255,6 @@ function DataJoinPanel({ id }) {
     [targetLayerId],
   );
 
-  // Handle composite key mode toggle
-  const handleCompositeKeyToggle = useCallback((checked) => {
-    setIsCompositeKeyMode(checked);
-    setTargetFields([]);
-    setJoinFields([]);
-  }, []);
-
-  // Check if composite key configuration is valid
-  const isCompositeKeyValid = useMemo(() => {
-    if (!isCompositeKeyMode) return true;
-    if (targetFields.length === 0 || joinFields.length === 0) return false;
-    return targetFields.length === joinFields.length;
-  }, [isCompositeKeyMode, targetFields, joinFields]);
-
   // Check if collision handling is resolved
   const isCollisionResolved = useMemo(() => {
     if (collisionFields.length === 0) return true;
@@ -291,11 +277,6 @@ function DataJoinPanel({ id }) {
 
     if (targetFields.length === 0 || joinFields.length === 0) {
       message.warning("Please select join fields");
-      return;
-    }
-
-    if (isCompositeKeyMode && targetFields.length !== joinFields.length) {
-      message.warning("Number of target fields and join fields must match in composite key mode");
       return;
     }
 
@@ -342,7 +323,6 @@ function DataJoinPanel({ id }) {
     joinLayer,
     collisionFields,
     isCollisionResolved,
-    isCompositeKeyMode,
     performJoin,
   ]);
 
@@ -368,24 +348,6 @@ function DataJoinPanel({ id }) {
     <Card size="small" style={{ width: "100%" }}>
       <Row gutter={[16, 16]}>
         <Col span={12}>
-          {/* Composite Key Mode Toggle */}
-          <div style={{ marginBottom: 8 }}>
-            <Space size={4}>
-              <Switch
-                checked={isCompositeKeyMode}
-                onChange={handleCompositeKeyToggle}
-                disabled={isProcessing}
-                size="small"
-              />
-              <Text style={{ fontSize: 12 }}>
-                Multiple Keys Mode
-              </Text>
-              <Tooltip title="When enabled, you can select multiple fields from both layers to form a composite key. Fields are matched positionally (Target Field 1 ↔ Join Field 1, etc.).">
-                <InfoCircleOutlined style={{ color: '#1890ff', fontSize: 12 }} />
-              </Tooltip>
-            </Space>
-          </div>
-
           {/* Layer Selection */}
           <LayerSelector
             value={targetLayerId}
@@ -410,143 +372,62 @@ function DataJoinPanel({ id }) {
           />
 
           {/* Field Selection */}
-          {isCompositeKeyMode ? (
-            <>
-              <div style={{ marginTop: 8 }}>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  Target Fields (Composite Key)
-                </Text>
-                <FieldSelector
-                  fields={targetAvailableFields}
-                  selectedFields={targetFields}
-                  onChange={setTargetFields}
-                  disabled={
-                    !targetLayer ||
-                    isProcessing ||
-                    targetAvailableFields.length === 0
-                  }
-                  label="target fields"
-                  maxHeight={80}
-                />
-              </div>
+          <div style={{ marginTop: 8 }}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              Target Field
+            </Text>
+            <Select
+              placeholder="Select target field"
+              style={{ width: "100%" }}
+              value={targetFields.length > 0 ? targetFields[0] : undefined}
+              onChange={(value) => setTargetFields(value ? [value] : [])}
+              disabled={
+                !targetLayer ||
+                isProcessing ||
+                targetAvailableFields.length === 0
+              }
+              size="small"
+              showSearch
+              allowClear
+              options={targetAvailableFields.map((field) => ({
+                value: field,
+                label: field,
+              }))}
+            />
+          </div>
 
-              <div style={{ marginTop: 8 }}>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  Join Fields (Composite Key)
-                </Text>
-                <FieldSelector
-                  fields={joinAvailableFields}
-                  selectedFields={joinFields}
-                  onChange={setJoinFields}
-                  disabled={
-                    !joinLayer ||
-                    isProcessing ||
-                    joinAvailableFields.length === 0
-                  }
-                  label="join fields"
-                  maxHeight={80}
-                />
-              </div>
-
-              {/* Composite Key Mismatch Warning */}
-              {targetFields.length > 0 &&
-                joinFields.length > 0 &&
-                targetFields.length !== joinFields.length && (
-                  <Alert
-                    message="Field Count Mismatch"
-                    description={
-                      <Text style={{ fontSize: 11 }}>
-                        Target has {targetFields.length} field{targetFields.length !== 1 ? 's' : ''} selected,
-                        but Join has {joinFields.length} field{joinFields.length !== 1 ? 's' : ''} selected.
-                        They must be equal in composite key mode.
-                      </Text>
-                    }
-                    type="warning"
-                    showIcon
-                    style={{ fontSize: 11, padding: "4px 8px", marginTop: 8 }}
-                  />
-                )}
-
-              {/* Composite Key Preview */}
-              {targetFields.length > 0 &&
-                joinFields.length > 0 &&
-                targetFields.length === joinFields.length && (
-                  <div style={{ marginTop: 8 }}>
-                    <Text type="secondary" style={{ fontSize: 11 }}>
-                      Key Mapping:
-                    </Text>
-                    <div style={{ marginTop: 4 }}>
-                      {targetFields.map((tf, i) => (
-                        <Tag key={i} color="blue" style={{ fontSize: 10, marginBottom: 4 }}>
-                          {tf} ↔ {joinFields[i]}
-                        </Tag>
-                      ))}
-                    </div>
-                  </div>
-                )}
-            </>
-          ) : (
-            <>
-              <div style={{ marginTop: 8 }}>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  Target Field
-                </Text>
-                <Select
-                  placeholder="Select target field"
-                  style={{ width: "100%" }}
-                  value={targetFields.length > 0 ? targetFields[0] : undefined}
-                  onChange={(value) => setTargetFields(value ? [value] : [])}
-                  disabled={
-                    !targetLayer ||
-                    isProcessing ||
-                    targetAvailableFields.length === 0
-                  }
-                  size="small"
-                  showSearch
-                  allowClear
-                  options={targetAvailableFields.map((field) => ({
-                    value: field,
-                    label: field,
-                  }))}
-                />
-              </div>
-
-              <div style={{ marginTop: 8 }}>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  Join Field
-                </Text>
-                <Select
-                  placeholder="Select join field"
-                  style={{ width: "100%" }}
-                  value={joinFields.length > 0 ? joinFields[0] : undefined}
-                  onChange={(value) => setJoinFields(value ? [value] : [])}
-                  disabled={
-                    !joinLayer || isProcessing || joinAvailableFields.length === 0
-                  }
-                  size="small"
-                  showSearch
-                  allowClear
-                  options={joinAvailableFields.map((field) => ({
-                    value: field,
-                    label: field,
-                  }))}
-                />
-              </div>
-            </>
-          )}
+          <div style={{ marginTop: 8 }}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              Join Field
+            </Text>
+            <Select
+              placeholder="Select join field"
+              style={{ width: "100%" }}
+              value={joinFields.length > 0 ? joinFields[0] : undefined}
+              onChange={(value) => setJoinFields(value ? [value] : [])}
+              disabled={
+                !joinLayer || isProcessing || joinAvailableFields.length === 0
+              }
+              size="small"
+              showSearch
+              allowClear
+              options={joinAvailableFields.map((field) => ({
+                value: field,
+                label: field,
+              }))}
+            />
+          </div>
 
           {/* Output Fields */}
           <div style={{ marginTop: 8 }}>
             <Text type="secondary" style={{ fontSize: 12 }}>
               Output Join Fields
+              
             </Text>
             <FieldSelector
               fields={joinAvailableFields}
               selectedFields={selectedJoinFields}
-              onChange={(fields) => {
-                setSelectedJoinFields(fields);
-                detectCollisions(fields);
-              }}
+              onChange={(fields) => {setSelectedJoinFields(fields); detectCollisions(fields);}}
               disabled={
                 isProcessing || !(joinLayer && joinAvailableFields.length > 0)
               }
@@ -644,8 +525,7 @@ function DataJoinPanel({ id }) {
                 joinFields.length === 0 ||
                 validationErrors.length > 0 ||
                 targetLayerId === joinLayerId ||
-                !isCollisionResolved ||
-                !isCompositeKeyValid
+                !isCollisionResolved
               }
               block
               size="small"

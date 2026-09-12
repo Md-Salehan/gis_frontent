@@ -1,3 +1,4 @@
+// attributeJoin.js
 import { extractKey } from '../utils/keyUtils';
 import { aggregateFeatures } from './aggregation';
 import {
@@ -16,8 +17,8 @@ export function performAttributeJoin(
     normalizeOptions = {},
     matchStrategy = MATCH_STRATEGIES.FIRST,
     aggregation = null,
-    collisionStrategy = COLLISION_STRATEGIES.PREFIX_JOIN,
-    fieldPrefix = 'join_',
+    collisionStrategy = COLLISION_STRATEGIES.NONE,
+    collisionAffix = '',
     selectedJoinFields = null,
   } = config;
 
@@ -41,14 +42,13 @@ export function performAttributeJoin(
     // Check for invalid target key
     if (targetKey === null || targetKey === undefined || targetKey === '') {
       statistics.invalidTargetKeyCount++;
-      // Still include the feature with no join data
       const resultFeature = createResultFeature(
         targetFeature,
         null,
         fieldsToCopy,
-        fieldPrefix,
         collisionStrategy,
-        statistics // Pass statistics reference
+        collisionAffix,
+        statistics
       );
       resultFeatures.push(resultFeature);
       statistics.unmatchedCount++;
@@ -59,14 +59,13 @@ export function performAttributeJoin(
     const joinData = joinLookup.get(targetKey);
 
     if (!joinData) {
-      // No match found
       const resultFeature = createResultFeature(
         targetFeature,
         null,
         fieldsToCopy,
-        fieldPrefix,
         collisionStrategy,
-        statistics // Pass statistics reference
+        collisionAffix,
+        statistics
       );
       resultFeatures.push(resultFeature);
       statistics.unmatchedCount++;
@@ -95,7 +94,6 @@ export function performAttributeJoin(
         break;
       case MATCH_STRATEGIES.AGGREGATE:
         if (aggregation && aggregation.type) {
-          // Aggregate all matches into one feature
           const aggregatedProps = aggregateFeatures(
             joinFeatures,
             fieldsToCopy,
@@ -105,9 +103,9 @@ export function performAttributeJoin(
             targetFeature,
             aggregatedProps,
             fieldsToCopy,
-            fieldPrefix,
             collisionStrategy,
-            statistics // Pass statistics reference
+            collisionAffix,
+            statistics
           );
           resultFeatures.push(resultFeature);
           statistics.matchedCount += joinFeatures.length;
@@ -126,9 +124,9 @@ export function performAttributeJoin(
         targetFeature,
         joinProps,
         fieldsToCopy,
-        fieldPrefix,
         collisionStrategy,
-        statistics // Pass statistics reference
+        collisionAffix,
+        statistics
       );
       resultFeatures.push(resultFeature);
       statistics.matchedCount++;
@@ -150,9 +148,9 @@ function createResultFeature(
   targetFeature,
   joinProperties,
   fieldsToCopy,
-  fieldPrefix,
   collisionStrategy,
-  statistics // Add statistics parameter
+  collisionAffix,
+  statistics
 ) {
   // Preserve target geometry
   const result = {
@@ -188,28 +186,21 @@ function createResultFeature(
   for (const [key, value] of Object.entries(selectedJoinProps)) {
     if (key in result.properties) {
       // Collision detected
-      if (statistics  && statistics?.fieldCollisions) {
+      if (statistics && statistics?.fieldCollisions) {
         statistics.fieldCollisions.push(key);
       }
-      
+
       switch (collisionStrategy) {
-        case COLLISION_STRATEGIES.PREFIX_JOIN:
-          result.properties[`${fieldPrefix}${key}`] = value;
+        case COLLISION_STRATEGIES.PREFIX:
+          result.properties[`${collisionAffix}${key}`] = value;
           break;
-        case COLLISION_STRATEGIES.PREFIX_TARGET:
-          // Keep target, rename join field
-          result.properties[`${fieldPrefix}${key}`] = value;
+        case COLLISION_STRATEGIES.SUFFIX:
+          result.properties[`${key}${collisionAffix}`] = value;
           break;
-        case COLLISION_STRATEGIES.REPLACE:
+        case COLLISION_STRATEGIES.NONE:
+        default:
           result.properties[key] = value;
           break;
-        case COLLISION_STRATEGIES.SKIP:
-          // Keep target, skip join
-          break;
-        case COLLISION_STRATEGIES.ERROR:
-          throw new Error(`Field collision on "${key}"`);
-        default:
-          result.properties[`${fieldPrefix}${key}`] = value;
       }
     } else {
       result.properties[key] = value;

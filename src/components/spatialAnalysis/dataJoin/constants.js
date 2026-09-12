@@ -1,3 +1,4 @@
+// constants.js
 export const JOIN_TYPES = {
   LEFT: 'left',
   INNER: 'inner',
@@ -39,19 +40,15 @@ export const AGGREGATION_LABELS = {
 };
 
 export const COLLISION_STRATEGIES = {
-  PREFIX_JOIN: 'prefixJoin',
-  PREFIX_TARGET: 'prefixTarget',
-  REPLACE: 'replace',
-  SKIP: 'skip',
-  ERROR: 'error',
+  PREFIX: 'prefix',
+  SUFFIX: 'suffix',
+  NONE: 'none',
 };
 
 export const COLLISION_STRATEGY_LABELS = {
-  [COLLISION_STRATEGIES.PREFIX_JOIN]: 'Prefix Join Fields',
-  [COLLISION_STRATEGIES.PREFIX_TARGET]: 'Prefix Target Fields',
-  [COLLISION_STRATEGIES.REPLACE]: 'Replace',
-  [COLLISION_STRATEGIES.SKIP]: 'Skip',
-  [COLLISION_STRATEGIES.ERROR]: 'Error',
+  [COLLISION_STRATEGIES.PREFIX]: 'Prefix',
+  [COLLISION_STRATEGIES.SUFFIX]: 'Suffix',
+  [COLLISION_STRATEGIES.NONE]: 'None (Overwrite)',
 };
 
 export const DEFAULT_CHUNK_SIZE = 1000;

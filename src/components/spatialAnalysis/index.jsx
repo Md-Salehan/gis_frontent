@@ -13,7 +13,7 @@ import {
   toggleSpatialJoinModal,
 } from "../../store/slices/uiSlice";
 import CountPointsInPolygon from "./CountPointsInPolygon";
-import { Calculator, CircleDot, Dice5 } from "lucide-react";
+import { Calculator, CircleDot, Dice5, Link } from "lucide-react";
 import DistanceMatrix from "./DistanceMatrix";
 import SpatialJoin from "./spatialJoin";
 import { DataJoinPanel } from "./dataJoin";
@@ -155,7 +155,7 @@ function SpatialAnalysis() {
         <Movable
           isMovable={true}
           title="Data Join"
-          icon={<Calculator  />}
+          icon={<Link />}
           titleFontSize={14}
           // onPositionChange={handlePositionChange}
           // initialPosition={position}
@@ -163,8 +163,8 @@ function SpatialAnalysis() {
             backgroundColor: "white",
             borderRadius: "8px",
             boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-            height: "auto",
-            width: "auto",
+            height: "400px",
+            width: "550px",
           }}
           onClose={(e) => {
             dispatch(handleMinimizeGlobalComp({ id: "dataJoin", status: false }));

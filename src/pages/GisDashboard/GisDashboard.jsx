@@ -49,6 +49,7 @@ import {
   Dice5,
   Calculator,
   MousePointerClick,
+  Link 
 } from "lucide-react";
 import { initGeoman } from "../../utils/map/geoman-setup";
 import FooterBar from "./components/FooterBar";
@@ -162,7 +163,7 @@ const GisDashboard = memo(() => {
       onClick: () => {
         dispatch(toggleDataJoinModal({ state: true }));
       },
-      icon: React.createElement(CircleDashed),
+      icon: React.createElement(Link),
     },
   ];
 
