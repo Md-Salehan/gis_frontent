@@ -163,7 +163,7 @@ function SpatialAnalysis() {
             backgroundColor: "white",
             borderRadius: "8px",
             boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-            height: "400px",
+            height: "auto",
             width: "550px",
           }}
           onClose={(e) => {

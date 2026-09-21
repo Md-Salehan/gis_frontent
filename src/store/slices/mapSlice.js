@@ -5,10 +5,10 @@ import { testData } from "./testData";
 const initialState = {
   geoJsonLayers: {}, // layerId: { geoJsonData, metaData, orderNo }
   tempGeoJsonLayers: {
-    target_cities: testData?.target_cities, 
-    join_city_stats: testData?.join_city_stats,
-    target_no_match: testData?.target_no_match,
-    join_no_match: testData?.join_no_match,
+    // target_cities: testData?.target_cities, 
+    // join_city_stats: testData?.join_city_stats,
+    // target_no_match: testData?.target_no_match,
+    // join_no_match: testData?.join_no_match,
   }, // layerId: { geoJsonData, metaData, orderNo, isActive }
   multiSelectedFeatures: [], // Now stores: { layerId, featureIndex, feature, metaData }
   viewport: {

@@ -9,7 +9,7 @@ const initialState = {
   filters: {
     searchQuery: '',
     sortBy: 'name',
-    filterBy: 'all'
+    filterBy: 'all',
   },
   activePortalDetails: null
 };
