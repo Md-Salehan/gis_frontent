@@ -37,7 +37,7 @@ const { Text } = Typography;
 
 function DataJoinPanel({ id }) {
   const dispatch = useDispatch();
-  const isMinimized = useIsCompMinimized(id);
+  // const isMinimized = useIsCompMinimized(id);
 
   // Redux state
   const geoJsonLayers = useSelector((state) => state.map.geoJsonLayers || {});
@@ -360,9 +360,9 @@ function DataJoinPanel({ id }) {
     clearValidation();
   }, [reset, clearValidation]);
 
-  if (isMinimized) {
-    return <div style={{ width: "280px" }} />;
-  }
+  // if (isMinimized) {
+  //   return <div style={{ width: "280px" }} />;
+  // }
 
   return (
     <Card size="small" style={{ width: "100%" }}>

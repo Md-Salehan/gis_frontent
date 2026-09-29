@@ -5,6 +5,7 @@ import React, {
   useEffect,
   memo,
   useRef,
+  useContext,
 } from "react";
 import {
   Table,
@@ -25,9 +26,12 @@ import {
   DownloadOutlined,
   SearchOutlined,
   CloseCircleOutlined,
+  DownOutlined,
   EllipsisOutlined,
+  UserOutlined,
   DatabaseOutlined,
   SettingOutlined,
+  LoadingOutlined,
 } from "@ant-design/icons";
 import { useSelector, useDispatch } from "react-redux";
 import {
@@ -52,24 +56,43 @@ import {
   useLazyGetProj4StringQuery,
   useLazyGetWktStringQuery,
 } from "../../store/api/layerApi";
+import { set } from "lodash";
 
 // Constants
 const DEBUG = process.env.NODE_ENV === "development";
 
 const TABLE_VISIBILITY_TYPES = [
-  { label: "All", key: "1" },
-  { label: "Selected", key: "2" },
-  { label: "Unselected", key: "3" },
+  {
+    label: "All",
+    key: "1",
+  },
+  {
+    label: "Selected",
+    key: "2",
+  },
+  {
+    label: "Unselected",
+    key: "3",
+  },
 ];
 
 const DOWNLOAD_TYPES = [
-  { label: "CSV", key: "1", icon: <DownloadOutlined /> },
-  { label: "GeoJSON", key: "2", icon: <DownloadOutlined /> },
-  { label: "Shapefile", key: "3", icon: <DownloadOutlined /> },
+  {
+    label: "CSV",
+    key: "1",
+    icon: <DownloadOutlined />,
+  },
+  {
+    label: "GeoJSON",
+    key: "2",
+    icon: <DownloadOutlined />,
+  },
+  {
+    label: "Shapefile",
+    key: "3",
+    icon: <DownloadOutlined />,
+  },
 ];
-
-// Stable key for equality checks
-const featureKey = (f) => `${f.layerId}::${f.featureIndex}`;
 
 function AttributeTable({
   csvDownloader = true,
@@ -83,6 +106,8 @@ function AttributeTable({
 
   const [activeTab, setActiveTab] = useState(null);
   const [activeLayers, setActiveLayers] = useState({});
+  const [selectedRowKeys, setSelectedRowKeys] = useState({});
+  const [multiSelected, setMultiSelected] = useState({});
   const [hasInitialized, setHasInitialized] = useState(false);
   const [searchQueries, setSearchQueries] = useState({});
   const [tableVisibilityType, setTableVisibilityType] = useState("All");
@@ -108,59 +133,11 @@ function AttributeTable({
   const multiSelectedFeatures = useSelector(
     (state) => state.map.multiSelectedFeatures,
   );
-  const singleSelectedFeature = useSelector(
-    (state) => state.map.selectedFeature,
-  );
+  const singleSelectedFeature = useSelector((state) => state.map.selectedFeature);
 
-  console.log("multiSelectedFeatures:", multiSelectedFeatures);
-
-  // ============================================
-  // Derived: multiSelected from Redux (single source of truth)
-  // ============================================
-  const generateRowKey = useCallback((layerId, featureIndex) => {
-    return `${layerId}-${featureIndex}`;
-  }, []);
-
-  const parseRowKeyToIndex = useCallback((rowKey) => {
-    const parts = rowKey.split("-");
-    const idxStr = parts[parts.length - 1];
-    return Number(idxStr);
-  }, []);
-
-  const multiSelected = useMemo(() => {
-    const map = {};
-    (multiSelectedFeatures || []).forEach(({ layerId, featureIndex }) => {
-      if (!layerId || featureIndex === undefined || featureIndex === -1) return;
-      if (!map[layerId]) map[layerId] = new Set();
-      map[layerId].add(generateRowKey(layerId, featureIndex));
-    });
-    return map;
-  }, [multiSelectedFeatures, generateRowKey]);
-
-  // ============================================
-  // Derived: selectedRowKeys from Redux single selection
-  // ============================================
-  const selectedRowKeys = useMemo(() => {
-    if (singleSelectedFeature?.metaData?.selectedKeys) {
-      const layerId =
-        singleSelectedFeature.metaData.layer?.layer_id ||
-        singleSelectedFeature.metaData.layerId;
-      const rowKey = singleSelectedFeature.metaData.selectedKeys[0];
-      if (layerId && rowKey) {
-        return { [layerId]: [rowKey] };
-      }
-    }
-    return {};
-  }, [singleSelectedFeature]);
-
-  // Track previous single selection to avoid redundant dispatches
-  const prevSelectedFeatureId = useRef("");
-
-  // ============================================
-  // Sync activeLayers from Redux layers
-  // ============================================
   useEffect(() => {
     let activeTempLayers = {};
+
     for (let [key, val] of Object.entries(tempGeoJsonLayers)) {
       if (val?.isActive) {
         activeTempLayers = { ...activeTempLayers, [key]: val };
@@ -174,7 +151,19 @@ function AttributeTable({
   const prjCache = useRef(new Map());
 
   // ============================================
-  // Utility: Get feature by layerId and rowKey
+  // Utility: Parse row key to feature index
+  // ============================================
+  const generateRowKey = useCallback((layerId, featureIndex) => {
+    return `${layerId}-${featureIndex}`;
+  }, []);
+  const parseRowKeyToIndex = useCallback((rowKey) => {
+    const parts = rowKey.split("-");
+    const idxStr = parts[parts.length - 1];
+    return Number(idxStr);
+  }, []);
+
+  // ============================================
+  // Get feature by layerId and rowKey
   // ============================================
   const getFeatureByRowKey = useCallback(
     (layerId, rowKey) => {
@@ -197,10 +186,10 @@ function AttributeTable({
   }, []);
 
   // ============================================
-  // Helper: Render value
+  // Helper: Render value as button if it's an array of strings, otherwise as text
   // ============================================
   const renderCellValue = useCallback(
-    (value) => {
+    (value, record, dataIndex) => {
       if (isArrayOfStrings(value)) {
         return (
           <Space direction="vertical" size="small">
@@ -256,40 +245,39 @@ function AttributeTable({
           }
           return String(a[key] ?? "").localeCompare(String(b[key] ?? ""));
         },
-        render: (value) => renderCellValue(value),
+        render: (value, record) => renderCellValue(value, record, key),
       }));
     },
     [renderCellValue],
   );
 
-  const getTableData = useCallback(
-    (features, layerId, originalIndices) => {
-      if (!features || features.length === 0) return [];
+  const getTableData = useCallback((features, layerId, originalIndices) => {
+    if (!features || features.length === 0) return [];
 
-      return features.map((feature, index) => {
-        const originalIndex =
-          Array.isArray(originalIndices) &&
-          originalIndices[index] !== undefined
-            ? originalIndices[index]
-            : null;
-        const TransformedProperties = transformProperties(
-          feature.properties || {},
-          { delimiter: "~", processNestedArrays: false },
+    return features.map((feature, index) => {
+      const originalIndex =
+        Array.isArray(originalIndices) && originalIndices[index] !== undefined
+          ? originalIndices[index]
+          : null;
+      const TransformedProperties = transformProperties(
+        feature.properties || {},
+        {
+          delimiter: "~",
+          processNestedArrays: false,
+        },
+      );
+      if (originalIndex === null) {
+        throw new Error(
+          `Original index is null for feature at index ${index} in layer ${layerId} | @getTableData`,
         );
-        if (originalIndex === null) {
-          throw new Error(
-            `Original index is null for feature at index ${index} in layer ${layerId} | @getTableData`,
-          );
-        }
-        return {
-          key: generateRowKey(layerId, originalIndex),
-          featureIndex: originalIndex,
-          ...TransformedProperties,
-        };
-      });
-    },
-    [generateRowKey],
-  );
+      }
+      return {
+        key: generateRowKey(layerId, originalIndex),
+        featureIndex: originalIndex,
+        ...TransformedProperties,
+      };
+    });
+  }, []);
 
   // ============================================
   // Filtering utilities
@@ -302,12 +290,16 @@ function AttributeTable({
       const filterType = tableVisibilityType;
       if (!q && filterType === "All") return features.map((_, idx) => idx);
 
-      const matchesFilterType = (feature, idx) => {
-        const rowKey = generateRowKey(layerId, idx);
+      const matchesFilterType = (feature) => {
+        const rowKey = generateRowKey(layerId, features.indexOf(feature));
         const isMultiSelected = multiSelected[layerId]?.has(rowKey);
 
-        if (filterType === "Selected") return isMultiSelected;
-        if (filterType === "Unselected") return !isMultiSelected;
+        if (filterType === "Selected") {
+          return isMultiSelected;
+        }
+        if (filterType === "Unselected") {
+          return !isMultiSelected;
+        }
         return true;
       };
 
@@ -336,14 +328,17 @@ function AttributeTable({
         }
 
         if (String(layerId).toLowerCase().includes(q)) return true;
+
         return false;
       };
 
-      return features
+      const result = features
         .map((f, idx) => ({ f, idx }))
-        .filter(({ f, idx }) => matchesFilterType(f, idx))
+        .filter(({ f }) => matchesFilterType(f))
         .filter(({ f }) => matchesQuery(f))
         .map(({ idx }) => idx);
+
+      return result;
     },
     [searchQueries, tableVisibilityType, multiSelected, generateRowKey],
   );
@@ -351,7 +346,9 @@ function AttributeTable({
   const parseQueryToRowKeys = useCallback(
     (query, layerId) => {
       if (!query || !layerId) return [];
+
       const layerData = activeLayers[layerId];
+
       if (!layerData?.geoJsonData?.features) return [];
       const features = layerData.geoJsonData.features;
       const matchingIndices = [];
@@ -359,15 +356,22 @@ function AttributeTable({
       features.forEach((feature, idx) => {
         try {
           const matches = evaluateQuery(query, feature);
-          if (matches) matchingIndices.push(idx);
+
+          if (matches) {
+            matchingIndices.push(idx);
+          }
         } catch (error) {
           console.error(`Error evaluating query for feature ${idx}:`, error);
         }
       });
 
-      return matchingIndices.map((idx) => generateRowKey(layerId, idx));
+      const rowKeys = matchingIndices.map((idx) =>
+        generateRowKey(layerId, idx),
+      );
+
+      return rowKeys;
     },
-    [activeLayers, generateRowKey],
+    [activeLayers],
   );
 
   const handleTableVisibilityChange = useCallback((type) => {
@@ -383,18 +387,25 @@ function AttributeTable({
   }, []);
 
   // ============================================
-  // SRID Transformation Functions
+  // SRID Transformation Functions with RTK Query
   // ============================================
+
+  // Get Proj4 definition using RTK Query (lazy)
   const getProj4DefinitionAsync = useCallback(
     async (srid) => {
-      if (proj4Cache.current.has(srid)) return proj4Cache.current.get(srid);
+      // Check cache first
+      if (proj4Cache.current.has(srid)) {
+        return proj4Cache.current.get(srid);
+      }
 
+      // Check common options
       const found = COMMON_SRID_OPTIONS.find((opt) => opt.value === srid);
       if (found && found.proj) {
         proj4Cache.current.set(srid, found.proj);
         return found.proj;
       }
 
+      // Fetch from RTK Query for unknown SRIDs
       if (srid && srid !== "4326") {
         try {
           const result = await triggerGetProj4String(srid).unwrap();
@@ -412,18 +423,26 @@ function AttributeTable({
           );
         }
       }
+
       return SRID_4326_proj;
     },
     [triggerGetProj4String],
   );
 
+  // Get PRJ content using RTK Query (lazy)
   const getPrjContentAsync = useCallback(
     async (srid) => {
+      // For EPSG:4326
       if (srid === "4326") {
         return 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]]';
       }
-      if (prjCache.current.has(srid)) return prjCache.current.get(srid);
 
+      // Check cache
+      if (prjCache.current.has(srid)) {
+        return prjCache.current.get(srid);
+      }
+
+      // Check common options first (for quick access)
       const found = COMMON_SRID_OPTIONS.find((opt) => opt.value === srid);
       if (found) {
         if (srid === "3857") {
@@ -432,6 +451,7 @@ function AttributeTable({
           prjCache.current.set(srid, prj);
           return prj;
         }
+
         if (srid.toString().startsWith("326")) {
           const zone = srid.toString().substring(3);
           const prj = `PROJCS["WGS_84_UTM_zone_${zone}N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]],PROJECTION["Transverse_Mercator"],PARAMETER["latitude_of_origin",0],PARAMETER["central_meridian",${(zone - 1) * 6 - 180 + 3}],PARAMETER["scale_factor",0.9996],PARAMETER["false_easting",500000],PARAMETER["false_northing",0],UNIT["Meter",1]]`;
@@ -440,6 +460,7 @@ function AttributeTable({
         }
       }
 
+      // Fetch from RTK Query for unknown SRIDs
       if (srid && srid !== "4326") {
         try {
           const result = await triggerGetWktString(srid).unwrap();
@@ -458,15 +479,33 @@ function AttributeTable({
         }
       }
 
+      // Fallback to WGS84
       console.warn(`No PRJ definition found for SRID ${srid}, using WGS84`);
       return 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]]';
     },
     [triggerGetWktString],
   );
 
+  const transformCoords = useCallback((coords, sourceProj, targetSrid) => {
+    if (typeof coords[0] === "number") {
+      const [lng, lat] = coords;
+      const transformed = proj4(sourceProj, targetSrid, [lng, lat]);
+      if (coords.length > 2) {
+        return [transformed[0], transformed[1], coords[2]];
+      }
+      return transformed;
+    } else if (Array.isArray(coords[0])) {
+      return coords.map((c) => transformCoords(c, sourceProj, targetSrid));
+    }
+    return coords;
+  }, []);
+
   const transformGeometry = useCallback(
     (geometry, targetSrid, targetProjString = null) => {
-      if (!geometry || targetSrid === "4326") return geometry;
+      if (!geometry || targetSrid === "4326") {
+        return geometry;
+      }
+
       try {
         const sourceProj = SRID_4326_proj;
         const targetProj = targetProjString;
@@ -485,10 +524,12 @@ function AttributeTable({
           return coords;
         };
 
-        return {
+        const transformedGeometry = {
           ...geometry,
           coordinates: transformCoordsFn(geometry.coordinates),
         };
+
+        return transformedGeometry;
       } catch (error) {
         console.error("Error transforming geometry:", error);
         warning(
@@ -497,12 +538,13 @@ function AttributeTable({
         return geometry;
       }
     },
-    [warning],
+    [SRID_4326_proj, warning],
   );
 
   // ============================================
-  // Selection Handlers — all dispatch (no local mirror state)
+  // Selection Handlers
   // ============================================
+  const prevSelectedFeatureId = useRef("");
   const handleViewFeature = useCallback(
     (record, layerId) => {
       const selectedFeature =
@@ -529,6 +571,7 @@ function AttributeTable({
             if (bounds && bounds.isValid && bounds.isValid()) {
               const currentBounds = map.getBounds();
               const isAlreadyInView = currentBounds.contains(bounds);
+
               if (isAlreadyInView) {
                 map.fitBounds(bounds, MAP_FIT_OPTIONS);
               } else {
@@ -540,79 +583,49 @@ function AttributeTable({
           }
         }
 
+        setSelectedRowKeys({
+          [layerId]: [record.key],
+        });
+
         prevSelectedFeatureId.current = layerId + record.featureIndex;
       } else {
-        dispatch(setSelectedFeature({ feature: [], metaData: null }));
+        dispatch(
+          setSelectedFeature({
+            feature: [],
+            metaData: null,
+          }),
+        );
+        setSelectedRowKeys({});
         prevSelectedFeatureId.current = "";
       }
     },
     [dispatch, activeLayers, map],
   );
 
-  const toggleMultiSelect = useCallback(
-    (layerId, rowKey, checked) => {
-      const featureIndex = parseRowKeyToIndex(rowKey);
-      const feature = activeLayers[layerId]?.geoJsonData?.features?.[featureIndex];
-      const metaData = activeLayers[layerId]?.metaData || {};
-
-      const current = multiSelectedFeatures || [];
-      const next = checked
-        ? [
-            ...current,
-            { layerId, featureIndex, feature, metaData },
-          ].filter(
-            (f, i, arr) =>
-              arr.findIndex(
-                (x) =>
-                  x.layerId === f.layerId &&
-                  x.featureIndex === f.featureIndex,
-              ) === i,
-          )
-        : current.filter(
-            (f) =>
-              !(f.layerId === layerId && f.featureIndex === featureIndex),
-          );
-
-      dispatch(setMultiSelectedFeatures(next));
-    },
-    [
-      dispatch,
-      activeLayers,
-      parseRowKeyToIndex,
-      multiSelectedFeatures,
-    ],
-  );
+  const toggleMultiSelect = useCallback((layerId, rowKey, checked) => {
+    setMultiSelected((prev) => {
+      const layerSet = new Set(prev[layerId] ? Array.from(prev[layerId]) : []);
+      if (checked) {
+        layerSet.add(rowKey);
+      } else {
+        layerSet.delete(rowKey);
+      }
+      return { ...prev, [layerId]: layerSet };
+    });
+  }, []);
 
   const applyQuerySelection = useCallback(
     (query, layerId) => {
       const allRowKeys = parseQueryToRowKeys(query, layerId) || [];
-      const layerData = activeLayers[layerId];
-      const features = layerData?.geoJsonData?.features || [];
-      const metaData = layerData?.metaData || {};
 
-      // Replace this layer's selection entirely
-      const otherLayers = (multiSelectedFeatures || []).filter(
-        (f) => f.layerId !== layerId,
-      );
-      const thisLayer = allRowKeys
-        .map((rowKey) => {
-          const featureIndex = parseRowKeyToIndex(rowKey);
-          const feature = features[featureIndex];
-          return feature ? { layerId, featureIndex, feature, metaData } : null;
-        })
-        .filter(Boolean);
-
-      dispatch(setMultiSelectedFeatures([...otherLayers, ...thisLayer]));
+      setMultiSelected((prev) => {
+        const updated = { ...prev };
+        updated[layerId] = new Set(allRowKeys);
+        return updated;
+      });
       handleTableVisibilityChange({ key: "2" });
     },
-    [
-      parseQueryToRowKeys,
-      handleTableVisibilityChange,
-      activeLayers,
-      multiSelectedFeatures,
-      dispatch,
-      parseRowKeyToIndex,
-    ],
+    [parseQueryToRowKeys, handleTableVisibilityChange],
   );
 
   const toggleQueryBuilder = useCallback((bool) => {
@@ -624,9 +637,9 @@ function AttributeTable({
   }, []);
 
   const clearMultiSelection = useCallback(() => {
-    dispatch(setMultiSelectedFeatures([]));
+    setMultiSelected({});
     handleTableVisibilityChange({ key: "1" });
-  }, [dispatch, handleTableVisibilityChange]);
+  }, [handleTableVisibilityChange]);
 
   const handleSelectAllChange = useCallback(
     (layerId, checked) => {
@@ -635,49 +648,30 @@ function AttributeTable({
 
       const features = layerData.geoJsonData.features;
       const visibleIndices = getFilteredFeatureIndices(features, layerId);
-      const metaData = layerData?.metaData || {};
 
-      const otherLayers = (multiSelectedFeatures || []).filter(
-        (f) => f.layerId !== layerId,
-      );
-      const existingForLayer = (multiSelectedFeatures || []).filter(
-        (f) => f.layerId === layerId,
+      const allRowKeys = visibleIndices.map((idx) =>
+        generateRowKey(layerId, idx),
       );
 
-      const existingKeys = new Set(
-        existingForLayer.map((f) => featureKey(f)),
-      );
-
-      let nextForLayer;
-      if (checked) {
-        const toAdd = visibleIndices
-          .map((idx) => {
-            const key = featureKey({ layerId, featureIndex: idx });
-            if (existingKeys.has(key)) return null;
-            const feature = features[idx];
-            return feature
-              ? { layerId, featureIndex: idx, feature, metaData }
-              : null;
-          })
-          .filter(Boolean);
-        nextForLayer = [...existingForLayer, ...toAdd];
-      } else {
-        const visibleKeySet = new Set(
-          visibleIndices.map((idx) => featureKey({ layerId, featureIndex: idx })),
-        );
-        nextForLayer = existingForLayer.filter(
-          (f) => !visibleKeySet.has(featureKey(f)),
-        );
-      }
-
-      dispatch(setMultiSelectedFeatures([...otherLayers, ...nextForLayer]));
+      setMultiSelected((prev) => {
+        const updated = { ...prev };
+        if (checked) {
+          const existing = new Set(
+            prev[layerId] ? Array.from(prev[layerId]) : [],
+          );
+          allRowKeys.forEach((k) => existing.add(k));
+          updated[layerId] = existing;
+        } else {
+          const existing = new Set(
+            prev[layerId] ? Array.from(prev[layerId]) : [],
+          );
+          allRowKeys.forEach((k) => existing.delete(k));
+          updated[layerId] = existing;
+        }
+        return updated;
+      });
     },
-    [
-      activeLayers,
-      getFilteredFeatureIndices,
-      multiSelectedFeatures,
-      dispatch,
-    ],
+    [activeLayers, getFilteredFeatureIndices],
   );
 
   const getSelectAllState = useCallback(
@@ -686,118 +680,151 @@ function AttributeTable({
       const features = layerData?.geoJsonData?.features || [];
       const visibleIndices = getFilteredFeatureIndices(features, layerId);
       const visibleCount = visibleIndices.length;
-      const visibleSelectedCount = visibleIndices.filter((idx) =>
-        (multiSelected[layerId] || new Set()).has(generateRowKey(layerId, idx)),
-      ).length;
+      const visibleSelectedCount =
+        visibleIndices.filter((idx) =>
+          (multiSelected[layerId] || new Set()).has(
+            generateRowKey(layerId, idx),
+          ),
+        ).length || 0;
 
       if (visibleCount === 0) return false;
       if (visibleSelectedCount === 0) return false;
       if (visibleSelectedCount === visibleCount) return true;
       return "indeterminate";
     },
-    [activeLayers, multiSelected, getFilteredFeatureIndices, generateRowKey],
+    [activeLayers, multiSelected, getFilteredFeatureIndices],
   );
 
   // ============================================
-  // Map Bounds Fitting (read-only — depends only on Redux)
+  // Map Bounds Fitting
   // ============================================
-  const fitToMultiSelectedBounds = useCallback(
-    (features) => {
-      if (!map) {
-        DEBUG && console.warn("Map instance not available");
-        return;
-      }
-      if (!features || features.length === 0) return;
-
-      try {
-        let combinedBounds = null;
-
-        features.forEach(({ feature }) => {
-          if (!feature) return;
-          try {
-            const layer = L.geoJSON(feature);
-            const bounds = layer.getBounds();
-            if (bounds?.isValid?.()) {
-              if (!combinedBounds) combinedBounds = bounds;
-              else combinedBounds.extend(bounds);
-            }
-          } catch (error) {
-            console.error("Error processing feature bounds:", error);
-          }
-        });
-
-        if (combinedBounds?.isValid?.()) {
-          map.flyToBounds(combinedBounds, MAP_FIT_OPTIONS);
-        }
-      } catch (error) {
-        console.error("Error fitting to multi-selected bounds:", error);
-      }
-    },
-    [map],
-  );
-
-  // Read-only effect: fit bounds when Redux selection changes
-  const lastFittedKeyRef = useRef("");
-  useEffect(() => {
-    const features = multiSelectedFeatures || [];
-    if (features.length === 0) {
-      lastFittedKeyRef.current = "";
+  const fitToMultiSelectedBounds = useCallback(() => {
+    if (!map) {
+      DEBUG && console.warn("Map instance not available");
       return;
     }
-    const key = features
-      .map(featureKey)
-      .slice()
-      .sort()
-      .join("|");
-    if (key === lastFittedKeyRef.current) return;
-    lastFittedKeyRef.current = key;
-    fitToMultiSelectedBounds(features);
-  }, [multiSelectedFeatures, fitToMultiSelectedBounds]);
+
+    if (!multiSelected || Object.keys(multiSelected).length === 0) {
+      return;
+    }
+
+    try {
+      let combinedBounds = null;
+
+      Object.entries(multiSelected).forEach(([layerId, keySet]) => {
+        const features = activeLayers[layerId]?.geoJsonData?.features || [];
+        Array.from(keySet || []).forEach((rowKey) => {
+          const idx = parseRowKeyToIndex(rowKey);
+          const feature = features[idx];
+
+          if (feature) {
+            try {
+              const layer = L.geoJSON(feature);
+              const bounds = layer.getBounds();
+
+              if (bounds?.isValid?.()) {
+                if (!combinedBounds) {
+                  combinedBounds = bounds;
+                } else {
+                  combinedBounds.extend(bounds);
+                }
+              }
+            } catch (error) {
+              console.error(`Error processing feature at ${idx}:`, error);
+            }
+          }
+        });
+      });
+
+      if (combinedBounds?.isValid?.()) {
+        map.flyToBounds(combinedBounds, MAP_FIT_OPTIONS);
+      }
+    } catch (error) {
+      console.error("Error fitting to multi-selected bounds:", error);
+    }
+  }, [map, multiSelected, activeLayers, parseRowKeyToIndex]);
 
   // ============================================
-  // defaultSelectAll — idempotent, one-directional dispatch
+  // Redux Sync & Auto-fit
   // ============================================
+
+  // //Sync single selection from Redux to local state
   useEffect(() => {
-    if (!defaultSelectAll || !activeTab || !hasInitialized) return;
 
-    const layerData = activeLayers[activeTab];
-    if (!layerData?.geoJsonData?.features) return;
+    if (singleSelectedFeature?.metaData?.selectedKeys) {
+      const layerId = singleSelectedFeature.metaData.layer.layer_id;
+      const rowKey = singleSelectedFeature.metaData.selectedKeys[0];
 
-    const features = layerData.geoJsonData.features;
-    const metaData = layerData?.metaData || {};
+      setSelectedRowKeys({
+        [layerId]: [rowKey],
+      });
+    } else {
+      setSelectedRowKeys({});
+    }
+  }, [JSON.stringify(singleSelectedFeature)]);
 
-    const existingForLayer = (multiSelectedFeatures || []).filter(
-      (f) => f.layerId === activeTab,
-    );
-    if (existingForLayer.length === features.length) return; // already all selected
+  // Sync Multi selection from Redux to local state
+  useEffect(() => {
+    if (!multiSelectedFeatures) return;
 
-    const otherLayers = (multiSelectedFeatures || []).filter(
-      (f) => f.layerId !== activeTab,
-    );
-    const thisLayer = features.map((feature, idx) => ({
-      layerId: activeTab,
-      featureIndex: idx,
-      feature,
-      metaData,
-    }));
+    const newMultiSelected = {};
 
-    dispatch(setMultiSelectedFeatures([...otherLayers, ...thisLayer]));
+    multiSelectedFeatures.forEach(({ layerId, featureIndex }) => {
+      if (!layerId || featureIndex === undefined || featureIndex === -1) return;
+
+      const rowKey = generateRowKey(layerId, featureIndex);
+      if (!newMultiSelected[layerId]) {
+        newMultiSelected[layerId] = new Set();
+      }
+      newMultiSelected[layerId].add(rowKey);
+    });
+
+    setMultiSelected(newMultiSelected);
+  }, [JSON.stringify(multiSelectedFeatures), generateRowKey]);
+
+  // Dispatch to Redux
+  useEffect(() => {
+    const multiFeatures = [];
+
+    Object.entries(multiSelected).forEach(([layerId, keySet]) => {
+      const features = activeLayers[layerId]?.geoJsonData?.features || [];
+      const metaData = activeLayers[layerId]?.metaData || {};
+
+      Array.from(keySet || []).forEach((rowKey) => {
+        const featureIndex = parseRowKeyToIndex(rowKey);
+        const feature = features[featureIndex];
+        if (feature) {
+          multiFeatures.push({
+            layerId,
+            featureIndex, // Include index
+            feature,
+            metaData,
+          });
+        }
+      });
+    });
+
+    dispatch(setMultiSelectedFeatures(multiFeatures));
+
+    if (multiFeatures.length > 0) {
+      fitToMultiSelectedBounds();
+    }
   }, [
-    activeTab,
-    defaultSelectAll,
-    activeLayers,
-    hasInitialized,
-    multiSelectedFeatures,
+    JSON.stringify(multiSelected),
+    JSON.stringify(activeLayers),
     dispatch,
+    fitToMultiSelectedBounds,
+    parseRowKeyToIndex,
   ]);
 
   // ============================================
-  // Export Functions
+  // Export Functions with RTK Query
   // ============================================
+
   const exportSelectedToCSV = useCallback(() => {
     const selected = [];
 
-    (multiSelectedFeatures || []).forEach(({ layerId, feature }) => {
+    multiSelectedFeatures.forEach(({ layerId, feature }) => {
       if (feature) {
         let latitude = null;
         let longitude = null;
@@ -829,16 +856,19 @@ function AttributeTable({
     }
 
     const hasPointFeatures = selected.some((s) => s.isPoint);
+
     const headersSet = new Set(["layerId"]);
     if (hasPointFeatures) {
       headersSet.add("latitude");
       headersSet.add("longitude");
     }
+
     selected.forEach((s) => {
       Object.keys(s.properties).forEach((k) => headersSet.add(k));
     });
 
     const headers = Array.from(headersSet);
+
     const escapeCell = (v) => {
       if (v === undefined || v === null) return "";
       const s = String(v).replace(/"/g, '""');
@@ -851,16 +881,21 @@ function AttributeTable({
         if (h === "layerId") return escapeCell(s.layerId);
         if (h === "latitude") return escapeCell(s.latitude);
         if (h === "longitude") return escapeCell(s.longitude);
+
         const value = s.properties[h];
-        if (Array.isArray(value)) return escapeCell(value.join(", "));
+        if (Array.isArray(value)) {
+          return escapeCell(value.join(", "));
+        }
         return escapeCell(value);
       });
+
       csvRows.push(row.join(","));
     });
 
     const blob = new Blob([csvRows.join("\r\n")], {
       type: "text/csv;charset=utf-8;",
     });
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -873,7 +908,7 @@ function AttributeTable({
     URL.revokeObjectURL(url);
 
     success(`Exported ${selected.length} features to CSV`);
-  }, [multiSelectedFeatures, info, success]);
+  }, [JSON.stringify(multiSelectedFeatures)]);
 
   const exportSelectedToGeoJSONAsync = useCallback(
     async (srid) => {
@@ -928,9 +963,7 @@ function AttributeTable({
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `geojson_${srid}_${new Date()
-          .toISOString()
-          .replace(/[:.]/g, "-")}.geojson`;
+        a.download = `geojson_${srid}_${new Date().toISOString().replace(/[:.]/g, "-")}.geojson`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -969,10 +1002,12 @@ function AttributeTable({
 
       try {
         const { zip } = await import("@mapbox/shp-write");
+
         const [proj4String, prjContent] = await Promise.all([
           getProj4DefinitionAsync(srid),
           getPrjContentAsync(srid),
         ]);
+
         hideLoading();
 
         const transformedFeatures = multiSelectedFeatures.map((item) => {
@@ -991,9 +1026,7 @@ function AttributeTable({
           features: transformedFeatures,
         };
 
-        const filenameBase = `shapefile_${srid}_${new Date()
-          .toISOString()
-          .replace(/[:.]/g, "-")}`;
+        const filenameBase = `shapefile_${srid}_${new Date().toISOString().replace(/[:.]/g, "-")}`;
 
         const zipBlob = await zip(featureCollection, {
           outputType: "blob",
@@ -1024,7 +1057,7 @@ function AttributeTable({
       }
     },
     [
-      multiSelectedFeatures,
+      JSON.stringify(multiSelectedFeatures),
       transformGeometry,
       getProj4DefinitionAsync,
       getPrjContentAsync,
@@ -1035,7 +1068,7 @@ function AttributeTable({
   );
 
   const showSridSelectionModal = useCallback(() => {
-    if ((multiSelectedFeatures || []).length === 0) {
+    if (multiSelectedFeatures.length === 0) {
       warning("No features selected for download");
       return;
     }
@@ -1047,12 +1080,13 @@ function AttributeTable({
   }, [
     downloadType,
     exportSelectedToCSV,
-    multiSelectedFeatures,
+    multiSelectedFeatures.length,
     warning,
   ]);
 
   const handleExportWithSrid = useCallback(async () => {
     let finalSrid = selectedSrid;
+
     if (selectedSrid === "custom") {
       if (!customSridInput) {
         warning("Please enter custom SRID");
@@ -1079,7 +1113,9 @@ function AttributeTable({
 
   const handleSridChange = useCallback((value) => {
     setSelectedSrid(value);
-    if (value !== "custom") setCustomSridInput("");
+    if (value !== "custom") {
+      setCustomSridInput("");
+    }
   }, []);
 
   // ============================================
@@ -1105,6 +1141,25 @@ function AttributeTable({
       ([_, layerData]) => layerData?.geoJsonData?.features,
     );
   }, [activeLayers]);
+
+  useEffect(() => {
+    if (!defaultSelectAll || !activeTab || !hasInitialized) {
+      return;
+    }
+    const layerData = activeLayers[activeTab];
+    if (!layerData?.geoJsonData?.features) {
+      return;
+    }
+
+    const features = layerData.geoJsonData.features;
+    const allRowKeys = features.map((_, idx) => `${activeTab}-${idx}`);
+
+    setMultiSelected((prev) => {
+      const updated = { ...prev };
+      updated[activeTab] = new Set(allRowKeys);
+      return updated;
+    });
+  }, [activeTab, defaultSelectAll, activeLayers, hasInitialized]);
 
   const tabs = useMemo(() => {
     return layerEntries.map(([layerId, layerData]) => {
@@ -1148,9 +1203,7 @@ function AttributeTable({
             <Checkbox
               checked={getSelectAllState(layerId) === true}
               indeterminate={getSelectAllState(layerId) === "indeterminate"}
-              onChange={(e) =>
-                handleSelectAllChange(layerId, e.target.checked)
-              }
+              onChange={(e) => handleSelectAllChange(layerId, e.target.checked)}
             >
               Select
             </Checkbox>
@@ -1178,7 +1231,7 @@ function AttributeTable({
 
       const columns = [selectColumn, actionColumn, ...propertyColumns];
 
-      if (activeTab === layerId) setNumOfItems(filteredFeatures.length);
+      activeTab === layerId && setNumOfItems(filteredFeatures.length);
 
       const children =
         activeTab === layerId ? (
@@ -1305,7 +1358,11 @@ function AttributeTable({
           </>
         ) : null;
 
-      return { key: layerId, label, children };
+      return {
+        key: layerId,
+        label,
+        children,
+      };
     });
   }, [
     layerEntries,
@@ -1325,6 +1382,7 @@ function AttributeTable({
     tableVisibilityType,
     handleTableVisibilityChange,
     numOfItems,
+    showQueryBuilder,
     toggleQueryBuilder,
     downloadType,
     handleDownloadTypeChange,
@@ -1332,14 +1390,20 @@ function AttributeTable({
   ]);
 
   useEffect(() => {
-    if (!activeTab && tabs.length > 0) setActiveTab(tabs[0].key);
-    if (activeTab && !hasInitialized) setHasInitialized(true);
-  }, [tabs, activeTab, hasInitialized]);
+    if (!activeTab && tabs.length > 0) {
+      setActiveTab(tabs[0].key);
+    }
+    if (activeTab && !hasInitialized) {
+      setHasInitialized(true);
+    }
+  }, [tabs, activeTab]);
 
   const handleTabChange = useCallback(
     (activeKey) => {
       setActiveTab(activeKey);
       if (clearDataOnTabChange) {
+        setSelectedRowKeys({});
+        setMultiSelected({});
         setSearchQueries({});
         dispatch(resetBuffer());
         dispatch(setSelectedFeature({ feature: [], metaData: null }));
@@ -1350,6 +1414,8 @@ function AttributeTable({
   );
 
   const cleanUp = useCallback(() => {
+    setSelectedRowKeys({});
+    setMultiSelected({});
     setSearchQueries({});
     dispatch(setSelectedFeature({ feature: [], metaData: null }));
     dispatch(setMultiSelectedFeatures([]));
@@ -1357,7 +1423,7 @@ function AttributeTable({
 
   useEffect(() => {
     return () => {
-      if (clearDataOnClose) cleanUp();
+      clearDataOnClose && cleanUp();
     };
   }, [clearDataOnClose, cleanUp]);
 

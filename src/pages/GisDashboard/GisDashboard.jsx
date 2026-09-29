@@ -72,7 +72,7 @@ import {
   setPortalId,
   setPortalIdByName,
 } from "../../store/slices/portalSlice";
-import { MinimizedBar, SpatialAnalysis, UserMenu } from "../../components";
+import { MinimizedBar, MovableModals, UserMenu } from "../../components";
 import { set } from "lodash";
 const { Sider, Content, Header, Footer } = Layout;
 
@@ -350,7 +350,7 @@ const GisDashboard = memo(() => {
             }}
           >
             <MapPanel />
-            <SpatialAnalysis />
+            <MovableModals />
             {/* <MinimizedBar /> */}
           </div>
         </Content>

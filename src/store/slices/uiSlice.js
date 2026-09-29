@@ -22,6 +22,7 @@ const initialState = {
   isDataJoinModalOpen: false,
   minimizedGlobalCompList: [],
   isFeatureSelectionEnabled: false,
+  isSelectedFeaturePanelOpen: false,
 };
 
 export const uiSlice = createSlice({
@@ -97,6 +98,10 @@ export const uiSlice = createSlice({
       if (action.payload) state.isDataJoinModalOpen = action.payload.state;
       else state.isDataJoinModalOpen = !state.isDataJoinModalOpen;
     },
+    toggleSelectedFeaturePanel: (state, action) => {
+      if (action.payload) state.isSelectedFeaturePanelOpen = action.payload.state;
+      else state.isSelectedFeaturePanelOpen = !state.isSelectedFeaturePanelOpen;
+    },
     setActiveMovableTab: (state, action) => {
       if (action.payload) state.activeMovableTab = action.payload;
     },
@@ -147,6 +152,7 @@ export const {
   toggleDistanceMatrixModal,
   toggleSpatialJoinModal,
   toggleDataJoinModal,
+  toggleSelectedFeaturePanel,
   setActiveMovableTab,
   handleMinimizeGlobalComp,
 } = uiSlice.actions;

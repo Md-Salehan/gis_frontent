@@ -4,8 +4,12 @@ import { CloseOutlined, DragOutlined } from "@ant-design/icons";
 import { Tag } from "antd";
 import useSelection from "antd/es/table/hooks/useSelection";
 import { useDispatch, useSelector } from "react-redux";
-import { setActiveMovableTab } from "../../store/slices/uiSlice";
+import {
+  handleMinimizeGlobalComp,
+  setActiveMovableTab,
+} from "../../store/slices/uiSlice";
 import { MiniIcon } from "../icons";
+import useIsCompMinimized from "../../hooks/useIsCompMinimized";
 
 const Movable = ({
   children,
@@ -21,6 +25,8 @@ const Movable = ({
   initialPosition = { x: null, y: null },
   onClose = null,
   onMinimize = null,
+  isMinimizable = false,
+  id = "",
 }) => {
   // State
   const [pos, setPos] = useState(initialPosition);
@@ -33,6 +39,7 @@ const Movable = ({
   const startRef = useRef(null);
 
   const dispatch = useDispatch();
+  const isMinimized = useIsCompMinimized(id);
 
   // Clamp helper
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -121,7 +128,7 @@ const Movable = ({
 
       const target = e.target;
       const closeButton = target.closest?.(".movable-header-button");
-      
+
       if (closeButton) {
         // Don't initiate drag if clicking on close button
         return;
@@ -258,6 +265,7 @@ const Movable = ({
       : { right: "1%", bottom: "8%" };
 
   if (!icon && !title && !children) return null;
+
   return (
     <div
       onPointerDown={
@@ -320,26 +328,38 @@ const Movable = ({
           <div style={{ marginBottom: "5px" }}>{title ?? ""}</div>
         </div>
 
-        {
-          onMinimize ? (
-            <Tag
-              onClick={onMinimize}
-              style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", height: "24px" }}
-              color="blue"
-              className="movable-header-button"
-            >
-              <MiniIcon />
-            </Tag>
-          ) : (
-            ""
-          )
-        }
-
+        {isMinimizable ? (
+          <Tag
+            onClick={(e) => {
+              dispatch(handleMinimizeGlobalComp({ id }));
+              onMinimize && onMinimize(e);
+            }}
+            style={{
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "24px",
+            }}
+            color="blue"
+            className="movable-header-button"
+          >
+            <MiniIcon />
+          </Tag>
+        ) : (
+          ""
+        )}
 
         {onClose ? (
           <Tag
             onClick={onClose}
-              style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", height: "24px" }}
+            style={{
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "24px",
+            }}
             color="red"
             className="movable-header-button"
           >
@@ -351,7 +371,7 @@ const Movable = ({
       </div>
 
       {/* Children content */}
-      {children && (
+      {children && !isMinimized && (
         <div style={{ padding: "12px", backgroundColor: "white" }}>
           {children}
         </div>

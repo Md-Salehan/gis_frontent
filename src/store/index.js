@@ -30,7 +30,7 @@ const reducers = combineReducers({
 const persistConfig = {
   key: "root",
   storage: storageSession,
-  whitelist: ["auth", "ui", "portal"], // only persist these slices
+  whitelist: ["auth", "portal"], // only persist these slices
 };
 
 const persistedReducer = persistReducer(persistConfig, reducers);

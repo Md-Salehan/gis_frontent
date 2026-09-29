@@ -20,10 +20,11 @@ import {
   BufferToolDrawer,
   GeoJsonLayerWrapper,
   Legend,
+  MapLeftPanel,
   MeasureControl,
   PaneCreator,
   PrintControl,
-  SpatialAnalysis,
+  SelectedFeaturesPanel,
 } from "../../../../components";
 import SelectedFeaturesLayer from "../../../../components/map/SelectedFeaturesLayer";
 
@@ -183,7 +184,8 @@ const MapPanel = memo(() => {
           updateWhenIdle={true}
         />
 
-        <BaseMapSwitcherControl />
+        {/* <BaseMapSwitcherControl /> */}
+        <MapLeftPanel />
 
         <FitBounds geoJsonLayers={geoJsonLayers} />
 
@@ -218,7 +220,8 @@ const MapPanel = memo(() => {
         <MeasureControl />
         {isPrintModalOpen && <PrintControl />}
         <BufferToolDrawer />
-        {/* <SpatialAnalysis /> */}
+
+        <SelectedFeaturesPanel />
       </MapContainer>
     </div>
   );

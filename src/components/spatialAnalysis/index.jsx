@@ -10,6 +10,7 @@ import {
   toggleCountPointsModal,
   toggleDataJoinModal,
   toggleDistanceMatrixModal,
+  toggleSelectedFeaturePanel,
   toggleSpatialJoinModal,
 } from "../../store/slices/uiSlice";
 import CountPointsInPolygon from "./CountPointsInPolygon";
@@ -17,21 +18,20 @@ import { Calculator, CircleDot, Dice5, Link } from "lucide-react";
 import DistanceMatrix from "./DistanceMatrix";
 import SpatialJoin from "./spatialJoin";
 import { DataJoinPanel } from "./dataJoin";
+import SelectedFeaturePanel from "../map/MapLeftPanel/SelectedFeature/SelectedFeatureButton";
+import { SelectedFeaturesPanel } from "..";
 const { Text, Title, Paragraph } = Typography;
 
-function SpatialAnalysis() {
-  const [position, setPosition] = useState({ x: null, y: null });
+function MovableModals() {
   const dispatch = useDispatch();
   const {
     isCentroidModalOpen,
     isCountPointsModalOpen,
     isDistanceMatrixModalOpen,
     isSpatialJoinModalOpen,
-    isDataJoinModalOpen
+    isDataJoinModalOpen,
+    isSelectedFeaturePanelOpen,
   } = useSelector((state) => state.ui);
-  const handlePositionChange = (newPosition) => {
-    setPosition(newPosition);
-  };
 
   return (
     <>
@@ -51,7 +51,9 @@ function SpatialAnalysis() {
             height: "auto",
           }}
           onClose={(e) => {
-            dispatch(handleMinimizeGlobalComp({ id: "centroid", status: false }));
+            dispatch(
+              handleMinimizeGlobalComp({ id: "centroid", status: false }),
+            );
             dispatch(toggleCentroidModal({ state: false }));
           }}
           onMinimize={(e) => {
@@ -80,7 +82,9 @@ function SpatialAnalysis() {
             width: "450px",
           }}
           onClose={(e) => {
-            dispatch(handleMinimizeGlobalComp({ id: "countPoints", status: false }));
+            dispatch(
+              handleMinimizeGlobalComp({ id: "countPoints", status: false }),
+            );
             dispatch(toggleCountPointsModal({ state: false }));
           }}
           onMinimize={(e) => {
@@ -97,7 +101,7 @@ function SpatialAnalysis() {
         <Movable
           isMovable={true}
           title="Distance Matrix"
-          icon={<Calculator  />}
+          icon={<Calculator />}
           titleFontSize={14}
           // onPositionChange={handlePositionChange}
           // initialPosition={position}
@@ -109,11 +113,13 @@ function SpatialAnalysis() {
             width: "auto",
           }}
           onClose={(e) => {
-            dispatch(handleMinimizeGlobalComp({ id: "distanceMatrix", status: false }));
+            dispatch(
+              handleMinimizeGlobalComp({ id: "distanceMatrix", status: false }),
+            );
             dispatch(toggleDistanceMatrixModal({ state: false }));
           }}
           onMinimize={(e) => {
-            dispatch(handleMinimizeGlobalComp({ id: "distanceMatrix"}));
+            dispatch(handleMinimizeGlobalComp({ id: "distanceMatrix" }));
           }}
         >
           <DistanceMatrix id="distanceMatrix" />
@@ -126,7 +132,7 @@ function SpatialAnalysis() {
         <Movable
           isMovable={true}
           title="Spatial Join"
-          icon={<Calculator  />}
+          icon={<Calculator />}
           titleFontSize={14}
           // onPositionChange={handlePositionChange}
           // initialPosition={position}
@@ -138,11 +144,13 @@ function SpatialAnalysis() {
             width: "auto",
           }}
           onClose={(e) => {
-            dispatch(handleMinimizeGlobalComp({ id: "spatialJoin", status: false }));
+            dispatch(
+              handleMinimizeGlobalComp({ id: "spatialJoin", status: false }),
+            );
             dispatch(toggleSpatialJoinModal({ state: false }));
           }}
           onMinimize={(e) => {
-            dispatch(handleMinimizeGlobalComp({ id: "spatialJoin"}));
+            dispatch(handleMinimizeGlobalComp({ id: "spatialJoin" }));
           }}
         >
           <SpatialJoin id="spatialJoin" />
@@ -153,6 +161,7 @@ function SpatialAnalysis() {
 
       {isDataJoinModalOpen ? (
         <Movable
+          id="dataJoin"
           isMovable={true}
           title="Data Join"
           icon={<Link />}
@@ -167,20 +176,53 @@ function SpatialAnalysis() {
             width: "550px",
           }}
           onClose={(e) => {
-            dispatch(handleMinimizeGlobalComp({ id: "dataJoin", status: false }));
+            dispatch(
+              handleMinimizeGlobalComp({ id: "dataJoin", status: false }),
+            );
             dispatch(toggleDataJoinModal({ state: false }));
           }}
-          onMinimize={(e) => {
-            dispatch(handleMinimizeGlobalComp({ id: "dataJoin"}));
-          }}
+          isMinimizable={true}
         >
-          <DataJoinPanel id="dataJoin" />
+          <DataJoinPanel />
         </Movable>
       ) : (
         ""
       )}
+
+      {/* {isSelectedFeaturePanelOpen ? (
+        <Movable
+          id="selectedFeature"
+          isMovable={true}
+          title="Selected Feature"
+          icon={<Link />}
+          titleFontSize={14}
+          // onPositionChange={handlePositionChange}
+          // initialPosition={position}
+          style={{
+            backgroundColor: "white",
+            borderRadius: "8px",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+            height: "auto",
+            width: "550px",
+          }}
+          onClose={(e) => {
+            dispatch(
+              handleMinimizeGlobalComp({
+                id: "selectedFeature",
+                status: false,
+              }),
+            );
+            dispatch(toggleSelectedFeaturePanel({ state: false }));
+          }}
+          isMinimizable={true}
+        >
+          <SelectedFeaturesPanel />
+        </Movable>
+      ) : (
+        ""
+      )} */}
     </>
   );
 }
 
-export default SpatialAnalysis;
+export default MovableModals;

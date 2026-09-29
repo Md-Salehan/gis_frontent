@@ -140,6 +140,7 @@ const Legend = ({
   // Movable version
   return (
     <Movable
+      id="legend"
       isMovable={isMovable}
       title={<Space><DragOutlined /> Legend</Space>}
       titleFontSize={titleFontSize}
@@ -147,6 +148,7 @@ const Legend = ({
       height={height}
       onPositionChange={handlePositionChange}
       initialPosition={position}
+      isMinimizable={false}
       style={{
         backgroundColor: "white",
         borderRadius: "8px",

@@ -2,7 +2,7 @@
 import { useState, useCallback, useRef } from "react";
 import * as turf from "@turf/turf";
 import { buildSpatialIndex } from "../utils/spatialIndex";
-import { useChunkProcessor } from "../../../../hooks/useChunkProcessor"; // adjust path
+import { processInChunks } from "./useChunkProcessor";
 import {
   executePredicate,
   isGeometryTypeCompatible,
@@ -24,9 +24,6 @@ export function useSpatialJoin({ onComplete, onError } = {}) {
 
   const abortControllerRef = useRef(null);
   const processingRef = useRef(false);
-
-  // Common chunk processor (stable across renders)
-  const { processChunks } = useChunkProcessor({ chunkSize: CHUNK_SIZE });
 
   const isProcessing = status === "processing";
   const isComplete = status === "complete";
@@ -136,17 +133,24 @@ export function useSpatialJoin({ onComplete, onError } = {}) {
         const resultFeatures = [];
         let totalMatchCount = 0;
 
-        // ---- Feature-specific processing ----
-        await processChunks(targetFeatures, {
-          signal,
-          // Progress: mirror old behavior (updates as processed advances,
-          // throttled internally by the hook).
-          onProgress: (processed, total) => {
-            setProcessedFeatures(processed);
-            setProgress((processed / total) * 100);
+        await processInChunks(
+          targetFeatures,
+          {
+            chunkSize: CHUNK_SIZE,
+            signal,
+            onProgress: (processed, total, chunkMatches) => {
+              setProcessedFeatures(processed);
+              setMatches(chunkMatches);
+              setProgress((processed / total) * 100);
+            },
+            onChunkComplete: (chunk, chunkIndex, chunkMatches) => {
+              totalMatchCount += chunkMatches;
+              console.log(
+                `Chunk ${chunkIndex + 1} completed with ${chunkMatches} matches`,
+              );
+            },
           },
-          // Per-item work: return the number of matches for this feature.
-          processor: async (feature, index) => {
+          async (feature, index) => {
             // For each target feature, find matching join features
             const matchingFeatures = findMatches(
               feature,
@@ -167,9 +171,10 @@ export function useSpatialJoin({ onComplete, onError } = {}) {
             );
 
             let featureMatchCount = 0;
-            const isMatchingAvailable =
+            let isMatchingAvailable =
               matchingFeatures && matchingFeatures.length > 0;
 
+            // if (matchingFeatures && matchingFeatures.length > 0) {
             // Create result feature(s) based on match strategy
             if (matchStrategy === "first" || matchStrategy === "aggregate") {
               // Only take first match or aggregate
@@ -209,23 +214,10 @@ export function useSpatialJoin({ onComplete, onError } = {}) {
                 ? matchingFeatures.length
                 : 0;
             }
-
+            // }
             return featureMatchCount;
           },
-          // Chunk-level aggregation: accumulate matches per chunk.
-          chunkAggregator: (chunkResults /* array of match counts */) => {
-            const chunkMatches = chunkResults.reduce((a, b) => a + b, 0);
-            totalMatchCount += chunkMatches;
-            setMatches(totalMatchCount);
-          },
-          onChunkComplete: (chunk, chunkIndex, chunkResults) => {
-            // Optional logging — kept from original
-            const chunkMatches = chunkResults.reduce((a, b) => a + b, 0);
-            console.log(
-              `Chunk ${chunkIndex + 1} completed with ${chunkMatches} matches`,
-            );
-          },
-        });
+        );
 
         if (signal.aborted) {
           throw new Error("Operation cancelled");
@@ -264,7 +256,7 @@ export function useSpatialJoin({ onComplete, onError } = {}) {
         abortControllerRef.current = null;
       }
     },
-    [onComplete, onError, processChunks],
+    [onComplete, onError],
   );
 
   const cancelJoin = useCallback(() => {
@@ -326,14 +318,14 @@ function findMatches(
   console.log("xxw Target geometry:", targetGeometry);
 
   const targetType = targetGeometry.type;
-
+  
   // For distance-based predicates, use the distance directly for bbox expansion
   if (predicate === "within-distance" || predicate === "nearest") {
     const distanceInMeters = convertToMeters(distance || 1000, distanceUnit || "meters");
-
+    
     // Convert distance to degrees (approximate)
     const distanceInDegrees = distanceInMeters / 111320; // 1 degree ≈ 111.32 km at equator
-
+    
     // Get the point coordinates
     let coords;
     if (targetType === 'Point') {
@@ -349,7 +341,7 @@ function findMatches(
         coords = [0, 0];
       }
     }
-
+    
     // Create expanded bbox for distance search
     const expandedBbox = [
       coords[0] - distanceInDegrees,
@@ -357,16 +349,16 @@ function findMatches(
       coords[0] + distanceInDegrees,
       coords[1] + distanceInDegrees
     ];
-
+    
     console.log("xxw Expanded bbox for distance search:", expandedBbox);
     console.log("xxw Distance in meters:", distanceInMeters);
     console.log("xxw Distance in degrees:", distanceInDegrees);
     console.log("xxw Original coords:", coords);
-
+    
     // Search with expanded bbox
     let candidateIndices = index.search(expandedBbox);
     console.log("xxw Candidate indices after expanded search:", candidateIndices);
-
+    
     // If still no candidates, try with a larger bbox (2x the distance)
     if (candidateIndices.length === 0) {
       const largerBbox = [
@@ -379,12 +371,12 @@ function findMatches(
       candidateIndices = index.search(largerBbox);
       console.log("xxw Candidate indices after larger search:", candidateIndices);
     }
-
+    
     if (candidateIndices.length === 0) {
       console.log("xxw No candidates found in spatial index");
       return [];
     }
-
+    
     // Filter candidates by exact predicate
     const matches = [];
 
@@ -434,7 +426,7 @@ function findMatches(
 
     return matches;
   }
-
+  
   // For non-distance predicates (contains, intersects, etc.)
   // Get target bbox for spatial index query
   let bbox;
@@ -444,7 +436,7 @@ function findMatches(
     console.warn("Failed to calculate bbox:", error);
     return [];
   }
-
+  
   // For points, expand the bbox slightly
   if (targetType === 'Point' || targetType === 'MultiPoint') {
     const expansionFactor = 0.0001; // ~11 meters - small expansion for exact matches
@@ -455,7 +447,7 @@ function findMatches(
       bbox[3] + expansionFactor
     ];
   }
-
+  
   console.log("xxw Target bbox for non-distance predicate:", bbox);
   console.log("xxw Index bbox:", index.bbox);
 
@@ -470,7 +462,7 @@ function findMatches(
 
   // Filter candidates by exact predicate
   const matches = [];
-
+  
   for (const idx of candidateIndices) {
     const joinFeature = features[idx];
     if (!joinFeature) continue;

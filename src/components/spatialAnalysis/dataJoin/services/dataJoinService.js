@@ -1,13 +1,19 @@
-import { buildLookupIndex } from '../algorithms/attributeIndex';
-import { performAttributeJoin } from '../algorithms/attributeJoin';
-import { processInChunks } from '../utils/chunkProcessor';
-import { getFieldNames } from '../utils/fieldUtils';
-import { JOIN_TYPES, MATCH_STRATEGIES, DEFAULT_CHUNK_SIZE } from '../constants';
-import { getJoinCache, setJoinCache, invalidateJoinCache } from './joinCacheService';
+// dataJoinService.js
+import { buildLookupIndex } from "../algorithms/attributeIndex";
+import { performAttributeJoin } from "../algorithms/attributeJoin";
+import { getFieldNames } from "../utils/fieldUtils";
+import { JOIN_TYPES, MATCH_STRATEGIES, DEFAULT_CHUNK_SIZE } from "../constants";
+import { getJoinCache, setJoinCache, invalidateJoinCache } from "./joinCacheService";
+import { useChunkProcessor } from "../../../../hooks";
 
 export class DataJoinService {
   constructor(options = {}) {
     this.chunkSize = options.chunkSize || DEFAULT_CHUNK_SIZE;
+    // Create the hook once; the returned fn is stable
+    const { processChunks } = useChunkProcessor({
+      chunkSize: this.chunkSize,
+    });
+    this._processChunks = processChunks;
   }
 
   async validateJoinConfig(config) {
@@ -204,62 +210,50 @@ export class DataJoinService {
       }
     }
 
-    // Process target features in chunks
+    // ---- Feature-specific processing ----
     const resultFeatures = [];
-    let processedCount = 0;
     let totalMatches = 0;
     let totalUnmatched = 0;
     let totalInvalidKeys = 0;
 
-    const chunkProcessor = async (feature, index) => {
-      return feature;
+    // Chunk-specific state, kept outside the hook
+    const chunkConfig = {
+      ...config,
+      targetFields,
+      joinFields,
+      normalizeOptions,
+      matchStrategy,
+      aggregation,
+      collisionStrategy,
+      fieldPrefix,
+      selectedJoinFields,
     };
 
-    const chunkResults = await processInChunks(
-      targetFeatures,
-      chunkProcessor,
-      {
-        chunkSize: this.chunkSize,
-        signal,
-        onProgress: (processed, total) => {
-          processedCount = processed;
-          if (onProgress) {
-            onProgress(processed, total);
-          }
-        },
-        onChunkComplete: (chunk, chunkIndex, processed) => {
-          const { lookup } = lookupData;
-          const chunkConfig = {
-            ...config,
-            targetFields,
-            joinFields,
-            normalizeOptions,
-            matchStrategy,
-            aggregation,
-            collisionStrategy,
-            fieldPrefix,
-            selectedJoinFields,
-          };
+    await this._processChunks(targetFeatures, {
+      signal,
+      onProgress: (processed, total) => {
+        if (onProgress) onProgress(processed, total);
+      },
+      // Per-item work is a no-op for Data Join; the chunk is handled
+      // in `chunkAggregator` below.
+      processor: (feature) => feature,
+      // Feature-specific aggregation: run the attribute join over the chunk.
+      chunkAggregator: (chunkResults, chunk, chunkIndex) => {
+        const { lookup } = lookupData;
+        const result = performAttributeJoin(chunk, lookup, chunkConfig);
 
-          const result = performAttributeJoin(
-            chunk,
-            lookup,
-            chunkConfig
-          );
+        resultFeatures.push(...result.features);
+        totalMatches += result.statistics.matchedCount || 0;
+        totalUnmatched += result.statistics.unmatchedCount || 0;
+        totalInvalidKeys += result.statistics.invalidTargetKeyCount || 0;
 
-          resultFeatures.push(...result.features);
-          totalMatches += result.statistics.matchedCount || 0;
-          totalUnmatched += result.statistics.unmatchedCount || 0;
-          totalInvalidKeys += result.statistics.invalidTargetKeyCount || 0;
+        if (onChunkComplete) {
+          onChunkComplete(chunk, chunkIndex, result.statistics);
+        }
+      },
+    });
 
-          if (onChunkComplete) {
-            onChunkComplete(chunk, chunkIndex, result.statistics);
-          }
-        },
-      }
-    );
-
-    // Final statistics
+    // ---- Final statistics ----
     const totalTimeMs = performance.now() - startTime;
 
     const finalStatistics = {

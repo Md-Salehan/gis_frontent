@@ -31,10 +31,10 @@ export default function BaseMapSwitcherControl() {
       {/* floating control buttons (top-right) */}
       <div
         style={{
-          position: "absolute",
-          top: 8,
-          left: 8,
-          zIndex: 1200,
+          // position: "absolute",
+          // top: 8,
+          // left: 8,
+          // zIndex: 1200,
           display: "flex",
           flexDirection: "column",
           gap: 6,
