@@ -630,7 +630,7 @@ When the source type is `Features`:
 │ [ Buildings ▼ ]                      │
 │                                      │
 │ Select Features                      │
-│ Attribute table with selection coloum│
+│ Attribute table(use feature properties) with selection coloum |                                   │
 │ ☐ Building #101                   │
 │ ☑ Building #102                   │
 │ ☑ Building #103                   │
@@ -681,17 +681,17 @@ For maximum flexibility, provide a mode that allows the user to select features 
 ┌────────────────────────────────────── ┐
 │ TARGET FEATURES                       │
 ├────────────────────────────────────── ┤
-│ Attribute table with selection coloum |                                   │
+│ Attribute table(use feature properties) with selection coloum |                                   │
 │ Flood Zones                           │
 │ ☑ Zone #1                            │
 │ ☑ Zone #4                            │
 │ 
-|Attribute table with selection coloum |                                     │
+│ Attribute table(use feature properties) with selection coloum |                                   │
 │ Rivers                               │
 │ ☑ River #2                           │
 │ ☐ River #5                           │
 │      
-|Attribute table with selection coloum |                                │
+│ Attribute table(use feature properties) with selection coloum |                                   │
 │ Roads                                │
 │ ☑ Road #12                          │
 │                                      │

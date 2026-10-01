@@ -20,6 +20,7 @@ import SpatialJoin from "./spatialJoin";
 import { DataJoinPanel } from "./dataJoin";
 import SelectedFeaturePanel from "../map/MapLeftPanel/SelectedFeature/SelectedFeatureButton";
 import { SelectedFeaturesPanel } from "..";
+import SpatialQuery from "./spatialQuery";
 const { Text, Title, Paragraph } = Typography;
 
 function MovableModals() {
@@ -31,6 +32,7 @@ function MovableModals() {
     isSpatialJoinModalOpen,
     isDataJoinModalOpen,
     isSelectedFeaturePanelOpen,
+    isSpatialQueryModalOpen,
   } = useSelector((state) => state.ui);
 
   return (
@@ -221,6 +223,39 @@ function MovableModals() {
       ) : (
         ""
       )} */}
+
+      { isSpatialQueryModalOpen ? (
+        <Movable
+          id="spatialQuery"
+          isMovable={true}
+          title="Spatial Query"
+          icon={<Link />}
+          titleFontSize={14}
+          // onPositionChange={handlePositionChange}
+          // initialPosition={position}
+          style={{
+            backgroundColor: "white",
+            borderRadius: "8px",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+            height: "auto",
+            width: "550px",
+          }}
+          onClose={(e) => {
+            dispatch(
+              handleMinimizeGlobalComp({
+                id: "spatialQuery",
+                status: false,
+              }),
+            );
+            dispatch(toggleSpatialQueryModal({ state: false }));
+          }}
+          isMinimizable={true}
+        >
+          <SpatialQuery id="spatialQuery" />
+        </Movable>
+      ) : (
+        ""
+      )}
     </>
   );
 }

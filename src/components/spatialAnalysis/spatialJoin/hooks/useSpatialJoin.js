@@ -1,15 +1,14 @@
 // hooks/useSpatialJoin.js
 import { useState, useCallback, useRef } from "react";
 import * as turf from "@turf/turf";
-import { buildSpatialIndex } from "../utils/spatialIndex";
 import { useChunkProcessor } from "../../../../hooks/useChunkProcessor"; // adjust path
-import {
-  executePredicate,
-  isGeometryTypeCompatible,
-} from "../utils/spatialPredicates";
-import { getCompatiblePredicates } from "../utils/compatibilityMatrix";
+// import {
+//   executePredicate,
+//   isGeometryTypeCompatible,
+// } from "../utils/spatialPredicates";
 import { copyProperties, resolveFieldCollisions } from "../utils/fieldUtils";
-import { convertToMeters } from "../../../../utils";
+import {  convertToMeters} from "../../../../utils";
+import { buildSpatialIndex, executePredicate, getCompatiblePredicates, isGeometryTypeCompatible } from "../../common/utils";
 
 const CHUNK_SIZE = 500;
 

@@ -1,0 +1,1102 @@
+
+
+# Spatial Query — Complete Requirements & Behavior
+
+## 1. Purpose
+
+The Spatial Query feature must provide a flexible client-side GIS query system where users can select different combinations of **source** and **target layers/features**, apply a spatial relationship, and receive matching source features.
+
+The architecture must **not assume a single source layer or single target layer**. Both sides must ultimately be represented as collections of identifiable features. 
+
+---
+
+# 2. Technology & Constraints
+
+The feature is being added to an existing:
+
+* React.js application
+* JavaScript application — **no TypeScript**
+* Ant Design UI
+* Leaflet.js map
+* Turf.js spatial operations
+* Flatbush spatial indexes
+* Existing chunking hook
+
+Requirements:
+
+1. All spatial processing must happen **client-side**.
+2. Do **not** introduce Web Workers.
+3. Reuse the existing chunking hook.
+4. Reuse existing Flatbush indexes.
+5. Do not introduce another spatial-index library.
+6. Do not replace Leaflet or Ant Design.
+7. Reuse existing map, layer, selection, highlighting, popup, indexing and state-management systems.
+8. Do not modify unrelated functionality.
+9. Follow the project's existing coding conventions.
+10. Do not duplicate existing utilities.
+11. Use the already installed library versions.
+12. Keep the feature modular and extensible. 
+
+---
+
+# 3. Core Spatial Query Concept
+
+The query consists of:
+
+```text
+SOURCE
+   │
+   │ Spatial Operation
+   ▼
+TARGET
+```
+
+The source can represent:
+
+* Entire layer
+* Single feature
+* Multiple features from a single layer
+
+The target can represent:
+
+* Single layer
+* Single feature
+* Multiple features from one layer
+
+
+
+The implementation must therefore support:
+
+```text
+Layer → Layer (All feature of layer → All feature of layer)
+Layer → Feature (All feature → selected feature )
+Layer → Multiple Features (All feature → multiple selected feature)
+
+Feature → Layer (selected feature → All feature)
+Feature → Feature (selected feature → selected feature)
+Feature → Multiple Features (selected feature → multiple selected feature)
+
+Multiple Features → Layer
+Multiple Features → Feature
+Multiple Features → Multiple Features
+```
+
+---
+
+# 4. Source Selection Requirements
+
+## 4.1 Entire Layer
+
+User can select:
+
+```text
+Source Type: Layer
+Source Layer: Buildings
+```
+
+Behavior:
+
+> Every feature in the selected layer becomes a source candidate.
+
+---
+
+## 4.2 Single Feature
+
+User can select:
+
+```text
+Source Type: Feature
+Layer: Buildings
+Feature: Building #1024
+```
+
+Behavior:
+
+> Only Building #1024 participates as the source.
+
+---
+
+## 4.3 Multiple Features From One Layer
+
+User can select:
+
+```text
+Source Type: Features
+Layer: Buildings
+
+✓ Building #101
+✓ Building #102
+✓ Building #105
+✓ Building #110
+```
+
+Behavior:
+
+> Only the selected features become source candidates.
+
+
+
+---
+
+# 5. Target Selection Requirements
+
+The target must be more flexible than the source.
+
+## 5.1 Single Layer
+
+```text
+Target Type: Layer
+Target Layer: Flood Zones
+```
+
+All features in the layer become target candidates.
+
+---
+
+
+## 5.3 Multiple Features From One Layer
+
+```text
+Target Layer: Flood Zones
+
+✓ Zone #1
+✓ Zone #3
+✓ Zone #7
+```
+
+Only those features participate.
+
+---
+
+
+
+## 5.5 Single Target Feature
+
+Example:
+
+```text
+Target Type: Feature
+Layer: Flood Zones
+Feature: Flood Zone #5
+```
+
+Only that feature participates.
+
+---
+
+
+# 7. Multi-Target Behavior
+
+This is one of the most important behavioral requirements.
+
+When multiple targets are selected, the default semantic is:
+
+> **A source feature is a match if it satisfies the selected spatial relationship with at least one target feature.**
+
+Example:
+
+```text
+Source:
+Building #101
+
+Targets:
+Zone #1
+Zone #2
+Zone #3
+```
+
+If:
+
+```text
+Building #101 INTERSECTS Zone #2
+```
+
+then:
+
+```text
+Building #101 = MATCH
+```
+
+It does not need to match every target.
+
+
+
+---
+
+# 8. Duplicate Result Behavior
+
+If one source matches multiple targets:
+
+```text
+Building #101
+   ├── Zone #2
+   ├── Zone #3
+   └── Zone #5
+```
+
+the source must appear **only once** in the primary result set.
+
+Do not produce:
+
+```text
+Building #101
+Building #101
+Building #101
+```
+
+Instead:
+
+```javascript
+{
+    source: {...},
+    matchedTargets: [...]
+}
+```
+
+
+
+---
+
+# 9. Preserve Match Relationships
+
+Although duplicate source results are removed, the system must retain information about **which targets matched**.
+
+Example:
+
+```javascript
+{
+    source: {
+        layerId: "buildings",
+        featureId: "building-101",
+        feature: sourceFeature
+    },
+
+    matchedTargets: [
+        {
+            layerId: "flood-zones",
+            featureId: "zone-2",
+            feature: targetFeature
+        },
+        {
+            layerId: "flood-zones",
+            featureId: "zone-3",
+            feature: targetFeature
+        }
+    ],
+
+    operation: "intersects"
+}
+```
+
+This relationship information must not be discarded. 
+
+---
+
+# 10. Source/Target Normalization
+
+The UI can have different selection modes, but the spatial engine should receive one consistent representation.
+
+For example:
+
+```javascript
+{
+    source: {
+        type: "features",
+        items: [
+            {
+                layerId: "buildings",
+                featureId: "building-101",
+                feature: {}
+            },
+            {
+                layerId: "buildings",
+                featureId: "building-102",
+                feature: {}
+            }
+        ]
+    },
+
+    target: {
+        type: "features",
+        items: [
+            {
+                layerId: "flood-zones",
+                featureId: "zone-1",
+                feature: {}
+            },
+            {
+                layerId: "rivers",
+                featureId: "river-4",
+                feature: {}
+            }
+        ]
+    },
+
+    operation: "intersects"
+}
+```
+
+The core spatial engine should work against this normalized structure rather than directly against UI state. 
+
+---
+
+# 11. Spatial Operations
+
+The system must support:
+
+* Within
+* Contains
+* Intersects
+* Overlaps
+* Touches
+* Crosses
+* Disjoint
+* Within Distance
+* Nearest Feature
+
+These operations must not blindly be available for every geometry combination.
+
+The system should determine:
+
+1. Source geometry type
+2. Target geometry type
+3. Operation compatibility
+4. Enable/disable appropriate operations
+
+For incompatible combinations, show a clear message such as:
+
+```text
+This spatial operation is not supported
+for the selected geometry types.
+```
+
+
+
+---
+
+# 12. Spatial Operation Behavior
+
+## Within
+
+```text
+Source → Target
+```
+
+Return source features that are within the target geometry.
+
+Example:
+
+```text
+Buildings
+    ↓
+Within
+    ↓
+Flood Zones
+```
+
+---
+
+## Contains
+
+Return source features that contain the target geometry.
+
+---
+
+## Intersects
+
+Return source features whose geometry intersects at least one target.
+
+---
+
+## Overlaps
+
+Return source features that spatially overlap the target according to the supported geometry semantics.
+
+---
+
+## Touches
+
+Return source features that touch the target geometry.
+
+---
+
+## Crosses
+
+Return source features that cross the target geometry.
+
+---
+
+## Disjoint
+
+Return source features that are disjoint from the relevant target geometry according to the query semantics.
+
+---
+
+## Within Distance
+
+Example:
+
+```text
+Source:
+Hospital #10
+
+Operation:
+Within Distance
+
+Target:
+Selected geometry
+
+Distance:
+5 km
+```
+
+Return source features within the configured distance.
+
+---
+
+## Nearest Feature
+
+Find the nearest relevant target/source feature according to the selected query direction and preserve the relationship in the result.
+
+The acceptance criteria explicitly require both **Within Distance** and **Nearest Feature**. 
+
+---
+
+# 13. Attribute Filtering
+
+The query must support optional attribute filters.
+
+Example source filter:
+
+```text
+Type = "Government"
+AND
+Status = "Active"
+```
+
+Target filter:
+
+```text
+RiskLevel = "High"
+```
+
+Where logically safe, attribute filtering should happen **before expensive spatial calculations**.
+
+
+
+---
+
+# 14. Query Configuration
+
+The configuration needs to represent collections rather than single entities.
+
+Conceptually:
+
+```javascript
+{
+    source: {
+        mode: "layer" | "feature" | "features",
+        layers: [],
+        features: []
+    },
+
+    operation: "within",
+
+    target: {
+        mode:
+            "layer" |
+            "layers" |
+            "feature" |
+            "features" |
+            "drawnGeometry",
+
+        layers: [],
+        features: [],
+        geometries: []
+    },
+
+    filters: [],
+
+    distance: null,
+
+    distanceUnit: "kilometers"
+}
+```
+
+The exact domain model should be adapted to the existing application's architecture rather than copied blindly. 
+
+---
+
+# 15. Critical Architecture Rule
+
+Do **not** design the engine around:
+
+```javascript
+const sourceLayer = ...
+const targetLayer = ...
+const targetFeature = ...
+```
+
+Instead, work with:
+
+```javascript
+sourceItems[]
+targetItems[]
+```
+
+Each item should retain:
+
+```javascript
+{
+    layerId,
+    featureId,
+    feature
+}
+```
+
+This is required to support multi-layer and multi-feature queries correctly. 
+
+---
+
+# 16. Flatbush Behavior
+
+Existing Flatbush indexes must be reused.
+
+If the application has:
+
+```text
+Layer A → Flatbush A
+Layer B → Flatbush B
+Layer C → Flatbush C
+```
+
+and the target is:
+
+```text
+Flood Zones + Rivers + Roads
+```
+
+the query engine should search the relevant indexes independently:
+
+```text
+                Query Geometry
+                      │
+       ┌──────────────┼──────────────┐
+       ▼              ▼              ▼
+ Flood Index      River Index      Road Index
+       │              │              │
+       ▼              ▼              ▼
+ Candidates       Candidates       Candidates
+       └──────────────┼──────────────┘
+                      ▼
+                Exact Turf Tests
+                      ▼
+                   Results
+```
+
+Do not scan every target feature if Flatbush can eliminate candidates first. 
+
+---
+
+# 17. Query Execution Pipeline
+
+The expected execution flow is:
+
+```text
+User Query Configuration
+          ↓
+      Validation
+          ↓
+ Normalize Source
+          ↓
+ Normalize Target
+          ↓
+ Attribute Filtering
+          ↓
+ Spatial Candidate Search
+          ↓
+       Flatbush
+          ↓
+ Candidate Features
+          ↓
+ Existing Chunking Hook
+          ↓
+    Exact Turf Tests
+          ↓
+     Match / No Match
+          ↓
+ Deduplicate Sources
+          ↓
+ Preserve Target Matches
+          ↓
+       Results
+          ↓
+ ┌────────┼─────────┐
+ ↓        ↓         ↓
+Map     Table     Export
+```
+
+
+
+---
+
+# 18. Performance Requirements
+
+For large datasets:
+
+### Must do
+
+* Reuse Flatbush.
+* Reuse existing chunking.
+* Use bounding-box candidate filtering.
+* Apply attribute filters early where safe.
+* Run exact Turf operations only on candidates.
+* Deduplicate results.
+* Avoid unnecessary geometry cloning.
+* Avoid unnecessary React state updates.
+* Preserve only necessary metadata.
+
+### Must not do
+
+* Source × Target brute-force comparisons when avoidable.
+* Rebuild Flatbush unnecessarily.
+* Clone entire GeoJSON collections.
+* Store huge feature collections in React state unnecessarily.
+* Trigger React rendering for every processed feature.
+* Add another spatial index.
+* Add Web Workers. 
+
+---
+
+# 19. Chunking Behavior
+
+The existing chunking hook must be used for large queries.
+
+Conceptually:
+
+```text
+Source Features
+      ↓
+Candidate Filtering
+      ↓
+Existing Chunking Hook
+      ↓
+ ┌────┼────┬────┐
+ ↓    ↓    ↓    ↓
+C1   C2   C3   ...
+ ↓    ↓    ↓
+Exact Turf Tests
+      ↓
+Deduplicated Results
+```
+
+Do not create another chunking implementation. 
+
+---
+
+# 20. UI Requirements
+
+The Spatial Query UI should have three major sections:
+
+```text
+┌─────────────────────────────┐
+│       SPATIAL QUERY         │
+├─────────────────────────────┤
+│ SOURCE                      │
+│                             │
+│ Source Type                 │
+│ [ Layer ▼ ]                 │
+│                             │
+│ Layer / Features            │
+│ [ ... ]                     │
+├─────────────────────────────┤
+│ SPATIAL OPERATION           │
+│                             │
+│ [ Intersects ▼ ]            │
+├─────────────────────────────┤
+│ TARGET                      │
+│                             │
+│ Target Type                 │
+│ [ Multiple Layers ▼ ]       │
+│                             │
+│ Target Selection            │
+│ [ ... ]                     │
+├─────────────────────────────┤
+│ ATTRIBUTE FILTER            │
+│                             │
+│ [ Add Filter ]              │
+├─────────────────────────────┤
+│ [ RUN QUERY ] [ CLEAR ]     │
+└─────────────────────────────┘
+```
+
+Use existing Ant Design components such as:
+
+* Drawer
+* Card
+* Form
+* Select
+* TreeSelect
+* Radio
+* Checkbox
+* Table
+* Button
+* InputNumber
+* Alert
+* Progress
+* Tag
+* Collapse
+* Tooltip
+
+But reuse existing project components where they already provide equivalent functionality. 
+
+---
+
+# 21. Feature Selection UI
+
+When selecting multiple features:
+
+```text
+Attribute Table
+┌───┬───────────────┬──────────┐
+│ ✓ │ Feature        │ Property │
+├───┼───────────────┼──────────┤
+│ ☐ │ Building #101 │ ...      │
+│ ☑ │ Building #102 │ ...      │
+│ ☑ │ Building #103 │ ...      │
+│ ☐ │ Building #104 │ ...      │
+└───┴───────────────┴──────────┘
+```
+
+The selection column should be integrated with the attribute table where appropriate.
+
+For large datasets, do not render every feature into the DOM. Use the application's existing pagination/table mechanism. 
+
+---
+
+# 22. Multi-Layer Feature Selection
+
+The UI must support selections such as:
+
+```text
+Flood Zones
+  ☑ Zone #1
+  ☑ Zone #4
+
+Rivers
+  ☑ River #2
+  ☐ River #5
+
+Roads
+  ☑ Road #12
+
+Selected: 4 features
+```
+
+All selected features become one normalized target collection while retaining their original layer identities. 
+
+---
+
+# 23. Result Behavior
+
+After execution:
+
+1. Highlight matching source features.
+2. Preserve source layer identity.
+3. Preserve matched target information.
+4. Display result count.
+5. Display results in Ant Design Table.
+6. Allow clicking a result to focus the map.
+7. Allow zooming to results.
+8. Allow clearing results.
+9. Allow GeoJSON export.
+10. Never mutate original layer data.
+
+
+
+---
+
+# 24. Result Table
+
+The result table should support:
+
+```text
+┌────┬──────────────┬───────────────┬─────────────────┐
+│ #  │ Source Layer │ Feature       │ Matched Target  │
+├────┼──────────────┼───────────────┼─────────────────┤
+│ 1  │ Buildings    │ Building #101 │ Flood Zone #2   │
+│ 2  │ Buildings    │ Building #102 │ River #4        │
+│ 3  │ Buildings    │ Building #105 │ Flood Zone #3   │
+└────┴──────────────┴───────────────┴─────────────────┘
+```
+
+If one source matches multiple targets, use an expandable representation:
+
+```text
+Building #101
+    ├── Flood Zone #2
+    └── Flood Zone #3
+```
+
+Do not duplicate the source row unnecessarily. 
+
+---
+
+# 25. Existing Architecture Must Be Inspected First
+
+Before writing new code, inspect:
+
+1. Map component
+2. Leaflet map instance
+3. Layer-management system
+4. Layer metadata
+5. Feature data structure
+6. Feature selection
+7. Multi-feature selection
+8. Multi-layer selection
+9. Flatbush indexes
+10. Chunking hook
+11. Feature highlighting
+12. Popup system
+13. State management
+14. Attribute table
+15. Export functionality
+16. Existing GIS utilities
+
+Particular attention should be paid to existing concepts such as:
+
+```text
+selectedFeatures
+multiSelectedFeatures
+selectedLayer
+activeLayer
+layerFeatureMap
+featureIndex
+```
+
+or their equivalents.
+
+**Reuse existing state and utilities instead of creating parallel implementations.** 
+
+---
+
+# 26. No Web Worker
+
+The implementation must not introduce:
+
+```text
+worker.js
+new Worker()
+Comlink
+worker-loader
+```
+
+or equivalent worker architecture.
+
+All processing must happen on the existing application thread, using the existing chunking mechanism. 
+
+---
+
+# 27. Required Supported Examples
+
+The implementation must support at least these scenarios:
+
+### Example 1
+
+```text
+Buildings
+   ↓ Within
+Flood Zones
+```
+
+### Example 2
+
+```text
+Building #101
+   ↓ Intersects
+Roads
+```
+
+### Example 3
+
+```text
+Buildings
+   ↓ Intersects
+Rivers + Roads + Flood Zones
+```
+
+### Example 4
+
+```text
+Building #101
+Building #102
+Building #103
+   ↓ Within
+Flood Zone #5
+```
+
+### Example 5
+
+```text
+Building #101
+Building #102
+Building #103
+   ↓ Within
+Zone #1 + Zone #2 + Zone #3
+```
+
+### Example 6
+
+```text
+Hospitals
+   ↓ Intersects
+River #2 + River #4
+```
+
+### Example 7
+
+```text
+Hospital #10
+   ↓ Within Distance
+Selected Geometry
+
+Distance: 5 km
+```
+
+
+
+---
+
+# 28. Acceptance Criteria
+
+The Spatial Query feature is complete only when all of the following work:
+
+### Source
+
+* [ ] Entire layer
+* [ ] Single feature
+* [ ] Multiple features from one layer
+
+### Target
+
+* [ ] Single layer
+* [ ] Multiple layers
+* [ ] Single feature
+* [ ] Multiple features from one layer
+* [ ] Multiple features from multiple layers
+* [ ] Drawn geometry
+
+### Combinations
+
+* [ ] Layer → Layer
+* [ ] Feature → Layer
+* [ ] Layer → Feature
+* [ ] Feature → Feature
+* [ ] Single source → Multiple targets
+* [ ] Multiple features → Feature
+* [ ] Multiple features → Multiple targets
+
+### Operations
+
+* [ ] Within
+* [ ] Contains
+* [ ] Intersects
+* [ ] Overlaps
+* [ ] Touches
+* [ ] Crosses
+* [ ] Disjoint
+* [ ] Within Distance
+* [ ] Nearest Feature
+
+### Query Engine
+
+* [ ] Source/target normalization
+* [ ] Attribute filtering
+* [ ] Flatbush candidate filtering
+* [ ] Existing chunking hook
+* [ ] Exact Turf validation
+* [ ] Duplicate source removal
+* [ ] Matched-target preservation
+* [ ] Invalid geometry handling
+
+### UI/Results
+
+* [ ] Source selection
+* [ ] Target selection
+* [ ] Multi-layer selection
+* [ ] Multi-feature selection
+* [ ] Result count
+* [ ] Map highlighting
+* [ ] Result table
+* [ ] Click-to-focus
+* [ ] Zoom to results
+* [ ] Clear results
+* [ ] GeoJSON export
+
+### Performance/Architecture
+
+* [ ] Large datasets processed incrementally
+* [ ] No Web Worker
+* [ ] No additional spatial-index library
+* [ ] Existing Flatbush reused
+* [ ] Existing chunking reused
+* [ ] Existing selection/state architecture reused
+* [ ] No unnecessary React renders
+* [ ] No unrelated functionality broken
+* [ ] No unnecessary dependencies added
+
+
+
+---
+
+# 29. Implementation Order
+
+The implementation should follow this order:
+
+```text
+1. Inspect existing architecture
+             ↓
+2. Understand layer/feature models
+             ↓
+3. Understand selection system
+             ↓
+4. Understand Flatbush indexes
+             ↓
+5. Understand chunking hook
+             ↓
+6. Identify reusable utilities/components
+             ↓
+7. Define normalized query model
+             ↓
+8. Build query validation
+             ↓
+9. Build source normalization
+             ↓
+10. Build target normalization
+             ↓
+11. Apply attribute filters
+             ↓
+12. Perform Flatbush candidate search
+             ↓
+13. Process candidates using chunking
+             ↓
+14. Run exact Turf predicates
+             ↓
+15. Deduplicate source results
+             ↓
+16. Preserve target relationships
+             ↓
+17. Integrate map highlighting
+             ↓
+18. Integrate result table
+             ↓
+19. Add zoom/focus/export/clear
+             ↓
+20. Test every source-target combination
+             ↓
+21. Test every spatial operation
+             ↓
+22. Test large datasets
+```
+
+The final implementation should behave as a **native feature of the existing Web GIS**, rather than an isolated spatial-query application. 

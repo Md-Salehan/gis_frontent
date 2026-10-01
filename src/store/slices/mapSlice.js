@@ -5,7 +5,7 @@ import { testData } from "./testData";
 const initialState = {
   geoJsonLayers: {}, // layerId: { geoJsonData, metaData, orderNo }
   tempGeoJsonLayers: {
-    // target_cities: testData?.target_cities, 
+    // target_cities: testData?.target_cities,
     // join_city_stats: testData?.join_city_stats,
     // target_no_match: testData?.target_no_match,
     // join_no_match: testData?.join_no_match,
@@ -29,6 +29,10 @@ const initialState = {
   measure: {
     type: "line", // "line" | "area"
     unit: "km", // default unit
+  },
+  spatialQuerySelection: {
+    source: { layerId: null, featureIndices: [] },
+    target: { layerId: null, featureIndices: [] },
   },
 };
 
@@ -148,6 +152,40 @@ const mapSlice = createSlice({
     resetMapState: (state) => {
       return initialState;
     },
+
+    setSpatialQuerySelection: (state, action) => {
+      // payload:
+      //   { side: "source"|"target", layerId?, featureIndices? }
+      //   OR { reset: true }
+      if (action.payload?.reset) {
+        state.spatialQuerySelection = {
+          source: { layerId: null, featureIndices: [] },
+          target: { layerId: null, featureIndices: [] },
+        };
+        return;
+      }
+      const { side, layerId, featureIndices } = action.payload || {};
+      if (side !== "source" && side !== "target") return;
+
+      const prev = state.spatialQuerySelection[side];
+
+      if (layerId !== undefined && layerId !== prev.layerId) {
+        state.spatialQuerySelection[side] = {
+          layerId: layerId ?? null,
+          featureIndices: Array.isArray(featureIndices)
+            ? [...featureIndices]
+            : [],
+        };
+        return;
+      }
+
+      if (Array.isArray(featureIndices)) {
+        state.spatialQuerySelection[side] = {
+          layerId: prev.layerId,
+          featureIndices: [...featureIndices],
+        };
+      }
+    },
   },
 });
 
@@ -173,6 +211,7 @@ export const {
   // toggleRowSelection,
   // clearMultiSelectedRows,
   resetBuffer,
+  setSpatialQuerySelection,
 } = mapSlice.actions;
 
 export default mapSlice.reducer;

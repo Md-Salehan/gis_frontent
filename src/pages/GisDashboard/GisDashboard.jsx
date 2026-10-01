@@ -66,6 +66,7 @@ import {
   toggleMeasure,
   togglePrintModal,
   toggleSpatialJoinModal,
+  toggleSpatialQueryModal,
 } from "../../store/slices/uiSlice";
 import {
   resetActivePortalDetails,
@@ -162,6 +163,14 @@ const GisDashboard = memo(() => {
       label: "Data Join",
       onClick: () => {
         dispatch(toggleDataJoinModal({ state: true }));
+      },
+      icon: React.createElement(Link),
+    },
+    {
+      key: "spatialquery",
+      label: "Spatial Query",
+      onClick: () => {
+        dispatch(toggleSpatialQueryModal({ state: true }));
       },
       icon: React.createElement(Link),
     },

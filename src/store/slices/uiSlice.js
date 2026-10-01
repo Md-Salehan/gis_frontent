@@ -23,6 +23,7 @@ const initialState = {
   minimizedGlobalCompList: [],
   isFeatureSelectionEnabled: false,
   isSelectedFeaturePanelOpen: false,
+  isSpatialQueryModalOpen: false,
 };
 
 export const uiSlice = createSlice({
@@ -74,7 +75,8 @@ export const uiSlice = createSlice({
       else state.isIdentifyOpen = !state.isIdentifyOpen;
     },
     toggleFeatureSelection: (state, action) => {
-      if (action.payload) state.isFeatureSelectionEnabled = action.payload.state;
+      if (action.payload)
+        state.isFeatureSelectionEnabled = action.payload.state;
       else state.isFeatureSelectionEnabled = !state.isFeatureSelectionEnabled;
     },
     toggleCentroidModal: (state, action) => {
@@ -99,8 +101,13 @@ export const uiSlice = createSlice({
       else state.isDataJoinModalOpen = !state.isDataJoinModalOpen;
     },
     toggleSelectedFeaturePanel: (state, action) => {
-      if (action.payload) state.isSelectedFeaturePanelOpen = action.payload.state;
+      if (action.payload)
+        state.isSelectedFeaturePanelOpen = action.payload.state;
       else state.isSelectedFeaturePanelOpen = !state.isSelectedFeaturePanelOpen;
+    },
+    toggleSpatialQueryModal: (state, action) => {
+      if (action.payload) state.isSpatialQueryModalOpen = action.payload.state;
+      else state.isSpatialQueryModalOpen = !state.isSpatialQueryModalOpen;
     },
     setActiveMovableTab: (state, action) => {
       if (action.payload) state.activeMovableTab = action.payload;
@@ -153,6 +160,7 @@ export const {
   toggleSpatialJoinModal,
   toggleDataJoinModal,
   toggleSelectedFeaturePanel,
+  toggleSpatialQueryModal,
   setActiveMovableTab,
   handleMinimizeGlobalComp,
 } = uiSlice.actions;

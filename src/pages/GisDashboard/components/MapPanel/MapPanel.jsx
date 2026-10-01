@@ -27,6 +27,7 @@ import {
   SelectedFeaturesPanel,
 } from "../../../../components";
 import SelectedFeaturesLayer from "../../../../components/map/SelectedFeaturesLayer";
+import SpatialQuery from "../../../../components/spatialAnalysis/spatialQuery";
 
 const MapPanel = memo(() => {
   // read layers & viewport from redux
@@ -222,6 +223,7 @@ const MapPanel = memo(() => {
         <BufferToolDrawer />
 
         <SelectedFeaturesPanel />
+        
       </MapContainer>
     </div>
   );

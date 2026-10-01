@@ -12,8 +12,8 @@ import {
   Checkbox,
 } from "antd";
 import { InfoCircleOutlined } from "@ant-design/icons";
-import { getCompatiblePredicates } from "../utils/compatibilityMatrix";
 import FieldSelector from "./FieldSelector";
+import { getCompatiblePredicates } from "../../common/utils";
 
 const { Text } = Typography;
 const { Option } = Select;
