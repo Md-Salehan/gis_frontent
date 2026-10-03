@@ -1,29 +1,13 @@
-// common/utils/spatialIndex.js
+// hooks/useSpatialIndex.js
 import * as turf from "@turf/turf";
 import Flatbush from "flatbush";
 
-/**
- * Build a Flatbush spatial index over the given GeoJSON features.
- *
- * @param {Array<Object>} features  GeoJSON features to index.
- * @param {Object} [options]
- * @param {AbortSignal} [options.signal]
- * @param {Array<{layerId:string, featureId:string, feature:Object}>} [options.items]
- *        Optional parallel array of the original items. When provided, the
- *        returned `items` array preserves `layerId` and `featureId` so callers
- *        can map indexed features back to their source items without relying
- *        on positional alignment. When omitted (e.g. Spatial Join), behavior
- *        is identical to before.
- *
- * @returns {{ index: Object|null, features: Array, items: Array }}
- */
-export async function buildSpatialIndex(features, { signal, items: originalItems } = {}) {
+export async function buildSpatialIndex(features, { signal } = {}) {
   if (!features || features.length === 0) {
-    return { index: null, features: [], items: [] };
+    return { index: null, features: [] };
   }
 
-  // Extract bboxes for all features, preserving original item metadata when
-  // the caller supplied a parallel `items` array.
+  // Extract bboxes for all features
   const items = features.map((feature, index) => {
     let bbox;
     try {
@@ -33,13 +17,9 @@ export async function buildSpatialIndex(features, { signal, items: originalItems
       console.warn(`Failed to calculate bbox for feature ${index}:`, error);
       bbox = [0, 0, 0, 0];
     }
-
-    const original = originalItems?.[index];
-
+    
     return {
       id: index,
-      layerId: original?.layerId,
-      featureId: original?.featureId,
       feature,
       bbox: {
         minX: bbox[0],
@@ -65,13 +45,13 @@ export async function buildSpatialIndex(features, { signal, items: originalItems
 
   // Check if features exist and have valid bbox
   if (globalMinX === Infinity || globalMaxX === -Infinity) {
-    return { index: null, features: [], items: [] };
+    return { index: null, features: [] };
   }
 
   // Create Flatbush index
   // Flatbush expects [minX, minY, maxX, maxY] for each item
   const index = new Flatbush(features.length);
-
+  
   // Add each feature's bbox to the index
   for (const item of items) {
     const { minX, minY, maxX, maxY } = item.bbox;
@@ -122,6 +102,6 @@ export async function buildSpatialIndex(features, { signal, items: originalItems
       size: items.length,
     },
     features,
-    items, // enriched with layerId/featureId when originalItems was provided
+    items, // Keep items for reference
   };
 }

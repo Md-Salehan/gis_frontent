@@ -35,28 +35,6 @@ import { validateQuery } from "./utils/queryValidator";
 
 const { Text } = Typography;
 
-/**
- * Collect all distinct geometry types present in a feature collection.
- * Expands GeometryCollection into its member geometry types so that the
- * compatibility matrix receives the complete set of geometry types that
- * actually occur in the layer.
- */
-function collectGeometryTypes(features) {
-  const set = new Set();
-  for (const f of features || []) {
-    const g = f?.geometry;
-    if (!g?.type) continue;
-    if (g.type === "GeometryCollection") {
-      for (const inner of g.geometries || []) {
-        if (inner?.type) set.add(inner.type);
-      }
-    } else {
-      set.add(g.type);
-    }
-  }
-  return [...set];
-}
-
 function SpatialQuery({ id }) {
   const dispatch = useDispatch();
   const isMinimized = useIsCompMinimized(id);
@@ -94,14 +72,14 @@ function SpatialQuery({ id }) {
     const push = (layerId, layerData, type) => {
       const features = layerData?.geoJsonData?.features || [];
       if (!features.length) return;
-      const geometryTypes = collectGeometryTypes(features);
+      const geomType = features[0]?.geometry?.type;
       out.push({
         value: layerId,
         label: layerData?.metaData?.layer?.layer_nm || layerId,
         type,
         data: layerData,
         featureCount: features.length,
-        geometryTypes,
+        geometryTypes: geomType ? [geomType] : [],
       });
     };
     Object.entries(geoJsonLayers).forEach(([lid, d]) => push(lid, d, "main"));
@@ -292,9 +270,7 @@ function SpatialQuery({ id }) {
     const rows = engine.resultRows;
     if (!rows?.length) return;
     try {
-      const features = rows
-        .map((r) => r.source.feature)
-        .filter((f) => f?.geometry);
+      const features = rows.map((r) => r.source.feature).filter((f) => f?.geometry);
       if (!features.length) return;
       // Dispatch to the map to fit bounds on all source features.
       dispatch(

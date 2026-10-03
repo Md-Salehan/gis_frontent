@@ -3,10 +3,7 @@ import { useState, useCallback, useRef } from "react";
 import * as turf from "@turf/turf";
 import { useChunkProcessor } from "../../../../hooks/useChunkProcessor";
 import { useLayerIndexCache } from "./useLayerIndexCache";
-import {
-  executePredicate,
-  minDistanceMeters,
-} from "../../common/utils/spatialPredicates";
+import { executePredicate } from "../../common/utils/spatialPredicates";
 import { convertToMeters } from "../../../../utils";
 import { buildMatchedTargetLayer } from "../utils/matchedTargetLayer";
 
@@ -14,19 +11,17 @@ const CHUNK_SIZE = 500;
 const DEGREES_PER_METER = 1 / 111320;
 const SAFETY_PAD_METERS = 50;
 
-/**
- * Expand a [minX, minY, maxX, maxY] bbox by `meters` on every side.
- * Longitude expansion is computed at the worst-case latitude (the one
- * closest to the pole) so that high-latitude features are not under-padded.
- */
-function expandBboxMeters(bbox, meters) {
-  if (!meters || meters <= 0) return bbox;
-  const [minX, minY, maxX, maxY] = bbox;
+/** Convert meters to degrees latitude (approximation). */
+function metersToDegrees(meters) {
+  return meters * DEGREES_PER_METER;
+}
+
+/** Convert meters to degrees, accounting for latitude for longitude. */
+function metersToDegreesAtLat(meters, lat) {
   const dLat = meters * DEGREES_PER_METER;
-  const worstLat = Math.max(Math.abs(minY), Math.abs(maxY));
-  const cosLat = Math.max(0.01, Math.cos((worstLat * Math.PI) / 180));
+  const cosLat = Math.max(0.01, Math.cos((lat * Math.PI) / 180));
   const dLng = dLat / cosLat;
-  return [minX - dLng, minY - dLat, maxX + dLng, maxY + dLat];
+  return { dLat, dLng };
 }
 
 export function useSpatialQuery({ onComplete, onError } = {}) {
@@ -94,7 +89,9 @@ export function useSpatialQuery({ onComplete, onError } = {}) {
         return;
       }
       if (!source?.items?.length || !target?.items?.length) {
-        const err = new Error("Source and target feature sets are required.");
+        const err = new Error(
+          "Source and target feature sets are required.",
+        );
         setError(err.message);
         onError?.(err);
         return;
@@ -137,7 +134,6 @@ export function useSpatialQuery({ onComplete, onError } = {}) {
         const targetFeatures = target.items.map((it) => it.feature);
         const built = await getIndex(target.layerId, targetFeatures, {
           signal,
-          items: target.items,
         });
         if (!built?.index) throw new Error("Failed to build spatial index.");
 
@@ -190,8 +186,18 @@ export function useSpatialQuery({ onComplete, onError } = {}) {
               return null;
             }
 
-            // Latitude-aware padding of the query bbox.
-            const queryBbox = expandBboxMeters(bbox, padMeters);
+            // Latitude-aware padding
+            const midLat = (bbox[1] + bbox[3]) / 2;
+            const { dLat, dLng } = padMeters
+              ? metersToDegreesAtLat(padMeters, midLat)
+              : { dLat: 0.0001, dLng: 0.0001 };
+
+            const queryBbox = [
+              bbox[0] - dLng,
+              bbox[1] - dLat,
+              bbox[2] + dLng,
+              bbox[3] + dLat,
+            ];
 
             let candidateIndices = [];
             try {
@@ -209,6 +215,7 @@ export function useSpatialQuery({ onComplete, onError } = {}) {
 
             // ---- DISJOINT: source matches iff disjoint from ALL targets ----
             if (operation === "disjoint") {
+              // Candidates are "possible collisions"; if none, definitely disjoint.
               let intersectsAny = false;
               for (const idx of candidateIndices) {
                 const tFeature = targetFeaturesCanonical[idx];
@@ -247,8 +254,6 @@ export function useSpatialQuery({ onComplete, onError } = {}) {
             if (!candidateIndices.length) return null;
 
             // ---- NEAREST: single closest target within distance ----
-            // Uses minDistanceMeters (true minimum geometric distance),
-            // not turf.distance (centroid-ish).
             if (operation === "nearest") {
               let best = null;
               for (const idx of candidateIndices) {
@@ -256,13 +261,17 @@ export function useSpatialQuery({ onComplete, onError } = {}) {
                 if (!tFeature?.geometry) continue;
                 let d;
                 try {
-                  d = minDistanceMeters(srcFeature, tFeature);
+                  d = turf.distance(srcFeature, tFeature, { units: "meters" });
                 } catch {
                   continue;
                 }
                 if (d <= distanceMeters) {
                   // deterministic tie-break by canonical index
-                  if (!best || d < best.d || (d === best.d && idx < best.idx)) {
+                  if (
+                    !best ||
+                    d < best.d ||
+                    (d === best.d && idx < best.idx)
+                  ) {
                     best = { idx, tFeature, d };
                   }
                 }
@@ -299,22 +308,13 @@ export function useSpatialQuery({ onComplete, onError } = {}) {
 
               let isMatch = false;
               try {
-                if (operation === "within-distance") {
-                  // True minimum geometric distance; do NOT delegate to
-                  // executePredicate here, because the common module's
-                  // executeWithinDistance intentionally uses centroid
-                  // distance to preserve Spatial Join behavior.
-                  isMatch =
-                    minDistanceMeters(srcFeature, tFeature) <= distanceMeters;
-                } else {
-                  isMatch = executePredicate(
-                    srcFeature.geometry,
-                    tFeature.geometry,
-                    operation,
-                    distance,
-                    distanceUnit,
-                  );
-                }
+                isMatch = executePredicate(
+                  srcFeature.geometry,
+                  tFeature.geometry,
+                  operation,
+                  distance,
+                  distanceUnit,
+                );
               } catch {
                 isMatch = false;
               }
@@ -329,8 +329,13 @@ export function useSpatialQuery({ onComplete, onError } = {}) {
               let measuredDistance = null;
               if (operation === "within-distance") {
                 try {
-                  // True geometry-to-geometry minimum distance.
-                  measuredDistance = minDistanceMeters(srcFeature, tFeature);
+                  // Use true geometry-to-geometry distance
+                  const d = turf.distance(
+                    turf.centroid(srcFeature),
+                    turf.centroid(tFeature),
+                    { units: "meters" },
+                  );
+                  measuredDistance = d;
                 } catch {
                   measuredDistance = null;
                 }

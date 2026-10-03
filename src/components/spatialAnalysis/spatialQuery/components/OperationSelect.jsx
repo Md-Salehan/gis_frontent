@@ -21,6 +21,7 @@ export default function OperationSelect({
     const sets = [];
     for (const s of sourceGeometryTypes) {
       for (const t of targetGeometryTypes) {
+        // NOTE: (sourceType, targetType) — matches matrix keying
         sets.push(new Set(getCompatiblePredicates(s, t)));
       }
     }

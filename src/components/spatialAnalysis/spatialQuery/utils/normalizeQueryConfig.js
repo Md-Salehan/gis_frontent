@@ -47,6 +47,11 @@ export function resolveWholeLayer(layerData, layerId) {
 
 /**
  * Build the normalized query config the engine consumes.
+ *
+ * Enforces the single-layer invariant:
+ *   - exactly one source.layerId
+ *   - exactly one target.layerId
+ *   - every item on each side shares that layerId
  */
 export function normalizeQueryConfig({
   sourceLayerId,
@@ -72,6 +77,18 @@ export function normalizeQueryConfig({
     targetMode === "layer"
       ? resolveWholeLayer(targetLayerData, targetLayerId)
       : resolveItems(targetLayerData, targetLayerId, targetFeatureIndices);
+
+  // Single-layer invariant checks
+  if (sourceItems.some((it) => it.layerId !== sourceLayerId)) {
+    throw new Error(
+      "Source feature does not belong to the selected Source layer.",
+    );
+  }
+  if (targetItems.some((it) => it.layerId !== targetLayerId)) {
+    throw new Error(
+      "Target feature does not belong to the selected Target layer.",
+    );
+  }
 
   return {
     source: { mode: sourceMode, layerId: sourceLayerId, items: sourceItems },

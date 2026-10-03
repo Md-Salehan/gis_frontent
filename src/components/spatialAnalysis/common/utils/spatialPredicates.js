@@ -1,7 +1,155 @@
 import * as turf from "@turf/turf";
 import { convertToMeters } from "../../../../utils";
+import { getCompatiblePredicates } from "./compatibilityMatrix";
 
-// Execute a spatial predicate between two geometries
+// ---------------------------------------------------------------------------
+// EXPORTS PRESERVED FROM ORIGINAL (do not rename, do not change semantics)
+// ---------------------------------------------------------------------------
+
+/**
+ * Geometry-type compatibility check.
+ * Preserved export: used by spatialJoin/hooks/useSpatialJoin.js.
+ */
+export function isGeometryTypeCompatible(targetType, joinType, predicate) {
+  return getCompatiblePredicates(targetType, joinType).includes(predicate);
+}
+
+// ---------------------------------------------------------------------------
+// NEW: true minimum distance between two geometries (meters).
+// Used by spatialQuery. Not used by spatialJoin to preserve join behavior.
+// ---------------------------------------------------------------------------
+export function minDistanceMeters(a, b) {
+  const fa = turf.feature(a.geometry || a);
+  const fb = turf.feature(b.geometry || b);
+  const ta = fa.geometry?.type;
+  const tb = fb.geometry?.type;
+  if (!ta || !tb) return Infinity;
+
+  const aBase = getBaseType(ta);
+  const bBase = getBaseType(tb);
+
+  // Fast path: if they intersect at all, distance is 0.
+  try {
+    if (turf.booleanIntersects(fa, fb)) return 0;
+  } catch (_) {}
+
+  if (aBase === "point" && bBase === "point") {
+    return turf.distance(fa, fb, { units: "meters" });
+  }
+  if (aBase === "point" && bBase === "line") return minPointToLine(fa, fb);
+  if (aBase === "line" && bBase === "point") return minPointToLine(fb, fa);
+  if (aBase === "point" && bBase === "polygon") return minPointToPolygon(fa, fb);
+  if (aBase === "polygon" && bBase === "point") return minPointToPolygon(fb, fa);
+
+  const aPts = collectVertices(fa);
+  const bPts = collectVertices(fb);
+  if (!aPts.length || !bPts.length) return Infinity;
+
+  let best = Infinity;
+  for (const pt of aPts) {
+    const d = minPointToGeom(pt, fb, bBase);
+    if (d < best) best = d;
+    if (best === 0) return 0;
+  }
+  for (const pt of bPts) {
+    const d = minPointToGeom(pt, fa, aBase);
+    if (d < best) best = d;
+    if (best === 0) return 0;
+  }
+  return best;
+}
+
+function minPointToGeom(pt, geomFeature, baseType) {
+  if (baseType === "line") return minPointToLine(pt, geomFeature);
+  if (baseType === "polygon") return minPointToPolygon(pt, geomFeature);
+  if (baseType === "point") {
+    return turf.distance(turf.getCoord(pt), turf.getCoord(geomFeature), {
+      units: "meters",
+    });
+  }
+  return Infinity;
+}
+
+function minPointToLine(pointFeature, lineFeature) {
+  try {
+    if (
+      turf.booleanPointOnLine(pointFeature, lineFeature, {
+        ignoreEndVertices: false,
+      })
+    ) {
+      return 0;
+    }
+  } catch (_) {}
+  try {
+    return turf.pointToLineDistance(pointFeature, lineFeature, {
+      units: "meters",
+    });
+  } catch (_) {
+    const linePts = collectVertices(lineFeature);
+    const p = turf.getCoord(pointFeature);
+    let best = Infinity;
+    for (const v of linePts) {
+      const d = turf.distance(p, v, { units: "meters" });
+      if (d < best) best = d;
+    }
+    return best;
+  }
+}
+
+function minPointToPolygon(pointFeature, polygonFeature) {
+  try {
+    if (turf.booleanPointInPolygon(pointFeature, polygonFeature)) return 0;
+  } catch (_) {}
+  try {
+    return turf.pointToPolygonDistance(pointFeature, polygonFeature, {
+      units: "meters",
+    });
+  } catch (_) {
+    const rings = collectVertices(polygonFeature);
+    const p = turf.getCoord(pointFeature);
+    let best = Infinity;
+    for (const v of rings) {
+      const d = turf.distance(p, v, { units: "meters" });
+      if (d < best) best = d;
+    }
+    return best;
+  }
+}
+
+function collectVertices(feature) {
+  const out = [];
+  const geom = feature.geometry || feature;
+  if (!geom) return out;
+  const walk = (coords) => {
+    if (!Array.isArray(coords)) return;
+    if (typeof coords[0] === "number") {
+      out.push(coords);
+      return;
+    }
+    coords.forEach(walk);
+  };
+  if (geom.coordinates) walk(geom.coordinates);
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// PREDICATE DISPATCH
+// ---------------------------------------------------------------------------
+// Original contract preserved:
+//   - returns boolean for every predicate EXCEPT "nearest"
+//   - for "nearest", returns { result: boolean, distance: number }
+//     (this is the original shape; do not change — spatialJoin relies on
+//      truthiness of the return value)
+//
+// Semantics: `target` is the first arg, `join` is the second arg.
+//   - "within"   => target is within join
+//   - "contains" => target contains join
+// This matches both:
+//   - spatialJoin: executePredicate(targetGeom, joinGeom, ...)
+//   - spatialQuery: executePredicate(srcGeom, tgtGeom, ...) where
+//     "within" means "source within target" (source plays the `target`
+//     role here). Documented, not changed.
+// ---------------------------------------------------------------------------
 export function executePredicate(
   targetGeom,
   joinGeom,
@@ -28,6 +176,8 @@ export function executePredicate(
         return executeOverlaps(targetFeature, joinFeature);
       case "crosses":
         return executeCrosses(targetFeature, joinFeature);
+      case "disjoint":
+        return executeDisjoint(targetFeature, joinFeature);
       case "within-distance":
         return executeWithinDistance(
           targetFeature,
@@ -51,11 +201,10 @@ export function executePredicate(
   }
 }
 
-// ============================================
-// PREDICATE IMPLEMENTATIONS - HANDLE ALL TYPES
-// ============================================
+// ---------------------------------------------------------------------------
+// ORIGINAL PREDICATE IMPLEMENTATIONS (semantics preserved)
+// ---------------------------------------------------------------------------
 
-// 1. WITHIN - Target is inside Join
 export function executeWithin(target, join) {
   try {
     const targetType = target.geometry.type;
@@ -63,32 +212,21 @@ export function executeWithin(target, join) {
     const targetBase = getBaseType(targetType);
     const joinBase = getBaseType(joinType);
 
-    // Point in Polygon/MultiPolygon
-    if (targetBase === 'point' && joinBase === 'polygon') {
+    if (targetBase === "point" && joinBase === "polygon") {
       return booleanPointInPolygon(target, join);
     }
-
-    // Line in Polygon/MultiPolygon
-    if (targetBase === 'line' && joinBase === 'polygon') {
+    if (targetBase === "line" && joinBase === "polygon") {
       return booleanLineInPolygon(target, join);
     }
-
-    // Polygon in Polygon/MultiPolygon
-    if (targetBase === 'polygon' && joinBase === 'polygon') {
+    if (targetBase === "polygon" && joinBase === "polygon") {
       return booleanPolygonInPolygon(target, join);
     }
-
-    // Point in Line/MultiLine
-    if (targetBase === 'point' && joinBase === 'line') {
+    if (targetBase === "point" && joinBase === "line") {
       return booleanPointInLine(target, join);
     }
-
-    // Same types - check all geometries
     if (targetBase === joinBase) {
       return booleanSameTypeWithin(target, join);
     }
-
-    // Default fallback
     return turf.booleanWithin(target, join);
   } catch (error) {
     console.warn("executeWithin error:", error);
@@ -96,7 +234,6 @@ export function executeWithin(target, join) {
   }
 }
 
-// 2. CONTAINS - Target contains Join
 export function executeContains(target, join) {
   try {
     const targetType = target.geometry.type;
@@ -104,32 +241,21 @@ export function executeContains(target, join) {
     const targetBase = getBaseType(targetType);
     const joinBase = getBaseType(joinType);
 
-    // Polygon/MultiPolygon contains Point
-    if (targetBase === 'polygon' && joinBase === 'point') {
+    if (targetBase === "polygon" && joinBase === "point") {
       return booleanPointInPolygon(join, target);
     }
-
-    // Polygon/MultiPolygon contains Line
-    if (targetBase === 'polygon' && joinBase === 'line') {
+    if (targetBase === "polygon" && joinBase === "line") {
       return booleanLineInPolygon(join, target);
     }
-
-    // Polygon/MultiPolygon contains Polygon
-    if (targetBase === 'polygon' && joinBase === 'polygon') {
+    if (targetBase === "polygon" && joinBase === "polygon") {
       return booleanPolygonInPolygon(join, target);
     }
-
-    // Line/MultiLine contains Point
-    if (targetBase === 'line' && joinBase === 'point') {
+    if (targetBase === "line" && joinBase === "point") {
       return booleanPointInLine(join, target);
     }
-
-    // Same types - check all geometries
     if (targetBase === joinBase) {
       return booleanSameTypeContains(target, join);
     }
-
-    // Default fallback
     return turf.booleanContains(target, join);
   } catch (error) {
     console.warn("executeContains error:", error);
@@ -137,19 +263,16 @@ export function executeContains(target, join) {
   }
 }
 
-// 3. INTERSECTS
 export function executeIntersects(target, join) {
   try {
     const targetGeoms = extractAllGeometries(target);
     const joinGeoms = extractAllGeometries(join);
 
-    for (const targetGeom of targetGeoms) {
-      for (const joinGeom of joinGeoms) {
+    for (const tg of targetGeoms) {
+      for (const jg of joinGeoms) {
         try {
-          if (turf.booleanIntersects(targetGeom, joinGeom)) {
-            return true;
-          }
-        } catch (e) {
+          if (turf.booleanIntersects(tg, jg)) return true;
+        } catch (_) {
           continue;
         }
       }
@@ -161,19 +284,16 @@ export function executeIntersects(target, join) {
   }
 }
 
-// 4. TOUCHES
 export function executeTouches(target, join) {
   try {
     const targetGeoms = extractAllGeometries(target);
     const joinGeoms = extractAllGeometries(join);
 
-    for (const targetGeom of targetGeoms) {
-      for (const joinGeom of joinGeoms) {
+    for (const tg of targetGeoms) {
+      for (const jg of joinGeoms) {
         try {
-          if (turf.booleanTouches(targetGeom, joinGeom)) {
-            return true;
-          }
-        } catch (e) {
+          if (turf.booleanTouches(tg, jg)) return true;
+        } catch (_) {
           continue;
         }
       }
@@ -185,23 +305,18 @@ export function executeTouches(target, join) {
   }
 }
 
-// 5. OVERLAPS
 export function executeOverlaps(target, join) {
   try {
     const targetGeoms = extractAllGeometries(target);
     const joinGeoms = extractAllGeometries(join);
 
-    for (const targetGeom of targetGeoms) {
-      for (const joinGeom of joinGeoms) {
+    for (const tg of targetGeoms) {
+      for (const jg of joinGeoms) {
         try {
-          const tBase = getBaseType(targetGeom.geometry.type);
-          const jBase = getBaseType(joinGeom.geometry.type);
-          
-          // Overlap only applies to same geometry types
-          if (tBase === jBase && turf.booleanOverlap(targetGeom, joinGeom)) {
-            return true;
-          }
-        } catch (e) {
+          const tBase = getBaseType(tg.geometry.type);
+          const jBase = getBaseType(jg.geometry.type);
+          if (tBase === jBase && turf.booleanOverlap(tg, jg)) return true;
+        } catch (_) {
           continue;
         }
       }
@@ -213,39 +328,30 @@ export function executeOverlaps(target, join) {
   }
 }
 
-// 6. CROSSES
 export function executeCrosses(target, join) {
   try {
     const targetGeoms = extractAllGeometries(target);
     const joinGeoms = extractAllGeometries(join);
 
-    for (const targetGeom of targetGeoms) {
-      for (const joinGeom of joinGeoms) {
+    for (const tg of targetGeoms) {
+      for (const jg of joinGeoms) {
         try {
-          const tBase = getBaseType(targetGeom.geometry.type);
-          const jBase = getBaseType(joinGeom.geometry.type);
-          
-          // Line crosses Point
-          if ((tBase === 'line' && jBase === 'point') || 
-              (tBase === 'point' && jBase === 'line')) {
-            if (turf.booleanCrosses(targetGeom, joinGeom)) {
-              return true;
-            }
+          const tBase = getBaseType(tg.geometry.type);
+          const jBase = getBaseType(jg.geometry.type);
+
+          if (
+            (tBase === "line" && jBase === "point") ||
+            (tBase === "point" && jBase === "line")
+          ) {
+            if (turf.booleanCrosses(tg, jg)) return true;
           }
-          
-          // Line crosses Polygon
-          if (tBase === 'line' && jBase === 'polygon') {
-            if (lineCrossesPolygon(targetGeom, joinGeom)) {
-              return true;
-            }
+          if (tBase === "line" && jBase === "polygon") {
+            if (lineCrossesPolygon(tg, jg)) return true;
           }
-          
-          if (tBase === 'polygon' && jBase === 'line') {
-            if (lineCrossesPolygon(joinGeom, targetGeom)) {
-              return true;
-            }
+          if (tBase === "polygon" && jBase === "line") {
+            if (lineCrossesPolygon(jg, tg)) return true;
           }
-        } catch (e) {
+        } catch (_) {
           continue;
         }
       }
@@ -257,7 +363,6 @@ export function executeCrosses(target, join) {
   }
 }
 
-// 7. WITHIN DISTANCE
 export function executeWithinDistance(target, join, distance, unit) {
   try {
     const dist = distance || 100;
@@ -271,7 +376,6 @@ export function executeWithinDistance(target, join, distance, unit) {
   }
 }
 
-// 8. NEAREST
 export function executeNearest(target, join, distance, unit) {
   try {
     const dist = turf.distance(target, join, { units: "meters" });
@@ -286,25 +390,31 @@ export function executeNearest(target, join, distance, unit) {
   }
 }
 
-// ============================================
-// SAME TYPE BOOLEAN FUNCTIONS
-// ============================================
+export function executeDisjoint(target, join) {
+  try {
+    return !executeIntersects(target, join);
+  } catch (error) {
+    console.warn("executeDisjoint error:", error);
+    return false;
+  }
+}
 
-// Check if target geometries are within join geometries (same base type)
+// ---------------------------------------------------------------------------
+// SAME-TYPE BOOLEAN HELPERS (preserved)
+// ---------------------------------------------------------------------------
 function booleanSameTypeWithin(target, join) {
   const targetGeoms = extractAllGeometries(target);
   const joinGeoms = extractAllGeometries(join);
 
-  // ALL target geometries must be within ANY join geometry
-  for (const targetGeom of targetGeoms) {
+  for (const tg of targetGeoms) {
     let found = false;
-    for (const joinGeom of joinGeoms) {
+    for (const jg of joinGeoms) {
       try {
-        if (turf.booleanWithin(targetGeom, joinGeom)) {
+        if (turf.booleanWithin(tg, jg)) {
           found = true;
           break;
         }
-      } catch (e) {
+      } catch (_) {
         continue;
       }
     }
@@ -313,21 +423,19 @@ function booleanSameTypeWithin(target, join) {
   return true;
 }
 
-// Check if target contains join geometries (same base type)
 function booleanSameTypeContains(target, join) {
   const targetGeoms = extractAllGeometries(target);
   const joinGeoms = extractAllGeometries(join);
 
-  // ALL join geometries must be within ANY target geometry
-  for (const joinGeom of joinGeoms) {
+  for (const jg of joinGeoms) {
     let found = false;
-    for (const targetGeom of targetGeoms) {
+    for (const tg of targetGeoms) {
       try {
-        if (turf.booleanContains(targetGeom, joinGeom)) {
+        if (turf.booleanContains(tg, jg)) {
           found = true;
           break;
         }
-      } catch (e) {
+      } catch (_) {
         continue;
       }
     }
@@ -336,25 +444,16 @@ function booleanSameTypeContains(target, join) {
   return true;
 }
 
-// ============================================
-// SPECIALIZED BOOLEAN FUNCTIONS
-// ============================================
-
-// Point in Polygon/MultiPolygon
+// ---------------------------------------------------------------------------
+// SPECIALIZED BOOLEAN HELPERS (preserved)
+// ---------------------------------------------------------------------------
 function booleanPointInPolygon(point, polygon) {
   try {
-    // Extract all polygons from the container
-    const polygons = extractAllGeometries(polygon);
-    
-    // Check if point is in ANY polygon
-    for (const p of polygons) {
+    const polys = extractAllGeometries(polygon);
+    for (const p of polys) {
       try {
-        if (turf.booleanPointInPolygon(point, p)) {
-          return true;
-        }
-      } catch (e) {
-        continue;
-      }
+        if (turf.booleanPointInPolygon(point, p)) return true;
+      } catch (_) {}
     }
     return false;
   } catch (error) {
@@ -363,20 +462,14 @@ function booleanPointInPolygon(point, polygon) {
   }
 }
 
-// Point in Line/MultiLine
 function booleanPointInLine(point, line) {
   try {
     const lines = extractAllGeometries(line);
-    
     for (const l of lines) {
       try {
-        const distance = turf.pointToLineDistance(point, l, { units: 'meters' });
-        if (distance < 1) { // 1 meter tolerance
-          return true;
-        }
-      } catch (e) {
-        continue;
-      }
+        const d = turf.pointToLineDistance(point, l, { units: "meters" });
+        if (d < 1) return true;
+      } catch (_) {}
     }
     return false;
   } catch (error) {
@@ -385,67 +478,40 @@ function booleanPointInLine(point, line) {
   }
 }
 
-// Line in Polygon/MultiPolygon
 function booleanLineInPolygon(line, polygon) {
   try {
-    const polygons = extractAllGeometries(polygon);
-    
-    // Check if line is fully contained in any single polygon
-    for (const p of polygons) {
+    const polys = extractAllGeometries(polygon);
+    for (const p of polys) {
       try {
-        if (turf.booleanContains(p, line)) {
-          return true;
-        }
-      } catch (e) {
-        continue;
-      }
+        if (turf.booleanContains(p, line)) return true;
+      } catch (_) {}
     }
-    
-    // Check if line points are inside (for lines crossing polygon boundaries)
     const linePoints = turf.explode(line);
     let insideCount = 0;
-    const totalPoints = linePoints.features.length;
-    
-    if (totalPoints === 0) return false;
-    
-    for (const point of linePoints.features) {
-      if (booleanPointInPolygon(point, polygon)) {
-        insideCount++;
-      }
+    const total = linePoints.features.length;
+    if (total === 0) return false;
+    for (const pt of linePoints.features) {
+      if (booleanPointInPolygon(pt, polygon)) insideCount++;
     }
-    
-    // If more than 90% of points are inside, consider it "within"
-    return insideCount / totalPoints > 0.9;
+    return insideCount / total > 0.9;
   } catch (error) {
     console.warn("booleanLineInPolygon error:", error);
     return false;
   }
 }
 
-// Polygon in Polygon/MultiPolygon
 function booleanPolygonInPolygon(polygon, container) {
   try {
     const containers = extractAllGeometries(container);
-    
-    // Check if polygon is fully contained in any single container
     for (const c of containers) {
       try {
-        if (turf.booleanContains(c, polygon)) {
-          return true;
-        }
-      } catch (e) {
-        continue;
-      }
+        if (turf.booleanContains(c, polygon)) return true;
+      } catch (_) {}
     }
-    
-    // Check if all points of polygon are inside container
     const points = turf.explode(polygon);
-    for (const point of points.features) {
-      if (!booleanPointInPolygon(point, container)) {
-        return false;
-      }
+    for (const pt of points.features) {
+      if (!booleanPointInPolygon(pt, container)) return false;
     }
-    
     return true;
   } catch (error) {
     console.warn("booleanPolygonInPolygon error:", error);
@@ -453,45 +519,33 @@ function booleanPolygonInPolygon(polygon, container) {
   }
 }
 
-// Line crosses Polygon
 function lineCrossesPolygon(line, polygon) {
   try {
-    const polygons = extractAllGeometries(polygon);
-    
-    for (const p of polygons) {
+    const polys = extractAllGeometries(polygon);
+    for (const p of polys) {
       try {
-        const intersection = turf.intersect(turf.featureCollection([
-          turf.feature(line.geometry),
-          turf.feature(p.geometry)
-        ]));
-        
+        const intersection = turf.intersect(
+          turf.featureCollection([turf.feature(line.geometry), turf.feature(p.geometry)]),
+        );
         if (intersection) {
           const intType = intersection.geometry.type;
-          
-          // LineString intersection means it crosses through
-          if (intType === 'LineString' || intType === 'MultiLineString') {
+          if (intType === "LineString" || intType === "MultiLineString") {
             return true;
           }
-          
-          // Point intersection - check if line enters and exits
-          if (intType === 'Point' || intType === 'MultiPoint') {
+          if (intType === "Point" || intType === "MultiPoint") {
             const linePoints = turf.explode(line);
             let insideCount = 0;
-            let totalPoints = 0;
-            
-            for (const point of linePoints.features) {
-              if (booleanPointInPolygon(point, p)) {
-                insideCount++;
-              }
-              totalPoints++;
+            let total = 0;
+            for (const pt of linePoints.features) {
+              if (booleanPointInPolygon(pt, p)) insideCount++;
+              total++;
             }
-            
-            if (totalPoints > 0 && insideCount > 0 && insideCount < totalPoints) {
+            if (total > 0 && insideCount > 0 && insideCount < total) {
               return true;
             }
           }
         }
-      } catch (e) {
+      } catch (_) {
         continue;
       }
     }
@@ -502,114 +556,45 @@ function lineCrossesPolygon(line, polygon) {
   }
 }
 
-// ============================================
-// UNIVERSAL GEOMETRY EXTRACTOR
-// ============================================
-
-// Extract ALL individual geometries from any geometry type
+// ---------------------------------------------------------------------------
+// UNIVERSAL GEOMETRY EXTRACTOR (preserved)
+// ---------------------------------------------------------------------------
 function extractAllGeometries(feature) {
   const geometries = [];
-  
   try {
     const geom = feature.geometry;
     if (!geom) return [feature];
-    
     const type = geom.type;
-    
-    // Handle GeometryCollection
-    if (type === 'GeometryCollection') {
-      for (const g of geom.geometries) {
-        geometries.push(turf.feature(g));
-      }
+
+    if (type === "GeometryCollection") {
+      for (const g of geom.geometries) geometries.push(turf.feature(g));
       return geometries;
     }
-    
-    // Handle Multi types
-    if (type === 'MultiPoint') {
-      for (const coord of geom.coordinates) {
-        geometries.push(turf.point(coord));
-      }
+    if (type === "MultiPoint") {
+      for (const coord of geom.coordinates) geometries.push(turf.point(coord));
       return geometries;
     }
-    
-    if (type === 'MultiLineString') {
-      for (const coord of geom.coordinates) {
-        geometries.push(turf.lineString(coord));
-      }
+    if (type === "MultiLineString") {
+      for (const coord of geom.coordinates) geometries.push(turf.lineString(coord));
       return geometries;
     }
-    
-    if (type === 'MultiPolygon') {
-      for (const coord of geom.coordinates) {
-        geometries.push(turf.polygon(coord));
-      }
+    if (type === "MultiPolygon") {
+      for (const coord of geom.coordinates) geometries.push(turf.polygon(coord));
       return geometries;
     }
-    
-    // Single geometry
     geometries.push(feature);
-    
   } catch (error) {
     console.warn("extractAllGeometries error:", error);
     geometries.push(feature);
   }
-  
   return geometries;
 }
 
-// Get base geometry type (ignore Multi)
 function getBaseType(type) {
-  if (!type) return 'unknown';
-  
-  if (type === 'Point' || type === 'MultiPoint') return 'point';
-  if (type === 'LineString' || type === 'MultiLineString') return 'line';
-  if (type === 'Polygon' || type === 'MultiPolygon') return 'polygon';
-  if (type === 'GeometryCollection') return 'collection';
-  
-  return 'unknown';
-}
-
-// ============================================
-// COMPATIBILITY FUNCTIONS
-// ============================================
-
-export function isGeometryTypeCompatible(targetType, joinType, predicate) {
-  const t = normalizeGeometryType(targetType);
-  const j = normalizeGeometryType(joinType);
-
-  const compatMatrix = {
-    point: {
-      point: ["nearest", "within-distance"],
-      line: ["nearest", "within-distance", "intersects"],
-      polygon: ["within", "intersects", "within-distance"],
-    },
-    line: {
-      point: ["nearest", "within-distance", "intersects"],
-      line: ["intersects", "crosses", "nearest", "within-distance"],
-      polygon: ["intersects", "crosses", "within", "nearest", "within-distance"],
-    },
-    polygon: {
-      point: ["contains", "intersects", "within-distance"],
-      line: ["contains", "intersects", "nearest", "within-distance"],
-      polygon: ["within", "contains", "intersects", "overlaps", "touches"],
-    },
-  };
-
-  const compatible = compatMatrix[t]?.[j] || [];
-  return compatible.includes(predicate);
-}
-
-function normalizeGeometryType(type) {
   if (!type) return "unknown";
-  
-  const mapping = {
-    Point: "point",
-    MultiPoint: "point",
-    LineString: "line",
-    MultiLineString: "line",
-    Polygon: "polygon",
-    MultiPolygon: "polygon",
-  };
-  
-  return mapping[type] || "unknown";
+  if (type === "Point" || type === "MultiPoint") return "point";
+  if (type === "LineString" || type === "MultiLineString") return "line";
+  if (type === "Polygon" || type === "MultiPolygon") return "polygon";
+  if (type === "GeometryCollection") return "collection";
+  return "unknown";
 }

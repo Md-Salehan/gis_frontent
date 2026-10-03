@@ -1,13 +1,6 @@
 // compatibilityMatrix.js
-// KEYING: MATRIX[sourceType][targetType]
-//   getCompatiblePredicates(sourceType, targetType)
-// Semantics: predicate P is in MATRIX[source][target] iff
-//   P(sourceGeom, targetGeom) is meaningful.
-//   "within"     => source is within target
-//   "contains"   => source contains target
-//   "intersects" => source intersects target
-//   "disjoint"   => source is disjoint from target
-//   "within-distance" / "nearest" => distance from source to target
+// KEYING: MATRIX[targetType][joinType] (matches original signature)
+//   getCompatiblePredicates(targetType, joinType)
 
 export const COMPATIBILITY_MATRIX = {
   point: {
@@ -15,60 +8,138 @@ export const COMPATIBILITY_MATRIX = {
     line: ["nearest", "within-distance", "intersects", "disjoint"],
     polygon: ["within", "intersects", "within-distance", "disjoint"],
     multiPoint: ["nearest", "within-distance", "disjoint"],
-    multiLineString: ["nearest", "within-distance", "intersects", "disjoint"],
+    multiLineString: [
+      "nearest",
+      "within-distance",
+      "intersects",
+      "disjoint",
+    ],
     multiPolygon: ["within", "intersects", "within-distance", "disjoint"],
   },
   line: {
     point: ["nearest", "within-distance", "intersects", "disjoint"],
     line: ["intersects", "crosses", "nearest", "within-distance", "disjoint"],
     polygon: [
-      "intersects", "crosses", "within", "nearest", "within-distance", "disjoint",
+      "intersects",
+      "crosses",
+      "within",
+      "nearest",
+      "within-distance",
+      "disjoint",
     ],
     multiPoint: ["nearest", "within-distance", "intersects", "disjoint"],
     multiLineString: [
-      "intersects", "crosses", "nearest", "within-distance", "disjoint",
+      "intersects",
+      "crosses",
+      "nearest",
+      "within-distance",
+      "disjoint",
     ],
     multiPolygon: [
-      "intersects", "crosses", "within", "nearest", "within-distance", "disjoint",
+      "intersects",
+      "crosses",
+      "within",
+      "nearest",
+      "within-distance",
+      "disjoint",
     ],
   },
   polygon: {
     point: ["contains", "intersects", "within-distance", "disjoint"],
     line: ["contains", "intersects", "nearest", "within-distance", "disjoint"],
-    polygon: ["within", "contains", "intersects", "overlaps", "touches", "disjoint"],
+    polygon: [
+      "within",
+      "contains",
+      "intersects",
+      "overlaps",
+      "touches",
+      "disjoint",
+    ],
     multiPoint: ["contains", "intersects", "within-distance", "disjoint"],
-    multiLineString: ["contains", "intersects", "nearest", "within-distance", "disjoint"],
-    multiPolygon: ["within", "contains", "intersects", "overlaps", "touches", "disjoint"],
+    multiLineString: [
+      "contains",
+      "intersects",
+      "nearest",
+      "within-distance",
+      "disjoint",
+    ],
+    multiPolygon: [
+      "within",
+      "contains",
+      "intersects",
+      "overlaps",
+      "touches",
+      "disjoint",
+    ],
   },
   multiPoint: {
     point: ["nearest", "within-distance", "disjoint"],
     line: ["nearest", "within-distance", "intersects", "disjoint"],
     polygon: ["within", "intersects", "within-distance", "disjoint"],
     multiPoint: ["nearest", "within-distance", "disjoint"],
-    multiLineString: ["nearest", "within-distance", "intersects", "disjoint"],
+    multiLineString: [
+      "nearest",
+      "within-distance",
+      "intersects",
+      "disjoint",
+    ],
     multiPolygon: ["within", "intersects", "within-distance", "disjoint"],
   },
   multiLineString: {
     point: ["nearest", "within-distance", "intersects", "disjoint"],
     line: ["intersects", "crosses", "nearest", "within-distance", "disjoint"],
     polygon: [
-      "intersects", "crosses", "within", "nearest", "within-distance", "disjoint",
+      "intersects",
+      "crosses",
+      "within",
+      "nearest",
+      "within-distance",
+      "disjoint",
     ],
     multiPoint: ["nearest", "within-distance", "intersects", "disjoint"],
     multiLineString: [
-      "intersects", "crosses", "nearest", "within-distance", "disjoint",
+      "intersects",
+      "crosses",
+      "nearest",
+      "within-distance",
+      "disjoint",
     ],
     multiPolygon: [
-      "intersects", "crosses", "within", "nearest", "within-distance", "disjoint",
+      "intersects",
+      "crosses",
+      "within",
+      "nearest",
+      "within-distance",
+      "disjoint",
     ],
   },
   multiPolygon: {
     point: ["contains", "intersects", "within-distance", "disjoint"],
     line: ["contains", "intersects", "nearest", "within-distance", "disjoint"],
-    polygon: ["within", "contains", "intersects", "overlaps", "touches", "disjoint"],
+    polygon: [
+      "within",
+      "contains",
+      "intersects",
+      "overlaps",
+      "touches",
+      "disjoint",
+    ],
     multiPoint: ["contains", "intersects", "within-distance", "disjoint"],
-    multiLineString: ["contains", "intersects", "nearest", "within-distance", "disjoint"],
-    multiPolygon: ["within", "contains", "intersects", "overlaps", "touches", "disjoint"],
+    multiLineString: [
+      "contains",
+      "intersects",
+      "nearest",
+      "within-distance",
+      "disjoint",
+    ],
+    multiPolygon: [
+      "within",
+      "contains",
+      "intersects",
+      "overlaps",
+      "touches",
+      "disjoint",
+    ],
   },
 };
 
@@ -84,17 +155,19 @@ export const ALL_PREDICATES = [
   { value: "nearest", label: "Nearest" },
 ];
 
-export function getCompatiblePredicates(sourceType, targetType) {
-  const s = normalizeType(sourceType);
-  const t = normalizeType(targetType);
-  const predicates = COMPATIBILITY_MATRIX[s]?.[t] || [];
+// Signature unchanged: (targetType, joinType)
+export function getCompatiblePredicates(targetType, joinType) {
+  const normalizedTarget = normalizeType(targetType);
+  const normalizedJoin = normalizeType(joinType);
+  const matrix = COMPATIBILITY_MATRIX[normalizedTarget] || {};
+  const predicates = matrix[normalizedJoin] || [];
   return ALL_PREDICATES.filter((p) => predicates.includes(p.value)).map(
     (p) => p.value,
   );
 }
 
-export function isPredicateCompatible(sourceType, targetType, predicate) {
-  return getCompatiblePredicates(sourceType, targetType).includes(predicate);
+export function isPredicateCompatible(targetType, joinType, predicate) {
+  return getCompatiblePredicates(targetType, joinType).includes(predicate);
 }
 
 function normalizeType(type) {
