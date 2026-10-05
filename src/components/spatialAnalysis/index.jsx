@@ -65,6 +65,7 @@ function MovableModals() {
         </Movable>
       ) : (
         ""
+
       )}
 
       {isCountPointsModalOpen ? (
@@ -233,7 +234,7 @@ function MovableModals() {
             borderRadius: "8px",
             boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
             height: "auto",
-            width: "550px",
+            width: "auto",
           }}
           onClose={(e) => {
             dispatch(

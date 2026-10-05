@@ -20,7 +20,7 @@ function JoinResults({ results, matches, onClear }) {
         }
         description={
           <Space size={8}>
-            <Tag color="green">{featureCount} features</Tag>
+            {/* <Tag color="green">{featureCount} features</Tag> */}
             <Tag color="blue">{matches} matches found</Tag>
           </Space>
         }

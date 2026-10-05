@@ -302,25 +302,21 @@ function findMatches(
   distanceUnit,
 ) {
   const { index, features, items } = indexResult;
-  console.log("xxw findMatches called", {
-    targetFeature,
-    indexResult,
-    predicate,
-    distance,
-    distanceUnit,
-  });
+
   if (!index || !features) return [];
 
   // Get target geometry
   const targetGeometry = targetFeature.geometry;
   if (!targetGeometry) return [];
-  console.log("xxw Target geometry:", targetGeometry);
 
   const targetType = targetGeometry.type;
 
-  // For distance-based predicates, expand the search bbox by the distance
+  // For distance-based predicates, use the distance directly for bbox expansion
   if (predicate === "within-distance" || predicate === "nearest") {
     const distanceInMeters = convertToMeters(distance || 1000, distanceUnit || "meters");
+
+    // Convert distance to degrees (approximate)
+    const distanceInDegrees = distanceInMeters / 111320; // 1 degree ≈ 111.32 km at equator
 
     // Get the point coordinates
     let coords;
@@ -338,54 +334,37 @@ function findMatches(
       }
     }
 
-    // Convert distance (meters) to degrees SEPARATELY for latitude and longitude.
-    // A degree of longitude shrinks with cos(latitude), so using a single
-    // degree value for both axes under-searches in the east-west direction
-    // and silently drops valid matches.
-
-    // Latitude: ~110.57 km/deg at the equator (slightly conservative vs. turf's ~111.19 km/deg)
-    const latDeg = distanceInMeters / 110574;
-
-    // Longitude: use the worst-case (highest) latitude within the search window
-    // so the bbox is never too small. Clamp near the poles to avoid division by ~0.
-    const worstLat = Math.min(Math.abs(coords[1]) + latDeg, 89);
-    const cosLat = Math.max(Math.cos((worstLat * Math.PI) / 180), 0.01);
-    const lonDeg = distanceInMeters / (111320 * cosLat);
-
-    // Small safety margin: the exact distance check below is the real filter,
-    // this bbox is only a pre-filter and must never produce false negatives.
-    const MARGIN = 1.01;
-
     // Create expanded bbox for distance search
     const expandedBbox = [
-      coords[0] - lonDeg * MARGIN,
-      coords[1] - latDeg * MARGIN,
-      coords[0] + lonDeg * MARGIN,
-      coords[1] + latDeg * MARGIN
+      coords[0] - distanceInDegrees,
+      coords[1] - distanceInDegrees,
+      coords[0] + distanceInDegrees,
+      coords[1] + distanceInDegrees
     ];
 
-    console.log("xxw Expanded bbox for distance search:", expandedBbox);
-    console.log("xxw Distance in meters:", distanceInMeters);
-    console.log("xxw Distance in degrees (lat, lon):", latDeg, lonDeg);
-    console.log("xxw Original coords:", coords);
 
     // Search with expanded bbox
-    const candidateIndices = index.search(expandedBbox);
-    console.log("xxw Candidate indices after expanded search:", candidateIndices);
+    let candidateIndices = index.search(expandedBbox);
+
+    // If still no candidates, try with a larger bbox (2x the distance)
+    if (candidateIndices.length === 0) {
+      const largerBbox = [
+        coords[0] - distanceInDegrees * 2,
+        coords[1] - distanceInDegrees * 2,
+        coords[0] + distanceInDegrees * 2,
+        coords[1] + distanceInDegrees * 2
+      ];
+      candidateIndices = index.search(largerBbox);
+    }
 
     if (candidateIndices.length === 0) {
-      console.log("xxw No candidates found in spatial index");
       return [];
     }
 
     // Filter candidates by exact predicate
     const matches = [];
 
-    console.log("xxw Target feature coordinates:", targetFeature.geometry.coordinates);
-    console.log(
-      "xxw Join features coordinates:",
-      features.map((f) => f.geometry.coordinates),
-    );
+
 
     for (const idx of candidateIndices) {
       const joinFeature = features[idx];
@@ -397,9 +376,7 @@ function findMatches(
       const actualDistance = turf.distance(targetFeature, joinFeature, {
         units: "meters",
       });
-      console.log(
-        `xxw Distance between feature and candidate ${idx}: ${actualDistance} meters`,
-      );
+      
 
       // Execute predicate - this will check if within distance
       const result = executePredicate(
@@ -434,7 +411,6 @@ function findMatches(
   try {
     bbox = turf.bbox(targetFeature);
   } catch (error) {
-    console.warn("Failed to calculate bbox:", error);
     return [];
   }
 
@@ -449,15 +425,12 @@ function findMatches(
     ];
   }
 
-  console.log("xxw Target bbox for non-distance predicate:", bbox);
-  console.log("xxw Index bbox:", index.bbox);
+
 
   // Query spatial index for candidates
   let candidateIndices = index.search(bbox);
-  console.log("xxw Candidate indices from search:", candidateIndices);
 
   if (candidateIndices.length === 0) {
-    console.log("xxw No candidates found in spatial index");
     return [];
   }
 

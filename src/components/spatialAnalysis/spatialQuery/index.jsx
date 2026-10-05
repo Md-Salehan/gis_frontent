@@ -69,6 +69,8 @@ function SpatialQuery({ id }) {
     onError: (e) => message.error(`Spatial query failed: ${e.message}`),
   });
 
+  const isResultAvailable = engine.isComplete && engine.resultRows?.length > 0;
+
   // ---- Available layers ----
   const availableLayers = useMemo(() => {
     const out = [];
@@ -102,11 +104,13 @@ function SpatialQuery({ id }) {
   }, [availableLayers]);
 
   const sourceLayerMeta = useMemo(
-    () => availableLayers.find((l) => l.value === selection.source.layerId) || null,
+    () =>
+      availableLayers.find((l) => l.value === selection.source.layerId) || null,
     [availableLayers, selection.source.layerId],
   );
   const targetLayerMeta = useMemo(
-    () => availableLayers.find((l) => l.value === selection.target.layerId) || null,
+    () =>
+      availableLayers.find((l) => l.value === selection.target.layerId) || null,
     [availableLayers, selection.target.layerId],
   );
 
@@ -128,12 +132,16 @@ function SpatialQuery({ id }) {
   // ---- Redux dispatchers (isolated key) ----
   const setSourceLayer = useCallback(
     (layerId) =>
-      dispatch(setSpatialQuerySelection({ side: "source", layerId: layerId ?? null })),
+      dispatch(
+        setSpatialQuerySelection({ side: "source", layerId: layerId ?? null }),
+      ),
     [dispatch],
   );
   const setTargetLayer = useCallback(
     (layerId) =>
-      dispatch(setSpatialQuerySelection({ side: "target", layerId: layerId ?? null })),
+      dispatch(
+        setSpatialQuerySelection({ side: "target", layerId: layerId ?? null }),
+      ),
     [dispatch],
   );
   const setSourceIndices = useCallback(
@@ -273,140 +281,152 @@ function SpatialQuery({ id }) {
     (targetMode === "layer" || selection.target.featureIndices.length > 0);
 
   return (
-      <Space direction="vertical" style={{ width: "100%" }} size={"small"}>
-        {availableLayers.length === 0 ? (
-          <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description={
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                No layers available
-              </Text>
-            }
+    // <Space direction="vertical" style={{ width: "100%" }} size={"small"}>
+    <div
+      style={{
+        width: isResultAvailable ? "51vw" : "20vw",
+        display: "flex",
+        flexDirection: "wrap",
+        gap: "1vw",
+      }}
+    >
+      {availableLayers.length === 0 ? (
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              No layers available
+            </Text>
+          }
+        />
+      ) : (
+        <div
+          style={{
+            width: "20vw",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <SourceSelector
+            layers={availableLayers}
+            layerId={selection.source.layerId}
+            mode={sourceMode}
+            onLayerChange={setSourceLayer}
+            onModeChange={setSourceMode}
+            features={sourceFeatures}
+            selectedIndices={selection.source.featureIndices}
+            onSelectedIndicesChange={setSourceIndices}
+            disabled={engine.isProcessing}
           />
-        ) : (
-          <>
-            <SourceSelector
-              layers={availableLayers}
-              layerId={selection.source.layerId}
-              mode={sourceMode}
-              onLayerChange={setSourceLayer}
-              onModeChange={setSourceMode}
-              features={sourceFeatures}
-              selectedIndices={selection.source.featureIndices}
-              onSelectedIndicesChange={setSourceIndices}
+
+          <Divider style={{ margin: "8px 0" }} />
+
+          <TargetSelector
+            layers={availableLayers}
+            layerId={selection.target.layerId}
+            mode={targetMode}
+            onLayerChange={setTargetLayer}
+            onModeChange={setTargetMode}
+            features={targetFeatures}
+            selectedIndices={selection.target.featureIndices}
+            onSelectedIndicesChange={setTargetIndices}
+            disabled={engine.isProcessing}
+            excludeLayerId={null}
+          />
+
+          <Divider style={{ margin: "8px 0" }} />
+
+          <OperationSelect
+            sourceGeometryTypes={sourceTypes}
+            targetGeometryTypes={targetTypes}
+            value={operation}
+            onChange={setOperation}
+            disabled={engine.isProcessing}
+          />
+
+          {needsDistance && (
+            <div style={{ marginTop: 6 }}>
+              <DistanceInput
+                distance={distance}
+                distanceUnit={distanceUnit}
+                onDistanceChange={setDistance}
+                onUnitChange={setDistanceUnit}
+                disabled={engine.isProcessing}
+              />
+            </div>
+          )}
+
+          <Divider style={{ margin: "8px 0" }} />
+
+          <Space direction="vertical" size={6} style={{ width: "100%" }}>
+            <Button
+              type="primary"
+              size="small"
+              block
+              onClick={handleRun}
+              loading={engine.isProcessing}
+              disabled={!canRun}
+            >
+              {engine.isProcessing ? "Processing..." : "Run Query"}
+            </Button>
+
+            <Button
+              size="small"
+              block
+              onClick={handleClear}
               disabled={engine.isProcessing}
-            />
+            >
+              Clear
+            </Button>
 
-            <Divider style={{ margin: "8px 0" }} />
-
-            <TargetSelector
-              layers={availableLayers}
-              layerId={selection.target.layerId}
-              mode={targetMode}
-              onLayerChange={setTargetLayer}
-              onModeChange={setTargetMode}
-              features={targetFeatures}
-              selectedIndices={selection.target.featureIndices}
-              onSelectedIndicesChange={setTargetIndices}
-              disabled={engine.isProcessing}
-              excludeLayerId={null}
-            />
-
-            <Divider style={{ margin: "8px 0" }} />
-
-            <OperationSelect
-              sourceGeometryTypes={sourceTypes}
-              targetGeometryTypes={targetTypes}
-              value={operation}
-              onChange={setOperation}
-              disabled={engine.isProcessing}
-            />
-
-            {needsDistance && (
-              <div style={{ marginTop: 6 }}>
-                <DistanceInput
-                  distance={distance}
-                  distanceUnit={distanceUnit}
-                  onDistanceChange={setDistance}
-                  onUnitChange={setDistanceUnit}
-                  disabled={engine.isProcessing}
-                />
-              </div>
+            {engine.isProcessing && (
+              <QueryProgress
+                progress={engine.progress}
+                processed={engine.processedFeatures}
+                total={engine.totalFeatures}
+                matches={engine.matchCount}
+                onCancel={engine.cancel}
+              />
             )}
 
-            <Divider style={{ margin: "8px 0" }} />
+            {engine.error && (
+              <Alert
+                type="error"
+                message="Error"
+                description={engine.error}
+                showIcon
+                closable
+                onClose={() => engine.reset()}
+                style={{ fontSize: 12 }}
+              />
+            )}
 
-            <Space direction="vertical" size={6} style={{ width: "100%" }}>
-              <Button
-                type="primary"
-                size="small"
-                block
-                onClick={handleRun}
-                loading={engine.isProcessing}
-                disabled={!canRun}
-              >
-                {engine.isProcessing ? "Processing..." : "Run Query"}
-              </Button>
+            {engine.isComplete && !isResultAvailable && (
+              <Alert
+                type="info"
+                message="No matches found"
+                showIcon
+                style={{ fontSize: 12 }}
+              />
+            )}
+          </Space>
+        </div>
+      )}
 
-              <Button
-                size="small"
-                block
-                onClick={handleClear}
-                disabled={engine.isProcessing}
-              >
-                Clear
-              </Button>
-
-              {engine.isProcessing && (
-                <QueryProgress
-                  progress={engine.progress}
-                  processed={engine.processedFeatures}
-                  total={engine.totalFeatures}
-                  matches={engine.matchCount}
-                  onCancel={engine.cancel}
-                />
-              )}
-
-              {engine.error && (
-                <Alert
-                  type="error"
-                  message="Error"
-                  description={engine.error}
-                  showIcon
-                  closable
-                  onClose={() => engine.reset()}
-                  style={{ fontSize: 12 }}
-                />
-              )}
-
-              {engine.isComplete && engine.resultRows?.length > 0 && (
-                <>
-                  <Divider style={{ margin: "4px 0" }} />
-                  <Text strong style={{ fontSize: 12 }}>
-                    Results ({engine.resultRows.length} matches)
-                  </Text>
-                  <QueryResultsTable
-                    rows={engine.resultRows}
-                    onFocusSource={onFocusSource}
-                    onFocusTarget={onFocusTarget}
-                  />
-                </>
-              )}
-
-              {engine.isComplete &&
-                engine.resultRows &&
-                engine.resultRows.length === 0 && (
-                  <Alert
-                    type="info"
-                    message="No matches found"
-                    showIcon
-                    style={{ fontSize: 12 }}
-                  />
-                )}
-            </Space>
-          </>
-        )}
-      </Space>
+      {isResultAvailable && (
+        <div style={{ width: "30vw"}}>
+          <Text strong style={{ fontSize: 12 }}>
+            Results ({engine.resultRows.length} matches)
+          </Text>
+          <QueryResultsTable
+            rows={engine.resultRows}
+            onFocusSource={onFocusSource}
+            onFocusTarget={onFocusTarget}
+          />
+        </div>
+      )}
+    </div>
+    // </Space>
   );
 }
 
