@@ -273,19 +273,7 @@ function SpatialQuery({ id }) {
     (targetMode === "layer" || selection.target.featureIndices.length > 0);
 
   return (
-    <Space direction="vertical" style={{ width: "340px" }} size="small">
-      <Card
-        size="small"
-        styles={{ body: { padding: "8px 12px" } }}
-        title={
-          <Space size={4}>
-            <AimOutlined style={{ fontSize: 14 }} />
-            <Text strong style={{ fontSize: 13 }}>
-              Spatial Query
-            </Text>
-          </Space>
-        }
-      >
+      <Space direction="vertical" style={{ width: "100%" }} size={"small"}>
         {availableLayers.length === 0 ? (
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -418,8 +406,7 @@ function SpatialQuery({ id }) {
             </Space>
           </>
         )}
-      </Card>
-    </Space>
+      </Space>
   );
 }
 

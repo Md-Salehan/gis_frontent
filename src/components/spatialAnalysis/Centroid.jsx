@@ -291,7 +291,7 @@ function Centroid({ id }) {
   }
 
   return (
-    <Space direction="vertical" style={{ width: "280px" }} size="small">
+    <Space direction="vertical" style={{ width: "100%" }} size={"small"}>
       {/* Layer Selection Section */}
       <Card
         size="small"

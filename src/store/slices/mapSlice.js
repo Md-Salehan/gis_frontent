@@ -5,6 +5,17 @@ import { testData } from "./testData";
 const initialState = {
   geoJsonLayers: {}, // layerId: { geoJsonData, metaData, orderNo }
   tempGeoJsonLayers: {
+    test_schools: testData.schools,
+    test_districts: testData.districts,
+    test_houses: testData.houses,
+    test_hospitals: testData.hospitals,
+    test_roads: testData.roads,
+    test_rivers: testData.rivers,
+    test_land_parcels: testData.land_parcels,
+    test_police_stations: testData.police_stations,
+    test_city_wards: testData.city_wards,
+    test_pipelines: testData.pipelines,
+    test_conservation_areas: testData.conservation_areas,
     // target_cities: testData?.target_cities,
     // join_city_stats: testData?.join_city_stats,
     // target_no_match: testData?.target_no_match,
