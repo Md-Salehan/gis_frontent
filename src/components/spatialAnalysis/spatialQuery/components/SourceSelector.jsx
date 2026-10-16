@@ -20,7 +20,7 @@ export default function SourceSelector({
   return (
     <Space direction="vertical" size={6} style={{ width: "100%" }}>
       <Text type="secondary" style={{ fontSize: 12 }}>
-        Source (1 layer → 1+ features)
+        Source ( layer / features )
       </Text>
 
       <Radio.Group
@@ -42,12 +42,14 @@ export default function SourceSelector({
       />
 
       {mode === "features" && layerId && (
-        <FeaturePicker
-          features={features}
-          selectedIndices={selectedIndices}
-          onChangeSelectedIndices={onSelectedIndicesChange}
-          disabled={disabled}
-        />
+        <div style={{ width: "20vw", scrollbarWidth: "none" }}>
+          <FeaturePicker
+            features={features}
+            selectedIndices={selectedIndices}
+            onChangeSelectedIndices={onSelectedIndicesChange}
+            disabled={disabled}
+          />
+        </div>
       )}
     </Space>
   );

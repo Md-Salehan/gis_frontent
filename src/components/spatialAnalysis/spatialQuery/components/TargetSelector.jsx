@@ -21,7 +21,7 @@ export default function TargetSelector({
   return (
     <Space direction="vertical" size={6} style={{ width: "100%" }}>
       <Text type="secondary" style={{ fontSize: 12 }}>
-        Target (1 layer → 1+ features)
+        Target ( layer / features )
       </Text>
 
       <Radio.Group
@@ -44,12 +44,14 @@ export default function TargetSelector({
       />
 
       {mode === "features" && layerId && (
-        <FeaturePicker
-          features={features}
-          selectedIndices={selectedIndices}
-          onChangeSelectedIndices={onSelectedIndicesChange}
-          disabled={disabled}
-        />
+        <div style={{ width: "20vw" }}>
+          <FeaturePicker
+            features={features}
+            selectedIndices={selectedIndices}
+            onChangeSelectedIndices={onSelectedIndicesChange}
+            disabled={disabled}
+          />
+        </div>
       )}
     </Space>
   );

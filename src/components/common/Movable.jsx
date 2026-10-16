@@ -352,7 +352,10 @@ const Movable = ({
 
         {onClose ? (
           <Tag
-            onClick={onClose}
+            onClick={() => {
+              id && dispatch(handleMinimizeGlobalComp({ id, status: false }));
+              onClose();
+            }}
             style={{
               cursor: "pointer",
               display: "flex",
@@ -371,9 +374,9 @@ const Movable = ({
       </div>
 
       {/* Children content */}
-      {children && !isMinimized && (
+      {children && (
         <div style={{ padding: "12px", backgroundColor: "white" }}>
-          {children}
+          {React.cloneElement(children, { id })}
         </div>
       )}
     </div>

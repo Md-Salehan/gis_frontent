@@ -284,9 +284,9 @@ function SpatialQuery({ id }) {
     // <Space direction="vertical" style={{ width: "100%" }} size={"small"}>
     <div
       style={{
-        width: isResultAvailable ? "51vw" : "20vw",
+        width: isResultAvailable ? "41vw" : "41vw",
         display: "flex",
-        flexDirection: "wrap",
+        flexDirection: "column",
         gap: "1vw",
       }}
     >
@@ -302,9 +302,10 @@ function SpatialQuery({ id }) {
       ) : (
         <div
           style={{
-            width: "20vw",
+            width: "41vw",
             display: "flex",
-            flexDirection: "column",
+            flexDirection: "row",
+            gap: "1vw",
           }}
         >
           <SourceSelector
@@ -319,7 +320,7 @@ function SpatialQuery({ id }) {
             disabled={engine.isProcessing}
           />
 
-          <Divider style={{ margin: "8px 0" }} />
+          {/* <Divider style={{ margin: "8px 0" }} /> */}
 
           <TargetSelector
             layers={availableLayers}
@@ -334,9 +335,9 @@ function SpatialQuery({ id }) {
             excludeLayerId={null}
           />
 
-          <Divider style={{ margin: "8px 0" }} />
+          {/* <Divider style={{ margin: "8px 0" }} /> */}
 
-          <OperationSelect
+          {/* <OperationSelect
             sourceGeometryTypes={sourceTypes}
             targetGeometryTypes={targetTypes}
             value={operation}
@@ -354,10 +355,10 @@ function SpatialQuery({ id }) {
                 disabled={engine.isProcessing}
               />
             </div>
-          )}
+          )} */}
 
-          <Divider style={{ margin: "8px 0" }} />
-
+          {/* <Divider style={{ margin: "8px 0" }} /> */}
+{/* 
           <Space direction="vertical" size={6} style={{ width: "100%" }}>
             <Button
               type="primary"
@@ -409,12 +410,87 @@ function SpatialQuery({ id }) {
                 style={{ fontSize: 12 }}
               />
             )}
-          </Space>
+          </Space> */}
         </div>
       )}
 
+      {/* <Divider style={{ margin: "8px 0" }} /> */}
+
+      <OperationSelect
+            sourceGeometryTypes={sourceTypes}
+            targetGeometryTypes={targetTypes}
+            value={operation}
+            onChange={setOperation}
+            disabled={engine.isProcessing}
+          />
+
+          {needsDistance && (
+            <div style={{ marginTop: 6 }}>
+              <DistanceInput
+                distance={distance}
+                distanceUnit={distanceUnit}
+                onDistanceChange={setDistance}
+                onUnitChange={setDistanceUnit}
+                disabled={engine.isProcessing}
+              />
+            </div>
+          )}
+
+        <Space direction="vertical" size={6} style={{ width: "100%" }}>
+            <Button
+              type="primary"
+              size="small"
+              block
+              onClick={handleRun}
+              loading={engine.isProcessing}
+              disabled={!canRun}
+            >
+              {engine.isProcessing ? "Processing..." : "Run Query"}
+            </Button>
+
+            <Button
+              size="small"
+              block
+              onClick={handleClear}
+              disabled={engine.isProcessing}
+            >
+              Clear
+            </Button>
+
+            {engine.isProcessing && (
+              <QueryProgress
+                progress={engine.progress}
+                processed={engine.processedFeatures}
+                total={engine.totalFeatures}
+                matches={engine.matchCount}
+                onCancel={engine.cancel}
+              />
+            )}
+
+            {engine.error && (
+              <Alert
+                type="error"
+                message="Error"
+                description={engine.error}
+                showIcon
+                closable
+                onClose={() => engine.reset()}
+                style={{ fontSize: 12 }}
+              />
+            )}
+
+            {engine.isComplete && !isResultAvailable && (
+              <Alert
+                type="info"
+                message="No matches found"
+                showIcon
+                style={{ fontSize: 12 }}
+              />
+            )}
+          </Space>  
+
       {isResultAvailable && (
-        <div style={{ width: "30vw"}}>
+        <div style={{ width: "100%"}}>
           <Text strong style={{ fontSize: 12 }}>
             Results ({engine.resultRows.length} matches)
           </Text>

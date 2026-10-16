@@ -19,7 +19,7 @@ export default function QueryResultsTable({
   rows,
   onFocusSource,
   onFocusTarget,
-  maxHeight = 280,
+  maxHeight = 120,
 }) {
   const data = useMemo(
     () =>
@@ -101,7 +101,7 @@ export default function QueryResultsTable({
   );
 
   return (
-    <div style={{ border: "1px solid #f0f0f0", borderRadius: 4, overflow: "hidden" }}>
+    <div style={{ border: "1px solid #f0f0f0", borderRadius: 4, overflow: "hidden"}}>
       <Table
         size="small"
         rowKey="key"

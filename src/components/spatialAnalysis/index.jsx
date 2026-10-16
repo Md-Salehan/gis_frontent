@@ -15,7 +15,7 @@ import {
   toggleSpatialQueryModal,
 } from "../../store/slices/uiSlice";
 import CountPointsInPolygon from "./CountPointsInPolygon";
-import { Calculator, CircleDot, Dice5, Link } from "lucide-react";
+import { Calculator, CircleDot, Dice5, Link, TextSearch } from "lucide-react";
 import DistanceMatrix from "./DistanceMatrix";
 import SpatialJoin from "./spatialJoin";
 import { DataJoinPanel } from "./dataJoin";
@@ -40,6 +40,7 @@ function MovableModals() {
     <>
       {isCentroidModalOpen ? (
         <Movable
+          id="centroid"
           isMovable={true}
           title="Polygon Centroids"
           icon={<CircleDot />}
@@ -54,14 +55,12 @@ function MovableModals() {
             height: "auto",
           }}
           onClose={(e) => {
-            dispatch(
-              handleMinimizeGlobalComp({ id: "centroid", status: false }),
-            );
+
             dispatch(toggleCentroidModal({ state: false }));
           }}
           isMinimizable={true}
         >
-          <Centroid id="centroid" />
+          <Centroid  />
         </Movable>
       ) : (
         ""
@@ -70,6 +69,7 @@ function MovableModals() {
 
       {isCountPointsModalOpen ? (
         <Movable
+        id="countPoints"
           isMovable={true}
           title="Count Points"
           icon={<Dice5 />}
@@ -84,14 +84,12 @@ function MovableModals() {
             width: "450px",
           }}
           onClose={(e) => {
-            dispatch(
-              handleMinimizeGlobalComp({ id: "countPoints", status: false }),
-            );
+
             dispatch(toggleCountPointsModal({ state: false }));
           }}
           isMinimizable={true}
         >
-          <CountPointsInPolygon id="countPoints" />
+          <CountPointsInPolygon />
         </Movable>
       ) : (
         ""
@@ -99,6 +97,7 @@ function MovableModals() {
 
       {isDistanceMatrixModalOpen ? (
         <Movable
+          id="distanceMatrix"
           isMovable={true}
           title="Distance Matrix"
           icon={<Calculator />}
@@ -113,15 +112,13 @@ function MovableModals() {
             width: "auto",
           }}
           onClose={(e) => {
-            dispatch(
-              handleMinimizeGlobalComp({ id: "distanceMatrix", status: false }),
-            );
+
             dispatch(toggleDistanceMatrixModal({ state: false }));
           }}
           isMinimizable={true}
 
         >
-          <DistanceMatrix id="distanceMatrix" />
+          <DistanceMatrix />
         </Movable>
       ) : (
         ""
@@ -129,6 +126,7 @@ function MovableModals() {
 
       {isSpatialJoinModalOpen ? (
         <Movable
+          id="spatialJoin"
           isMovable={true}
           title="Spatial Join"
           icon={<Calculator />}
@@ -143,15 +141,12 @@ function MovableModals() {
             width: "auto",
           }}
           onClose={(e) => {
-            dispatch(
-              handleMinimizeGlobalComp({ id: "spatialJoin", status: false }),
-            );
             dispatch(toggleSpatialJoinModal({ state: false }));
           }}
           isMinimizable={true}
           
         >
-          <SpatialJoin id="spatialJoin" />
+          <SpatialJoin />
         </Movable>
       ) : (
         ""
@@ -174,9 +169,7 @@ function MovableModals() {
             width: "550px",
           }}
           onClose={(e) => {
-            dispatch(
-              handleMinimizeGlobalComp({ id: "dataJoin", status: false }),
-            );
+
             dispatch(toggleDataJoinModal({ state: false }));
           }}
           isMinimizable={true}
@@ -225,7 +218,7 @@ function MovableModals() {
           id="spatialQuery"
           isMovable={true}
           title="Spatial Query"
-          icon={<Link />}
+          icon={<TextSearch />}
           titleFontSize={14}
           // onPositionChange={handlePositionChange}
           // initialPosition={position}
@@ -237,14 +230,12 @@ function MovableModals() {
             width: "auto",
           }}
           onClose={(e) => {
-            dispatch(
-              handleMinimizeGlobalComp({ id: "spatialQuery", status: false }),
-            );
+
             dispatch(toggleSpatialQueryModal({ state: false }));
           }}
           isMinimizable={true}
         >
-          <SpatialQuery id="spatialQuery" />
+          <SpatialQuery  />
         </Movable>
       ) : (
         ""
